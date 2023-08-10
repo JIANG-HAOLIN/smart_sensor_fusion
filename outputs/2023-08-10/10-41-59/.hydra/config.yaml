@@ -1,0 +1,16 @@
+project_name: smart_sensor_fusion
+seed: 42
+dataloaders: {}
+datasets: {}
+models:
+  model:
+    name: resnet18
+    num_layers: 18
+    pretrained: true
+optimizers: {}
+trainers:
+  training:
+    epochs: 10
+    batch_size: 32
+    learning_rate: 0.001
+    output_dir: output

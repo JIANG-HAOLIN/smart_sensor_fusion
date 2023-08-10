@@ -1,0 +1,21 @@
+project_name: smart_sensor_fusion
+seed: 42
+dataloaders: {}
+datasets: {}
+models:
+  model:
+    _target_: src.Models.trafo_predictor.TransformerPredictor
+    name: tutorial_6_transpose
+    input_dim: 10
+    model_dim: 32
+    num_heads: 1
+    num_classes: 10
+    num_layers: 1
+    dropout: 0.0
+optimizers:
+  optimizer:
+    lr: 0.0001
+  scheduler:
+    step_size: 3
+    gamma: 0.9
+trainers: {}

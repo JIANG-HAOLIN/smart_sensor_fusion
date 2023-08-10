@@ -1,0 +1,20 @@
+project_name: My ML Project
+output_dir: output
+seed: 42
+model:
+  name: resnet
+  num_layers: 18
+  pretrained: true
+training:
+  epochs: 10
+  batch_size: 32
+  learning_rate: 0.001
+defaulta:
+- callbacks: ema_gan
+- dataloader: iterable
+- datasets: lsun
+- loggers: test_tube
+- model: stylegan2_default
+- optim: adam_gd
+- system: stylegan2
+- trainer: project

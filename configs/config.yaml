@@ -1,0 +1,20 @@
+# config.yaml
+
+
+defaults:
+- _self_
+- dataloaders: t6_trpo
+- datasets: t6_trpo
+- models: t6_trpo
+- optimizers: t6_trpo
+- pl_modules: t6_trpo
+- trainers: t6_trpo
+
+
+# General settings
+project_name: "smart_sensor_fusion"
+seed: 42
+
+
+
+

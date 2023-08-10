@@ -1,0 +1,24 @@
+[2023-08-10 10:42:00,356][__main__][INFO] - if Cuda available:True
+[2023-08-10 10:42:00,389][__main__][INFO] - Cuda info:
+_CudaDeviceProperties(name='NVIDIA RTX A3000 Laptop GPU', major=8, minor=6, total_memory=5937MB, multi_processor_count=32)
+[2023-08-10 10:42:00,390][__main__][INFO] - Config:
+project_name: smart_sensor_fusion
+seed: 42
+dataloaders: {}
+datasets: {}
+models:
+  model:
+    name: resnet18
+    num_layers: 18
+    pretrained: true
+optimizers: {}
+trainers:
+  training:
+    epochs: 10
+    batch_size: 32
+    learning_rate: 0.001
+    output_dir: output
+
+[2023-08-10 10:42:00,390][__main__][INFO] - Current working directory: /home/jin4rng/Documents/code/smart_sensor_fusion
+[2023-08-10 10:42:00,390][__main__][INFO] - Original working directory: /home/jin4rng/Documents/code/smart_sensor_fusion
+[2023-08-10 10:42:00,390][__main__][INFO] - Current Project path: /home/jin4rng/Documents/code/smart_sensor_fusion
