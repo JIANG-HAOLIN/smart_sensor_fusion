@@ -58,24 +58,11 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
 
-    # model: pl.LightningModule = instantiate(cfg.system.task_class, cfg=cfg)
-    # trainer: pl.Trainer = pl.Trainer(**cfg.trainer, logger=loggers, callbacks=callbacks)
-
     model: nn.Module = hydra.utils.instantiate(cfg.models.model)
     optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
     train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model, lr_scheduler, optimizer, train_loader, val_loader,)
-    # parser = argparse.ArgumentParser(description="Train a machine learning model")
-    # parser.add_argument("--epochs", type=int, help="Number of training epochs")
-    # parser.add_argument("--batch-size", type=int, help="Batch size")
-    # parser.add_argument("--learning-rate", type=float, help="Learning rate")
-    # args = parser.parse_args()
-
-    # print("Project Name:", cfg.project_name)
-    # print("Seed:", cfg.seed)
-    # print("Output Directory:", cfg.trainers.training.output_dir)
-
 
 
 if __name__ == "__main__":
