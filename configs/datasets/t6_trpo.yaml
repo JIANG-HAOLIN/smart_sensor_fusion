@@ -1,3 +1,5 @@
+name: 'logits'
+
 dataloader:
   num_categories: 10
   seq_len: 17

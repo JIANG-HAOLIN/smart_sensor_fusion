@@ -2,19 +2,22 @@
 
 
 defaults:
-- _self_
 - dataloaders: t6_trpo
 - datasets: t6_trpo
 - models: t6_trpo
 - optimizers: t6_trpo
 - pl_modules: t6_trpo
 - trainers: t6_trpo
+- _self_
 
 
 # General settings
-project_name: "smart_sensor_fusion"
+task_name: "transpose"
 seed: 42
-
+results_dir: 'results'
+hydra:
+  run:
+    dir: ./${results_dir}/${models.name}/${datasets.name}/${task_name}${now:%m-%d-%H:%M:%S}test
 
 
 

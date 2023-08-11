@@ -1,9 +1,9 @@
 # train.py
 import logging
-from omegaconf import DictConfig, OmegaConf
-import hydra
-import argparse
 
+import hydra
+from hydra.core.hydra_config import HydraConfig
+from omegaconf import DictConfig, OmegaConf
 
 try:
     import pytorch_lightning as pl
@@ -11,42 +11,33 @@ except ModuleNotFoundError:
     print("module pytorch_lighting not found")
 import os
 import sys
+from datetime import datetime
 import torch.nn as nn
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
-import numpy as np
-import pandas as pd
 
-from src.models.trafo_predictor import TransformerPredictor as test_structure
 from src.datasets.number_sequence import get_loaders
+from src.trainer_util import launch_trainer
 
-
-print(
-    '---------------------------------------\n'
-    '----------------- Start ---------------\n'
-    '---------------------------------------'
-)
-
-log = logging.getLogger(__name__)
 project_path = os.path.abspath(os.path.join(__file__, '..'))
-print('project_path:\n', project_path, '\n')
-sys.path.append(project_path)
-# print('sys.path:', '\n', *sys.path)
-print('sys.path:',)
-for p in sys.path:
-    print(p)
-conf_dir_path = os.path.join(project_path, 'conf')
+os.environ['HYDRA_FULL_ERROR'] = '1'
 
-print(
-    '---------------------------------------\n'
-    '-------------train func start ---------\n'
-    '---------------------------------------'
-)
 
-@hydra.main(config_path = 'configs', config_name = 'config', version_base= None)
+@hydra.main(config_path='configs', config_name='config', version_base=None)
 def train(cfg: DictConfig) -> None:
-    os.environ['HYDRA_FULL_ERROR'] = '1'
+    torch.set_float32_matmul_precision('medium')
+    exp_time = datetime.now().strftime("%m-%d-%H:%M:%S")
+    # out_dir_path = os.path.join(project_path, 'results', cfg.models.name, cfg.datasets.name, cfg.task_name + exp_time)
+    out_dir_path = HydraConfig.get().run.dir
+
+    log = logging.getLogger(__name__)
+    log.info('*-------- train func starts --------*')
+    log.info('output folder:' + out_dir_path + '\n')
+    log.info('project_path:' + project_path + '\n')
+    sys.path.append(project_path)
+    log.info('sys.path:', )
+    for p in sys.path:
+        log.info(p)
 
     log.info(f"if Cuda available:{torch.cuda.is_available()}")
     if torch.cuda.is_available():
@@ -57,16 +48,20 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
+    log.info(f"current experiment output path: {out_dir_path}")
+
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model)
     optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
     lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
     train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
-    pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model, lr_scheduler, optimizer, train_loader, val_loader,)
+    pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
+                                        optimizer, lr_scheduler,
+                                        train_loader, val_loader, )
+    launch_trainer(pl_module, out_dir_path=out_dir_path,
+                   model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,
+                   **cfg.trainers.launch_trainer)
 
 
 if __name__ == "__main__":
     train()
-
-
-

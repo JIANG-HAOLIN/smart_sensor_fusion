@@ -1,6 +1,7 @@
+name: 'simple_transformer'
+
 model:
   _target_: src.models.trafo_predictor.TransformerPredictor
-  name: "tutorial_6_transpose"
   input_dim: 10
   model_dim: 32
   num_heads: 1
