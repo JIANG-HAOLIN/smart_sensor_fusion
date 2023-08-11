@@ -18,8 +18,8 @@ from torch.utils.data import DataLoader
 import numpy as np
 import pandas as pd
 
-from src.Models.trafo_predictor import TransformerPredictor as test_structure
-from src.Datasets.number_sequence import get_loaders
+from src.models.trafo_predictor import TransformerPredictor as test_structure
+from src.datasets.number_sequence import get_loaders
 
 
 print(
