@@ -5,7 +5,8 @@ import math
 class standard_PositionalEncoding(torch.nn.Module):
 
     def __init__(self, d_model: int = 256, max_len: int = 5000) -> None:
-        """
+        """Add positional encoding from tutorial 6 to the input tokens for transformer.
+
         Inputs
             d_model - Hidden dimensionality of the input.
             max_len - Maximum length of a sequence to expect.

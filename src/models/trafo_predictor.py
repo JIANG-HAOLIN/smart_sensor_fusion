@@ -10,7 +10,8 @@ class TransformerPredictor(nn.Module):
     def __init__(self, input_dim: int = 10, model_dim: int = 32, num_classes: int = 10, num_heads: int = 1,
                  dropout: float = 0.0, input_dropout: float = 0.0,
                  **kwargs):
-        """
+        """The predictor network based on single transformer encoder layer.
+
         Inputs:
             input_dim - Hidden dimensionality of the input
             model_dim - Hidden dimensionality to use inside the Transformer

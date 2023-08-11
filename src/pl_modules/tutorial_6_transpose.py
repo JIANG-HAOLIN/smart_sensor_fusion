@@ -7,7 +7,8 @@ import pytorch_lightning as pl
 class TransformerPredictor(pl.LightningModule):
 
     def __init__(self, mdl: nn.Module, optimizer, scheduler, train_loader, val_loader, **kwargs):
-        """
+        """ The pytorch lighting module that configures the model and its training configuration.
+
         Inputs:
             mdl: the model to be trained or tested
             optimizer: the optimizer e.g. Adam
@@ -26,10 +27,11 @@ class TransformerPredictor(pl.LightningModule):
         print(self.num_classes)
 
     def configure_optimizers(self):
-        # return [self.optimizer], [self.scheduler]
+        """ configure the optimizer and scheduler """
         return {"optimizer": self.optimizer, "lr_scheduler": self.scheduler}
 
     def _calculate_loss(self, batch, mode="train"):
+        """ Calculation of loss and prediction accuracy using output and label"""
         # Fetch data and transform categories to one-hot vectors
         inp_data, labels = batch
         inp_data = F.one_hot(inp_data, num_classes=self.num_classes).float()
@@ -53,18 +55,26 @@ class TransformerPredictor(pl.LightningModule):
         return self.val_loader
 
     def training_step(self, batch, batch_idx):
-        loss, _ = self._calculate_loss(batch, mode="train")
+        """ Calculate training loss and accuracy after each batch """
+        loss, acc = self._calculate_loss(batch, mode="train")
         return loss
 
     def validation_step(self, batch, batch_idx):
+        """ Calculate validation loss and accuracy after each batch """
         val_loss, val_output = self._calculate_loss(batch, mode="val")
         self.validation_epoch_outputs.append(val_output)
 
     def on_validation_epoch_end(self) -> None:
+        """ Calculate the validation accuracy after an entire epoch.
+
+        Returns: validation accuracy of an entire epoch
+
+        """
         val_acc = sum(self.validation_epoch_outputs)/len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.log("val_acc", val_acc, on_step=False, on_epoch=True)
         return val_acc
 
     def test_step(self, batch, batch_idx):
-        _ = self._calculate_loss(batch, mode="test")
+        """ Calculate test accuracy after each batch """
+        test_loss, test_output = self._calculate_loss(batch, mode="test")

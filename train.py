@@ -1,17 +1,10 @@
 # train.py
 import logging
-
 import hydra
 from hydra.core.hydra_config import HydraConfig
 from omegaconf import DictConfig, OmegaConf
-
-try:
-    import pytorch_lightning as pl
-except ModuleNotFoundError:
-    print("module pytorch_lighting not found")
 import os
 import sys
-from datetime import datetime
 import torch.nn as nn
 import torch
 import torch.optim as optim
@@ -19,15 +12,12 @@ import torch.optim as optim
 from src.datasets.number_sequence import get_loaders
 from src.trainer_util import launch_trainer
 
-project_path = os.path.abspath(os.path.join(__file__, '..'))
-os.environ['HYDRA_FULL_ERROR'] = '1'
-
 
 @hydra.main(config_path='configs', config_name='config', version_base=None)
 def train(cfg: DictConfig) -> None:
+    os.environ['HYDRA_FULL_ERROR'] = '1'
     torch.set_float32_matmul_precision('medium')
-    exp_time = datetime.now().strftime("%m-%d-%H:%M:%S")
-    # out_dir_path = os.path.join(project_path, 'results', cfg.models.name, cfg.datasets.name, cfg.task_name + exp_time)
+    project_path = os.path.abspath(os.path.join(__file__, '..'))
     out_dir_path = HydraConfig.get().run.dir
 
     log = logging.getLogger(__name__)
@@ -49,7 +39,6 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
     log.info(f"current experiment output path: {out_dir_path}")
-
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model)
     optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
