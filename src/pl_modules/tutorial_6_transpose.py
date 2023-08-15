@@ -37,7 +37,7 @@ class TransformerPredictor(pl.LightningModule):
         inp_data = F.one_hot(inp_data, num_classes=self.num_classes).float()
 
         # Perform prediction and calculate loss and accuracy
-        preds = self.mdl.forward(inp_data, add_positional_encoding=True)
+        preds = self.mdl.forward(inp_data)
         loss = F.cross_entropy(preds.view(-1, preds.size(-1)), labels.view(-1))
         acc = (preds.argmax(dim=-1) == labels).float().mean()
 

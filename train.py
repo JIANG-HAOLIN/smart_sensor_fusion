@@ -41,9 +41,12 @@ def train(cfg: DictConfig) -> None:
     log.info(f"current experiment output path: {out_dir_path}")
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model)
-    optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
-    train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
+    optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
+    # optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
+    lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
+    # lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
+    train_loader, val_loader, _ = hydra.utils.instantiate(cfg.datasets.dataloader)
+    # train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
                                         train_loader, val_loader, )

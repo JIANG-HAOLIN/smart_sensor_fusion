@@ -1,6 +1,7 @@
 name: 'logits'
 
 dataloader:
+  _target_: src.datasets.number_sequence.get_loaders
   num_categories: 10
   seq_len: 17
   train_size: 50000

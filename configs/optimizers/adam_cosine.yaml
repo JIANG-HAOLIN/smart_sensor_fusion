@@ -1,0 +1,9 @@
+name: '_cos'
+optimizer:
+  _target_: torch.optim.Adam
+  lr: 1e-4
+
+scheduler:
+  _target_: src.optims.schedulers.CosineWarmupScheduler
+  warmup: 500
+  max_iters: 6000
