@@ -7,9 +7,6 @@ import os
 import sys
 import torch.nn as nn
 import torch
-import torch.optim as optim
-
-from src.datasets.number_sequence import get_loaders
 from src.trainer_util import launch_trainer
 
 
@@ -42,11 +39,8 @@ def train(cfg: DictConfig) -> None:
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model)
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
-    # optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
-    # lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader)
-    # train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
                                         train_loader, val_loader, test_loader)

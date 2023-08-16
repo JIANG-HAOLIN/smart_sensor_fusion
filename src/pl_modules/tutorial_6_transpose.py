@@ -29,7 +29,6 @@ class TransformerPredictorPl(pl.LightningModule):
         self.validation_epoch_outputs = []
         self.validation_preds = []
         self.save_hyperparameters()
-        # print(self.num_classes)
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -89,8 +88,10 @@ class TransformerPredictorPl(pl.LightningModule):
         self.validation_preds.clear()
         self.log("val_acc", val_acc, on_step=False, on_epoch=True)
 
+        # manual test
         # inp = F.one_hot(torch.tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 1, 2, 3, 4, 5, 6, 7]], device='cuda'), num_classes=self.num_classes).float()
         # print(self.mdl.forward(inp)[0].argmax(-1))
+
         print(f'val_acc at epoch {self.current_epoch}:', float(val_acc.item()))
 
         return val_acc

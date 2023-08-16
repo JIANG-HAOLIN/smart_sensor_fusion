@@ -8,7 +8,7 @@ from src.models.positional_encoding import StandardPositionalEncoding as Positio
 class TransformerPredictor(nn.Module):
 
     def __init__(self, input_dim: int = 10, model_dim: int = 32, num_classes: int = 10, num_heads: int = 1,
-                 dropout: float = 0.0, input_dropout: float = 0.0, if_pe: bool = True,
+                 dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
                  **kwargs):
         """The predictor network based on single transformer encoder layer.
 
@@ -19,7 +19,7 @@ class TransformerPredictor(nn.Module):
             num_heads - Number of heads to use in the Multi-Head Attention blocks
             dropout - Dropout to apply inside the model
             input_dropout - Dropout to apply on the input features
-            if_pe - if positional encoding added
+            add_positional_encoding - if positional encoding added
         """
         super().__init__()
         self.input_dim = input_dim
@@ -28,7 +28,7 @@ class TransformerPredictor(nn.Module):
         self.num_heads = num_heads
         self.dropout = dropout
         self.input_dropout = input_dropout
-        self.if_pe = if_pe
+        self.add_positional_encoding = add_positional_encoding
 
         # Input dim -> Model dim
         self.input_net = nn.Sequential(
@@ -36,7 +36,7 @@ class TransformerPredictor(nn.Module):
             nn.Linear(self.input_dim, self.model_dim)
         )
         # Positional encoding for sequences
-        if if_pe:
+        if add_positional_encoding:
             self.positional_encoding = PositionalEncoding(d_model=self.model_dim)
         # Transformer
 
@@ -60,13 +60,11 @@ class TransformerPredictor(nn.Module):
         """
         Inputs:
             x - Input features of shape [Batch, SeqLen, input_dim]
-            # add_positional_encoding - If True, we add the positional encoding to the input.
-            #                           Might not be desired for some tasks.
         Returns:
             Output features of shape [Batch, SeqLen, input_dim]
         """
         x = self.input_net(x)
-        if self.if_pe:
+        if self.add_positional_encoding:
             x = self.positional_encoding(x)
 
         hook = AttentionMapHook()
