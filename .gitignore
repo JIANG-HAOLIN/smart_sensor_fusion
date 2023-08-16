@@ -18,7 +18,7 @@ outputs/
 jobs/
 **/jobs/
 
-scripts/
+#scripts/
 
 **/__pycache__/
 __pycache__/
