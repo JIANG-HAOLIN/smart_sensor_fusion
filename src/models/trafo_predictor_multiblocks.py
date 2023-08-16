@@ -123,17 +123,3 @@ class TrafoEncoderLayer(torch.nn.TransformerEncoderLayer):
                            key_padding_mask=key_padding_mask,
                            need_weights=True, is_causal=is_causal)[0]
         return self.dropout1(x)
-
-
-if __name__ == "__main__":
-    tf = TransformerPredictor(input_dim=10,
-                              model_dim=32,
-                              num_heads=1,
-                              num_classes=10,
-                              num_layers=2,
-                              dropout=0.0,
-                              lr=5e-4,
-                              warmup=50)
-    input = torch.randn([2, 17, 10])
-    out = tf(input)
-    print(out[0].shape, out[1][0].shape)

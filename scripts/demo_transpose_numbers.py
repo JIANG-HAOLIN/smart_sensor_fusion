@@ -37,8 +37,7 @@ def inference(test_seq: torch.Tensor,
 if __name__ == "__main__":
     test_seq = torch.randint(10, size=(1, 17), device='cuda')
     inference(test_seq,
-              '/home/jin4rng/Documents/code/smart_sensor_fusion/results/'
-              'simple_transformer_multiblocks/logits/transpose08-16-16:25:02test/'
-              'checkpoints/08-16-16:25:03-jobid=0-epoch=1-step=780.ckpt')
+              '/home/jin4rng/Documents/code/smart_sensor_fusion/results/simple_transformer_multiblocks/logits/'
+              'transpose08-16-17:20:29test/checkpoints/08-16-17:20:30-jobid=0-epoch=3-step=1560.ckpt')
 
 

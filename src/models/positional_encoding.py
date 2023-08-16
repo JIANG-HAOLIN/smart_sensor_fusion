@@ -41,8 +41,4 @@ class StandardPositionalEncoding(torch.nn.Module):
         x = x + self.pe[:, :x.size(1)]
         return x
 
-if __name__ == '__main__':
-    pe = StandardPositionalEncoding()
-    input = torch.randn([2, 1000, 256])
-    print(pe(input).shape)
 

@@ -58,10 +58,3 @@ def get_loaders(num_categories: int = 10,
     return train_loader, val_loader, test_loader
 
 
-if __name__ == "__main__":
-    dataset = ReverseDataset()
-    train_loader = data.DataLoader(dataset, batch_size=128, shuffle=True, drop_last=True, pin_memory=True)
-    inp_data, labels = train_loader.dataset[0]
-    print("Input data:", inp_data)
-    print("Labels:    ", labels)
-
