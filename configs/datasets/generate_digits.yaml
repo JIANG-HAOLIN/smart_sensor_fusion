@@ -6,5 +6,5 @@ dataloader:
   seq_len: 17
   train_size: 50000
   val_size: 1000
-  test_size: 10000
+  test_size: 1
   batch_size: 128

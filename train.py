@@ -45,11 +45,11 @@ def train(cfg: DictConfig) -> None:
     # optimizer = optim.Adam(params=model.parameters(), **cfg.optimizers.optimizer)
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     # lr_scheduler = optim.lr_scheduler.StepLR(optimizer, **cfg.optimizers.scheduler)
-    train_loader, val_loader, _ = hydra.utils.instantiate(cfg.datasets.dataloader)
+    train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader)
     # train_loader, val_loader, _ = get_loaders(**cfg.datasets.dataloader)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
-                                        train_loader, val_loader, )
+                                        train_loader, val_loader, test_loader)
     launch_trainer(pl_module, out_dir_path=out_dir_path,
                    model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,
                    **cfg.trainers.launch_trainer)

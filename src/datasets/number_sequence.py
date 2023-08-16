@@ -50,9 +50,11 @@ def get_loaders(num_categories: int = 10,
     Returns: the data loader of training, validation and test dataset
 
     """
-    train_loader = data.DataLoader(ReverseDataset(num_categories, seq_len, train_size), batch_size=batch_size, shuffle=True, drop_last=True, pin_memory=True)
+    train_loader = data.DataLoader(ReverseDataset(num_categories, seq_len, train_size), batch_size=batch_size,
+                                   shuffle=True, drop_last=True, pin_memory=True)
     val_loader   = data.DataLoader(ReverseDataset(num_categories, seq_len, val_size), batch_size=batch_size)
-    test_loader  = data.DataLoader(ReverseDataset(num_categories, seq_len, test_size), batch_size=batch_size)
+    test_loader  = data.DataLoader(ReverseDataset(num_categories, seq_len, test_size), batch_size=batch_size,
+                                   drop_last=False,)
     return train_loader, val_loader, test_loader
 
 

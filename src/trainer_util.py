@@ -30,7 +30,7 @@ def launch_trainer(pl_module: pl.LightningModule,
     jobid = os.environ.get("SLURM_JOB_ID", 0)
     exp_time = datetime.now().strftime("%m-%d-%H:%M:%S") + "-jobid=" + str(jobid)
     checkpoint = ModelCheckpoint(
-        dirpath=os.path.join(out_dir_path, 'checkpoints',),
+        dirpath=os.path.join(out_dir_path, 'checkpoints', ),
         filename=exp_time + "-{epoch}-{step}",
         save_top_k=4,
         save_last=True,
@@ -40,7 +40,7 @@ def launch_trainer(pl_module: pl.LightningModule,
 
     logger = TensorBoardLogger(
         save_dir=out_dir_path,
-        version=task_name+exp_time, name="lightning_tensorboard_logs"
+        version=task_name + exp_time, name="lightning_tensorboard_logs"
     )
     trainer = pl.Trainer(
         max_epochs=max_epochs,
@@ -57,6 +57,8 @@ def launch_trainer(pl_module: pl.LightningModule,
         pl_module,
         ckpt_path=None
         if resume is None
-        else os.path.join(os.getcwd(), resume),
+        else resume,
     )
     print("best_model", checkpoint.best_model_path)
+
+
