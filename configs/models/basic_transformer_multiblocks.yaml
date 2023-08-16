@@ -1,0 +1,11 @@
+name: 'simple_transformer_multiblocks'
+
+model:
+  _target_: src.models.trafo_predictor_multiblocks.TransformerPredictor
+  input_dim: 10
+  model_dim: 32
+  num_heads: 1
+  num_classes: 10
+  num_layers: 2
+  dropout: 0.0
+
