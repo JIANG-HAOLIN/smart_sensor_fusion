@@ -5,7 +5,7 @@ import torch.optim as optim
 import pytorch_lightning as pl
 
 
-class TransformerPredictor_pl(pl.LightningModule):
+class TransformerPredictorPl(pl.LightningModule):
 
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader, **kwargs):
@@ -100,3 +100,4 @@ class TransformerPredictor_pl(pl.LightningModule):
         """ Calculate test accuracy after each batch """
         test_acc, preds = self._calculate_loss(batch, mode="test")
         print(preds[0])
+

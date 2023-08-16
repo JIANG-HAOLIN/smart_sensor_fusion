@@ -2,7 +2,7 @@ from typing import Optional, Any, Union, Callable
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
-from src.models.positional_encoding import standard_PositionalEncoding as PositionalEncoding
+from src.models.positional_encoding import StandardPositionalEncoding as PositionalEncoding
 
 
 class TransformerPredictor(nn.Module):
@@ -122,3 +122,4 @@ if __name__ == "__main__":
     input = torch.randn([2, 17, 10])
     out = tf(input)
     print(out[0].shape, out[1][0].shape)
+

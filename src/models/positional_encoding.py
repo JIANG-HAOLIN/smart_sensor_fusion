@@ -2,7 +2,7 @@ import torch
 import math
 
 
-class standard_PositionalEncoding(torch.nn.Module):
+class StandardPositionalEncoding(torch.nn.Module):
 
     def __init__(self, d_model: int = 256, max_len: int = 5000) -> None:
         """Add positional encoding from tutorial 6 to the input tokens for transformer.
@@ -42,6 +42,7 @@ class standard_PositionalEncoding(torch.nn.Module):
         return x
 
 if __name__ == '__main__':
-    pe = standard_PositionalEncoding()
+    pe = StandardPositionalEncoding()
     input = torch.randn([2, 1000, 256])
     print(pe(input).shape)
+
