@@ -21,6 +21,7 @@ class TransformerPredictor(nn.Module):
             dropout - Dropout to apply inside the model
             input_dropout - Dropout to apply on the input features
             add_positional_encoding - if positional encoding added
+            num_layers - number of attention layers
         """
         super().__init__()
         self.input_dim = input_dim
