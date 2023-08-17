@@ -7,3 +7,4 @@ torchaudio==2.0.2
 torchvision==0.15.2
 pytorch-lightning==2.0.6
 tensorboard=2.14.0
+matplotlib=3.7.2
