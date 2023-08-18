@@ -1,5 +1,6 @@
 **/*.DS_Store
 .DS_Store
+.venv
 plot.py
 sample_noise_vector.py
 
