@@ -46,9 +46,10 @@ if __name__ == "__main__":
     print(project_path)
     parser = argparse.ArgumentParser()
     parser.add_argument('--ckpt_path', type=str,
-                        default='/home/jin4rng/Documents/code/smart_sensor_fusion/results'
-                                '/simple_transformer_multiblocks/logits/transpose08-18-11:58:20test/checkpoints/08-18'
-                                '-11:58:21-jobid=0-epoch=1-step=780.ckpt',
+                        default='/home/jin4rng/Documents/code/smart_sensor_fusion/'
+                                'results/simple_transformer/logits/'
+                                'transpose08-18-14:58:26test/checkpoints/'
+                                '08-18-14:58:27-jobid=0-epoch=3-step=1560.ckpt',
                         help="the path of pretrained .ckpt model, should have shape "
                              "like:smart_sensor_fusion/results/model name/dataset name/task "
                              "name+time stamp+test/checkpoints/...ckpt")

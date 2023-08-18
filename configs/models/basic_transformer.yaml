@@ -1,0 +1,12 @@
+name: 'simple_transformer'
+
+model:
+  _target_: src.models.trafo_predictor.TransformerPredictor
+  input_dim: 10
+  model_dim: 32
+  num_heads: 4
+  num_classes: 10
+  num_layers: 3
+  dropout: 0.0
+
+
