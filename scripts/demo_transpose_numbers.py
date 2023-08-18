@@ -27,8 +27,6 @@ def inference(test_seq: torch.Tensor,
         attn_maps = out[1]
         print('test label:', torch.flip(test_seq, dims=(1,)), '\n',
               'output prediction:', out[0].argmax(-1), '\n',)
-        for i in range(len(attn_maps)):
-            attn_maps[i] = attn_maps[i].unsqueeze(0)
         attn_maps = torch.stack(attn_maps, dim=0)
         plot_attention_maps(test_seq, attn_maps, idx=0)
         print('Done loading')
@@ -37,7 +35,6 @@ def inference(test_seq: torch.Tensor,
 if __name__ == "__main__":
     test_seq = torch.randint(10, size=(1, 17), device='cuda')
     inference(test_seq,
-              '/home/jin4rng/Documents/code/smart_sensor_fusion/results/simple_transformer_multiblocks/logits/'
-              'transpose08-16-17:20:29test/checkpoints/08-16-17:20:30-jobid=0-epoch=3-step=1560.ckpt')
+              '/home/jin4rng/Documents/code/smart_sensor_fusion/results/simple_transformer_multiblocks/logits/transpose08-17-15:28:27test/checkpoints/08-17-15:28:28-jobid=0-epoch=2-step=1170.ckpt')
 
 

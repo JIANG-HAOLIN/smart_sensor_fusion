@@ -7,7 +7,7 @@ from src.models.positional_encoding import StandardPositionalEncoding as Positio
 
 class TransformerPredictor(nn.Module):
 
-    def __init__(self, input_dim: int = 10, model_dim: int = 32, num_classes: int = 10, num_heads: int = 1,
+    def __init__(self, input_dim: int = 10, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
                  num_layers: int = 2,
                  **kwargs):
@@ -42,14 +42,14 @@ class TransformerPredictor(nn.Module):
         if add_positional_encoding:
             self.positional_encoding = PositionalEncoding(d_model=self.model_dim)
 
-        self.transformer_layer = TrafoEncoderLayer(
+        transformer_layer = TrafoEncoderLayer(
             d_model=self.model_dim,
             dim_feedforward=2 * self.model_dim,
             nhead=self.num_heads,
             dropout=self.dropout,
-            batch_first=True)
+            batch_first=False)
 
-        self.transformer_encoder = nn.TransformerEncoder(self.transformer_layer, num_layers=self.num_layers)
+        self.transformer_encoder = nn.TransformerEncoder(transformer_layer, num_layers=self.num_layers)
 
         # Output classifier per sequence element
         self.output_net = nn.Sequential(
@@ -76,7 +76,9 @@ class TransformerPredictor(nn.Module):
         hook_handles = []
         for layer in self.transformer_encoder.layers:
             hook_handles.append(layer.self_attn.register_forward_hook(hook1.forward_hook_fn))
+        x = x.permute(1, 0, 2)
         x = self.transformer_encoder(x)
+        x = x.permute(1, 0, 2)
         for handle in hook_handles:
             handle.remove()
 
@@ -122,5 +124,6 @@ class TrafoEncoderLayer(torch.nn.TransformerEncoderLayer):
         x = self.self_attn(x, x, x,
                            attn_mask=attn_mask,
                            key_padding_mask=key_padding_mask,
-                           need_weights=True, is_causal=is_causal)[0]
+                           need_weights=True, is_causal=is_causal,
+                           average_attn_weights=False)[0]
         return self.dropout1(x)

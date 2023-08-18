@@ -1,7 +1,6 @@
 import unittest
 import torch
 from src.datasets.number_sequence import ReverseDataset, data
-from src.models.trafo_predictor import TransformerPredictor as single_layer_TransformerPredictor
 from src.models.trafo_predictor_multiblocks import TransformerPredictor
 from src.models.positional_encoding import StandardPositionalEncoding
 
@@ -15,33 +14,19 @@ class TestAddNumbers(unittest.TestCase):
         self.assertEqual(inp_data.shape, (dataset.seq_len,))
         self.assertEqual(labels.shape, (dataset.seq_len,))
 
-    def test_trafo_prediction_single(self):
-        tf = single_layer_TransformerPredictor(input_dim=10,
-                                  model_dim=32,
-                                  num_heads=1,
-                                  num_classes=10,
-                                  num_layers=1,
-                                  dropout=0.0,
-                                  lr=5e-4,
-                                  warmup=50)
-        input = torch.randn([2, 17, 10])
-        out = tf(input)
-        self.assertEqual(out[0].shape, torch.Size([2, 17, 10]))
-        self.assertEqual(out[1][0].shape, torch.Size([2, 17, 17]))
-
     def test_trafo_prediction_multi(self):
         tf = TransformerPredictor(input_dim=10,
                                   model_dim=32,
-                                  num_heads=1,
+                                  num_heads=2,
                                   num_classes=10,
-                                  num_layers=2,
+                                  num_layers=3,
                                   dropout=0.0,
                                   lr=5e-4,
                                   warmup=50)
         input = torch.randn([2, 17, 10])
         out = tf(input)
         self.assertEqual(out[0].shape, torch.Size([2, 17, 10]))
-        self.assertEqual(out[1][0].shape, torch.Size([2, 17, 17]))
+        self.assertEqual(out[1][0].shape, torch.Size([2, 2, 17, 17]))
 
     def test_standard_postional_encoding(self):
         pe = StandardPositionalEncoding()
