@@ -18,7 +18,7 @@ class TransformerEncoder(nn.Module):
             middle_dim_mlp: the intermediate dimension of feedforward network
         """
         super().__init__()
-        self.norm = nn.LayerNorm(token_dim)
+        # self.norm = nn.LayerNorm(token_dim, eps=1e-5)
         self.layers = nn.ModuleList([])
         middle_dim_mlp = 2 * token_dim if middle_dim_mlp is None else middle_dim_mlp
         for _ in range(num_blocks):
@@ -32,13 +32,21 @@ class TransformerEncoder(nn.Module):
                                                          add_zero_attn=False, ),
                 nn.Sequential(nn.LayerNorm(token_dim),
                               nn.Linear(token_dim, middle_dim_mlp),
-                              nn.GELU(),
-                              nn.Linear(middle_dim_mlp, token_dim), )
+                              nn.ReLU(),
+                              nn.Linear(middle_dim_mlp, token_dim), ),
+                nn.LayerNorm(token_dim),
             ]))
 
     def forward(self, x: torch.Tensor) -> (torch.Tensor, list):
+        """
+
+        Args:
+            x: Input features of shape [Batch, SeqLen, input_dim]
+        Returns:
+            Output features of shape [Batch, SeqLen, input_dim]
+        """
         attn_maps = []
-        for attention, feedforward in self.layers:
+        for attention, feedforward, out_norm in self.layers:
             x_, attn_map = attention(query=x,
                                      key=x,
                                      value=x,
@@ -49,5 +57,5 @@ class TransformerEncoder(nn.Module):
                                      is_causal=False)
             x = x + x_
             attn_maps.append(attn_map)
-            x = feedforward(x) + x
-        return self.norm(x), attn_maps
+            x = out_norm(feedforward(x) + x)
+        return x, attn_maps

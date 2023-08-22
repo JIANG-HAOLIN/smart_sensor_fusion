@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: generate_digits
-- models: basic_transformer_multiblocks
+- models: basic_transformer
 - optimizers: adam_steplr
 - pl_modules: transpose_predictor
 - trainers: transpose_predictor
