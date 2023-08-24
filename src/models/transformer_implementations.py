@@ -41,6 +41,7 @@ class TransformerEncoder(nn.Module):
         """
 
         Args:
+            
             x: Input features of shape [Batch, SeqLen, input_dim]
         Returns:
             Output features of shape [Batch, SeqLen, input_dim]

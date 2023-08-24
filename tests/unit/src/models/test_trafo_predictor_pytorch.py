@@ -1,6 +1,6 @@
 import unittest
 import torch
-from src.models.trafo_predictor_multiblocks import TransformerPredictor
+from src.models.trafo_predictor_pytorch import TransformerPredictor
 
 
 class TestAddNumbers(unittest.TestCase):
