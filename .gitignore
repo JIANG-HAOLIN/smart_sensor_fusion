@@ -13,6 +13,8 @@ tensorboard_logs/
 results/
 **/results/
 
+data/
+
 outputs/
 **/outputs/
 
