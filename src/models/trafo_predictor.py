@@ -1,7 +1,6 @@
-from typing import Optional, Any, Union, Callable
 import torch
 import torch.nn as nn
-from src.models.positional_encoding import StandardPositionalEncoding as PositionalEncoding
+from src.models.utils.positional_encoding import StandardPositionalEncoding as PositionalEncoding
 from src.models.transformer_implementations import TransformerEncoder
 
 

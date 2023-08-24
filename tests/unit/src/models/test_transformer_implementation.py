@@ -9,7 +9,8 @@ class TestAddNumbers(unittest.TestCase):
         tf = TransformerEncoder(token_dim=10,
                                 num_blocks=3,
                                 num_heads=2,
-                                dropout=0.)
+                                dropout=0.,
+                                norm_first=True)
         input = torch.randn([2, 17, 10])
         out = tf(input)
         self.assertEqual(out[0].shape, torch.Size([2, 17, 10]))

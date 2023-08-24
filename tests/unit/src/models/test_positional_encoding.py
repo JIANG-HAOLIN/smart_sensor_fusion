@@ -1,6 +1,6 @@
 import unittest
 import torch
-from src.models.positional_encoding import StandardPositionalEncoding
+from src.models.utils.positional_encoding import StandardPositionalEncoding
 
 
 class TestAddNumbers(unittest.TestCase):

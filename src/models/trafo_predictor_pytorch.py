@@ -1,8 +1,7 @@
-from typing import Optional, Any, Union, Callable
+from typing import Optional, Union, Callable
 import torch
 import torch.nn as nn
-import pytorch_lightning as pl
-from src.models.positional_encoding import StandardPositionalEncoding as PositionalEncoding
+from src.models.utils.positional_encoding import StandardPositionalEncoding as PositionalEncoding
 
 
 class TransformerPredictor(nn.Module):
