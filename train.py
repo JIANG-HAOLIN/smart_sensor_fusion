@@ -13,6 +13,8 @@ from src.trainer_util import launch_trainer
 @hydra.main(config_path='configs', config_name='config', version_base=None)
 def train(cfg: DictConfig) -> None:
     os.environ['HYDRA_FULL_ERROR'] = '1'
+    os.environ['NUMEXPR_MAX_THREADS'] = '16'
+    os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')
     project_path = os.path.abspath(os.path.join(__file__, '..'))
     out_dir_path = HydraConfig.get().run.dir
@@ -37,13 +39,14 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current Project path: {project_path}")
     log.info(f"current experiment output path: {out_dir_path}")
 
-    model: nn.Module = hydra.utils.instantiate(cfg.models.model)
+    model: nn.Module = hydra.utils.instantiate(cfg.models.model).to('cuda')
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
-    train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader)
+    train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
                                         train_loader, val_loader, test_loader)
+
     launch_trainer(pl_module, out_dir_path=out_dir_path,
                    model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,
                    **cfg.trainers.launch_trainer)

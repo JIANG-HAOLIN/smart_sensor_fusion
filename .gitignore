@@ -35,6 +35,11 @@ src/__pycache__/
 *.log
 **/*.out
 
+
+delete.py
+*/delete.py
+**/delete.py
+
 *.pyc
 **/*.pyc
 

@@ -2,16 +2,16 @@
 
 
 defaults:
-- datasets: generate_digits
-- models: basic_transformer
+- datasets: see_hear_feel_audio.yaml
+- models: vit_transformer_encoder
 - optimizers: adam_steplr
-- pl_modules: transpose_predictor
-- trainers: transpose_predictor
+- pl_modules: progress_predictor
+- trainers: progress_predictor
 - _self_
 
 
 # General settings
-task_name: "transpose"
+task_name: "progress_prediction"
 seed: 42
 results_dir: 'results'
 # output dir path: smart_sensor_fusion/results/model name/dataset name/task name+time stamp/

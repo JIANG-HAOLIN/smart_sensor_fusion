@@ -3,16 +3,16 @@ import torch.nn as nn
 from src.models.utils.positional_encoding import StandardPositionalEncoding as PositionalEncoding
 from src.models.transformer_implementations import TransformerEncoder
 from src.models.utils.to_patches import Img2Patches
+from typing import Optional
 
 
 class TransformerClassifierVit(nn.Module):
-
+    """The ViT based Classifier."""
     def __init__(self, channel_size: int = 3, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
-                 num_layers: int = 2, patch_size: tuple = (4, 4),
+                 num_layers: int = 2, patch_size: tuple = (4, 4), input_size: Optional[tuple] = None,
                  **kwargs):
-        """The ViT based Classifier.
-
+        """
         Inputs:
             channel_size - Hidden dimensionality of the input
             model_dim - Hidden dimensionality to use inside the Transformer
@@ -35,9 +35,9 @@ class TransformerClassifierVit(nn.Module):
         self.cls = nn.Parameter(torch.randn(1, 1, model_dim))
 
         # convert the input image tensor to patches
-        self.to_patches = Img2Patches(patch_size)
+        self.to_patches = Img2Patches(input_size, patch_size)
         # Input dim -> Model dim
-        patch_dim = patch_size[0]*patch_size[1]*channel_size
+        patch_dim = patch_size[0] * patch_size[1] * channel_size
         self.input_emb = nn.Sequential(
             nn.LayerNorm(patch_dim),
             nn.Linear(patch_dim, model_dim),
