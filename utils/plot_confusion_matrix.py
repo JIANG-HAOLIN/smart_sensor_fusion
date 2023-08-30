@@ -24,5 +24,6 @@ def plot_confusion_matrix(outs: np.ndarray, labels: np.ndarray, save_pth: Option
     plt.xticks(np.arange(10), labels=range(10), rotation=0)
     plt.yticks(np.arange(10), labels=range(10), rotation=0)
     if save_pth is not None:
-        plt.savefig(os.path.join(save_pth,'confusion_matrix.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(save_pth, 'confusion_matrix.png'), bbox_inches='tight')
     plt.show()
+    
