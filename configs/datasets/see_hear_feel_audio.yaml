@@ -1,4 +1,4 @@
-name: 'progress_prediction'
+name: 'see_hear_feel_insert_audio'
 
 dataloader:
   _target_: src.datasets.progress_prediction.get_loaders

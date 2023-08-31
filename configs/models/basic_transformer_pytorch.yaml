@@ -1,7 +1,7 @@
 name: 'simple_transformer_pytorch'
 
 model:
-  _target_: src.models.trafo_predictor_pytorch.TransformerPredictor
+  _target_: src.models.trafo_predictor.TransformerPredictor_Pytorch
   input_dim: 10
   model_dim: 32
   num_heads: 4

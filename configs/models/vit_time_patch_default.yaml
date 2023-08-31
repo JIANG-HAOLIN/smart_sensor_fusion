@@ -1,0 +1,14 @@
+name: 'vit_time_patch_default'
+
+model:
+  _target_: src.models.progress_prediction.time_patch_model
+  preprocess_args:
+    length: 40000
+    sr: 16000
+    n_mels: 16
+    norm_audio: False
+  transformer_args:
+    model_dim: 64
+
+
+

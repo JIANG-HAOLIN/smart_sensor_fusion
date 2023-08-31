@@ -13,8 +13,8 @@ class MelSpec(torch.nn.Module):
         """
         super().__init__()
         self.norm_audio = norm_audio
-
-        hop_length = int(sr * 0.01)
+        self.n_mel = n_mels
+        hop_length = int(sr * 0.1)
         n_fft = int(sr * 0.025)
         self.mel = torchaudio.transforms.MelSpectrogram(
             sample_rate=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
@@ -31,7 +31,7 @@ class MelSpec(torch.nn.Module):
         eps = 1e-8
         spec = self.mel(waveform.float())
         log_spec = torch.log(spec + eps)  # logarithm, eps to avoid zero denominator
-        assert log_spec.size(-2) == 64
+        assert log_spec.size(-2) == self.n_mel
         if self.norm_audio:
             log_spec /= log_spec.sum(dim=-2, keepdim=True)
         return log_spec

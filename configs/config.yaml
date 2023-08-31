@@ -2,8 +2,8 @@
 
 
 defaults:
-- datasets: see_hear_feel_audio.yaml
-- models: vit_transformer_encoder
+- datasets: see_hear_feel_audio
+- models: vit_time_patch_small_hop
 - optimizers: adam_steplr
 - pl_modules: progress_predictor
 - trainers: progress_predictor
@@ -14,10 +14,10 @@ defaults:
 task_name: "progress_prediction"
 seed: 42
 results_dir: 'results'
-# output dir path: smart_sensor_fusion/results/model name/dataset name/task name+time stamp/
+# output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
 hydra:
   run:
-    dir: ./${results_dir}/${models.name}${optimizers.name}/${datasets.name}/${task_name}${now:%m-%d-%H:%M:%S}test
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
 
 
 

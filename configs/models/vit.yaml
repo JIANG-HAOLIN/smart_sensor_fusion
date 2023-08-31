@@ -1,4 +1,4 @@
-name: 'progress_predictor'
+name: 'vit'
 
 model:
   _target_: src.models.progress_prediction.classification_model

@@ -49,3 +49,21 @@ def img_2_patches(x: torch.Tensor, patch_size: tuple = (4, 4)) -> torch.Tensor:
     patch_h, patch_w = patch_size
     assert x.shape[2] % patch_h == 0 and x.shape[3] % patch_w == 0
     return x.unfold(2, patch_h, patch_h).unfold(3, patch_w, patch_w)
+
+
+class Mel2Patches_Time_Axis(torch.nn.Module):
+    """Convert a Mel Spectrogram to patches"""
+
+    def __init__(self):
+        super().__init__()
+        self.to_patches = Rearrange('b c h w -> b w (h c)')
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: input img tensor of shape [batch size, channel size, height, width]
+
+        Returns: patches of shape [batch size, num of patches, patch dim]
+
+        """
+        return self.to_patches(x)
