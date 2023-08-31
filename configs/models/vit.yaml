@@ -3,16 +3,20 @@ name: 'vit'
 model:
   _target_: src.models.progress_prediction.classification_model
   preprocess_args:
+    _target_: src.models.utils.mel_spec.MelSpec
     length: 40000
     sr: 16000
     n_mels: 64
     norm_audio: False
+    hop_ratio: 0.01
   encoder_args:
-    out_dim: 128
+    _target_: src.models.encoders.identity.get_identity_encoder
   transformer_args:
-    channel_size: 128
-    model_dim: 512
-    input_size: [8, 32]
+    _target_: src.models.trafo_classifier_vit.TransformerClassifierVit
+    channel_size: 1
+    model_dim: 64
+    patch_size: [16, 16]
+    input_size: [64, 251]
 
 
 

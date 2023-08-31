@@ -7,6 +7,7 @@ model:
     sr: 16000
     n_mels: 16
     norm_audio: False
+    hop_ratio: 0.1
   transformer_args:
     model_dim: 64
 

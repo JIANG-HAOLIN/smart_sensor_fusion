@@ -39,7 +39,7 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current Project path: {project_path}")
     log.info(f"current experiment output path: {out_dir_path}")
 
-    model: nn.Module = hydra.utils.instantiate(cfg.models.model).to('cuda')
+    model: nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cuda')
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path)
