@@ -10,5 +10,7 @@ model:
   transformer_args:
     model_dim: 64
 
+inference:
+  ckpt_path: ' '
 
 

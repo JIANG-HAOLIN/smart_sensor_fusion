@@ -22,7 +22,8 @@ def get_val_loader(val_csv: str, args, data_folder: str, **kwargs):
     return DataLoader(val_set, 1, num_workers=8, shuffle=False)
 
 
-def inference(cfg: DictConfig, args: argparse.Namespace) -> None:
+@hydra.main(version_base=None, config_path="../configs/", config_name='config_progress_prediction')
+def inference(cfg: DictConfig) -> None:
     """
 
     Args:
@@ -34,10 +35,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace) -> None:
     """
     torch.set_float32_matmul_precision('medium')
     val_loader = get_val_loader(**cfg.datasets.dataloader, project_path=project_path)
-    if os.path.isfile(args.ckpt_path):
+    if os.path.isfile(cfg.models.inference.ckpt_path):
         print("Found pretrained model, loading...")
-        model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model).to('cpu')
-        checkpoint_state_dict = torch.load(args.ckpt_path)['state_dict']
+        model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cpu')
+        checkpoint_state_dict = torch.load(cfg.models.inference.ckpt_path)['state_dict']
         clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
         model.load_state_dict(clone_state_dict)
         model.eval()
@@ -52,26 +53,14 @@ def inference(cfg: DictConfig, args: argparse.Namespace) -> None:
                 out, attn_map = output[0].detach(), output[1]
                 out = torch.argmax(out, dim=1, keepdim=False)
                 acc = (label == out).float().mean()
-                val_accu = (val_accu * idx + acc)/(idx + 1)
+                val_accu = (val_accu * idx + acc) / (idx + 1)
                 outs.append(out.numpy())
                 labels.append(label.numpy())
             print(val_accu)
             outs = np.asarray(outs)
             labels = np.asarray(labels)
-            plot_confusion_matrix(outs, labels, save_pth=os.path.join(project_path+'/scripts'))
+            plot_confusion_matrix(outs, labels, save_pth=os.path.join(project_path + '/scripts'))
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--ckpt_path', type=str,
-                        required=True,
-                        help="the path of pretrained .ckpt model, should have shape "
-                             "like:smart_sensor_fusion/results/model name/dataset name/task "
-                             "name+time stamp+test/checkpoints/...ckpt")
-    args = parser.parse_args()
-
-    initialize(version_base=None, config_path="../configs", job_name="test_app")
-    cfg = compose(config_name="config")
-    print(OmegaConf.to_yaml(cfg))
-
-    inference(cfg=cfg, args=args)
+    inference()

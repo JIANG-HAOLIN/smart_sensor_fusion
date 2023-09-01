@@ -9,4 +9,8 @@ model:
   num_layers: 3
   dropout: 0.0
 
+inference:
+  ckpt_path: '/home/jin4rng/Documents/code/smart_sensor_fusion/results/transpose/logits/simple_transformer/time_09-01-14:05:34/checkpoints/09-01-14:05:36-jobid=0-epoch=0-step=390.ckpt'
+  test_seq: [1, 2, 3, 4, 5, 6, 7, 8, 9, 8, 0, 1, 2, 3, 4, 5, 6]
+
 

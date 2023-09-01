@@ -29,7 +29,6 @@ class TransformerPredictorPl(pl.LightningModule):
         self.num_classes = kwargs['num_classes']
         self.validation_epoch_outputs = []
         self.validation_preds = []
-        # self.save_hyperparameters()
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """

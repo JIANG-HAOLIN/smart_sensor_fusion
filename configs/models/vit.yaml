@@ -18,5 +18,7 @@ model:
     patch_size: [16, 16]
     input_size: [64, 251]
 
+inference:
+  ckpt_path: '/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_09-01-13:40:02/checkpoints/09-01-13:40:05-jobid=0-epoch=0-step=406.ckpt'
 
 

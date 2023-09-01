@@ -9,7 +9,7 @@ import torch
 from src.trainer_util import launch_trainer
 
 
-@hydra.main(config_path='configs', config_name='config_vit', version_base=None)
+@hydra.main(config_path='configs', config_name='config_progress_prediction', version_base=None)
 def train(cfg: DictConfig) -> None:
     os.environ['HYDRA_FULL_ERROR'] = '1'
     os.environ['NUMEXPR_MAX_THREADS'] = '16'
