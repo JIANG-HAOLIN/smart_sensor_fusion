@@ -48,7 +48,8 @@ def convert_episode(data_folder, logs, idx):
 
 
 if __name__ == "__main__":
-    logs = pd.read_csv("/home/jin4rng/Documents/code/see_hear_feel/data/episode_times.csv")
-    data_folder = "/home/jin4rng/Documents/code/see_hear_feel/data/test_recordings"
+    project_path = os.path.abspath(os.path.join(__file__, '..', ".."))
+    logs = pd.read_csv(project_path + "/data/episode_times.csv")
+    data_folder = project_path + "/data/test_recordings"
     for idx in range(len(logs)):
         convert_episode(data_folder, logs, idx)

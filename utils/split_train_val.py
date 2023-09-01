@@ -20,14 +20,15 @@ def main(args):
 if __name__ == "__main__":
     import argparse
 
+    project_path = os.path.abspath(os.path.join(__file__, '..', ".."))
     argparser = argparse.ArgumentParser()
     argparser.add_argument(
         "--csv_file",
         type=str,
         help="csv file to read in ",
-        default="/home/jin4rng/Documents/code/see_hear_feel/data/episode_times.csv",
+        default=project_path + "/data/episode_times.csv",
     )
-    argparser.add_argument("--output_dir", type=str, default="/home/jin4rng/Documents/code/see_hear_feel/data/")
+    argparser.add_argument("--output_dir", type=str, default=project_path + "/data/")
 
     args = argparser.parse_args()
 
