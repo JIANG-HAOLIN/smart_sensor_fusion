@@ -6,16 +6,14 @@ import numpy as np
 import hydra
 from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
-from src.datasets.progress_prediction import ImitationEpisode
 from torch.utils.data import DataLoader
-from utils.plot_confusion_matrix import plot_confusion_matrix
+
 
 project_path = os.path.abspath(os.path.join(__file__, '..', '..'))
-sys.path.append(project_path)  # so we can import the modules inside the project when running in terminal
-print(project_path)
 
 
 def get_val_loader(val_csv: str, args, data_folder: str, **kwargs):
+    from src.datasets.progress_prediction import ImitationEpisode
     val_csv = os.path.join(project_path, val_csv)
     data_folder = os.path.join(project_path, data_folder)
     val_set = ImitationEpisode(val_csv, args, 0, data_folder, False)
@@ -33,6 +31,7 @@ def inference(cfg: DictConfig) -> None:
     Output the prediction sequence and visualization of the attention map
 
     """
+    from utils.plot_confusion_matrix import plot_confusion_matrix
     torch.set_float32_matmul_precision('medium')
     val_loader = get_val_loader(**cfg.datasets.dataloader, project_path=project_path)
     if os.path.isfile(cfg.models.inference.ckpt_path):
@@ -63,4 +62,5 @@ def inference(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
+    sys.path.append(os.path.abspath(os.path.join(__file__, '..', '..')))
     inference()
