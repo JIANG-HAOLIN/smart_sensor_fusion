@@ -8,7 +8,7 @@ class MelSpec(torch.nn.Module):
                  sr: int = 16000,
                  n_mels: int = 64,
                  norm_audio: bool = False,
-                 hop_ratio: int = 0.01):
+                 hop_ratio: float = 0.01):
         """
         length - number of sample in an input sequence
         sr - sampling rate for mel spectrogram

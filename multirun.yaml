@@ -1,0 +1,205 @@
+hydra:
+  run:
+    dir: ./${results_dir}/${task_name}/${datasets.name}/exp_${variable_name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
+  sweep:
+    dir: ./
+    subdir: ${results_dir}/${task_name}/${datasets.name}/exp_${variable_name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
+  launcher:
+    _target_: hydra._internal.core_plugins.basic_launcher.BasicLauncher
+  sweeper:
+    _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
+    max_batch_size: null
+    params:
+      models: progress_prediction/vit_time_patch_64_51,progress_prediction/vit_time_patch_128_51
+  help:
+    app_name: ${hydra.job.name}
+    header: '${hydra.help.app_name} is powered by Hydra.
+
+      '
+    footer: 'Powered by Hydra (https://hydra.cc)
+
+      Use --hydra-help to view Hydra specific help
+
+      '
+    template: '${hydra.help.header}
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (group=option)
+
+
+      $APP_CONFIG_GROUPS
+
+
+      == Config ==
+
+      Override anything in the config (foo.bar=value)
+
+
+      $CONFIG
+
+
+      ${hydra.help.footer}
+
+      '
+  hydra_help:
+    template: 'Hydra (${hydra.runtime.version})
+
+      See https://hydra.cc for more info.
+
+
+      == Flags ==
+
+      $FLAGS_HELP
+
+
+      == Configuration groups ==
+
+      Compose your configuration from those groups (For example, append hydra/job_logging=disabled
+      to command line)
+
+
+      $HYDRA_CONFIG_GROUPS
+
+
+      Use ''--cfg hydra'' to Show the Hydra config.
+
+      '
+    hydra_help: ???
+  hydra_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][HYDRA] %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+    root:
+      level: INFO
+      handlers:
+      - console
+    loggers:
+      logging_example:
+        level: DEBUG
+    disable_existing_loggers: false
+  job_logging:
+    version: 1
+    formatters:
+      simple:
+        format: '[%(asctime)s][%(name)s][%(levelname)s] - %(message)s'
+    handlers:
+      console:
+        class: logging.StreamHandler
+        formatter: simple
+        stream: ext://sys.stdout
+      file:
+        class: logging.FileHandler
+        formatter: simple
+        filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+    root:
+      level: INFO
+      handlers:
+      - console
+      - file
+    disable_existing_loggers: false
+  env: {}
+  mode: MULTIRUN
+  searchpath: []
+  callbacks: {}
+  output_subdir: .hydra
+  overrides:
+    hydra:
+    - hydra.mode=MULTIRUN
+    task: []
+  job:
+    name: train
+    chdir: null
+    override_dirname: ''
+    id: ???
+    num: ???
+    config_name: config_progress_prediction
+    env_set: {}
+    env_copy: []
+    config:
+      override_dirname:
+        kv_sep: '='
+        item_sep: ','
+        exclude_keys: []
+  runtime:
+    version: 1.3.2
+    version_base: '1.2'
+    cwd: /home/jin4rng/Documents/code/smart_sensor_fusion
+    config_sources:
+    - path: hydra.conf
+      schema: pkg
+      provider: hydra
+    - path: /home/jin4rng/Documents/code/smart_sensor_fusion/configs
+      schema: file
+      provider: main
+    - path: ''
+      schema: structured
+      provider: schema
+    output_dir: ???
+    choices:
+      trainers: progress_predictor
+      pl_modules: progress_predictor
+      optimizers: adam_steplr
+      models: progress_prediction/vit_time_patch_default
+      datasets: see_hear_feel_audio
+      hydra/env: default
+      hydra/callbacks: null
+      hydra/job_logging: default
+      hydra/hydra_logging: default
+      hydra/hydra_help: default
+      hydra/help: default
+      hydra/sweeper: basic
+      hydra/launcher: basic
+      hydra/output: default
+  verbose: false
+datasets:
+  name: see_hear_feel_insert_audio
+  dataloader:
+    _target_: src.datasets.progress_prediction.get_loaders
+    batch_size: 32
+    data_folder: data/test_recordings
+    train_csv: data/train.csv
+    val_csv: data/val.csv
+    args:
+      num_stack: 5
+      frameskip: 5
+models:
+  name: vit_time_patch_16_251
+  model:
+    _target_: src.models.progress_prediction.time_patch_model
+    preprocess_args:
+      length: 40000
+      sr: 16000
+      n_mels: 16
+      norm_audio: false
+    transformer_args:
+      model_dim: 64
+  inference:
+    ckpt_path: ' '
+optimizers:
+  name: ''
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+  scheduler:
+    _target_: torch.optim.lr_scheduler.StepLR
+    step_size: 3
+    gamma: 1
+pl_modules:
+  pl_module:
+    _target_: src.pl_modules.progress_prediction.TransformerPredictorPl
+    num_classes: 10
+trainers:
+  launch_trainer:
+    max_epochs: 20
+    monitor: val_acc
+task_name: progress_prediction
+variable_name: n_mel
+seed: 42
+results_dir: results

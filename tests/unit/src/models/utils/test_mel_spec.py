@@ -5,8 +5,8 @@ import unittest
 
 class TestTransformerClassifierVit(unittest.TestCase):
     def test_mel_spec(self):
-        length = 600000
-        mel = MelSpec(length=length)
+        length = 40000
+        mel = MelSpec(length=length, hop_ratio=0.1)
         input = torch.randn([2, 1, length])
         out = mel(input)
         self.assertEqual(out.shape, torch.Size([2, 1, 64, int(length/160)+1]))

@@ -14,15 +14,21 @@ Repository for Smart Sensor Fusion project
 * Brief explanation for the example dataset: Under data/test_recordings, each folder is an episode. timestamps.json contains the human demo actions and the pose history of the robot, while each subfolder contains a stream of sensory inputs.
 
 ## Run training
-* Train the model for transpose task by running: `python train.py --config-name config_transpose`
-* Train the model for progress_prediction task by running: `python train.py --config-name config_progress_prediction`
+* Train the model for transpose task: `python train.py --config-name config_transpose`
+* Train the model for progress_prediction task with default configuration: `python train.py --config-name config_progress_prediction`
+* Train the model for progress_prediction task with multiple configuration(sweeper): `python train.py -cn config_progress_prediction -m`
 
 ## Run inference
-* Test the model for transpose task by running: `python scripts/demo_transpose_numbers.py inference.ckpt_path='/home/jin4rng/Documents/code/smart_sensor_fusion/results/transpose/logits/simple_transformer/time_09-01-14:05:34/checkpoints/09-01-14:05:36-jobid=0-epoch=0-step=390.ckpt' inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]`
-* Test the model for progress_prediction task by running: `python scripts/demo_progress_prediction.py models.inference.ckpt_path='/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_08-31-10:32:13/checkpoints/08-31-10:32:15-jobid=0-epoch=7-step=3248.ckpt'`
+* Test the model for transpose task by running: `python scripts/demo_transpose_numbers.py 'inference.ckpt_path="/home/jin4rng/Documents/code/smart_sensor_fusion/results/transpose/logits/simple_transformer/time_09-01-14:05:34/checkpoints/09-01-14:05:36-jobid=0-epoch=0-step=390.ckpt" inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]'`
+* Test the model for progress_prediction task by running: `python scripts/demo_progress_prediction.py 'models.inference.ckpt_path="/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_08-31-10:32:13/checkpoints/08-31-10:32:15-jobid=0-epoch=7-step=3248.ckpt"'`
 
 ## Help
 * Hydra command line flags and override
-  * override hydra arguments example: `python train.py task_name='override_args'` (check [here](https://hydra.cc/docs/advanced/override_grammar/basic/))
-  * manipulate hydra config using command line: `python train.py --config-name config_transpose` (check [here](https://hydra.cc/docs/advanced/hydra-command-line-flags/))
-  * manipulate hydra config and override hydra args: `python train.py --config-name config_transpose task_name='override_args'`
+  * if using run configuration of IDE to pass the arguments:
+    * override hydra arguments example: `python train.py task_name='override_args'` (check [here](https://hydra.cc/docs/advanced/override_grammar/basic/))
+    * manipulate hydra config using command line: `python train.py --config-name config_transpose` (check [here](https://hydra.cc/docs/advanced/hydra-command-line-flags/))
+    * manipulate hydra config and override hydra args: `python train.py --config-name config_transpose task_name='override_args'`
+  * if using terminal to run the command line, because of interpretation of quote of shell, so you have to quote twice: 
+    * override hydra arguments example: `python train.py 'task_name="override_args"'` (check [here](https://hydra.cc/docs/advanced/override_grammar/basic/))
+    * manipulate hydra config using command line: `python train.py --config-name config_transpose` (check [here](https://hydra.cc/docs/advanced/hydra-command-line-flags/))
+    * manipulate hydra config and override hydra args: `python train.py --config-name config_transpose 'task_name="override_args"'`

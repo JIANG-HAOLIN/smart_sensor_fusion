@@ -1,0 +1,16 @@
+name: 'vit_time_patch_64_26'
+
+model:
+  _target_: src.models.progress_prediction.time_patch_model
+  preprocess_args:
+    length: 40000
+    sr: 16000
+    n_mels: 32
+    norm_audio: False
+    hop_ratio: 0.1
+  transformer_args:
+    model_dim: 64
+
+inference:
+  ckpt_path: ' '
+

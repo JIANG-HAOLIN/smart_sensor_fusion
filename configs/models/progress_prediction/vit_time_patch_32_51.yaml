@@ -1,13 +1,13 @@
-name: 'vit_time_patch_small_hop'
+name: 'vit_time_patch_32_51'
 
 model:
   _target_: src.models.progress_prediction.time_patch_model
   preprocess_args:
     length: 40000
     sr: 16000
-    n_mels: 16
+    n_mels: 32
     norm_audio: False
-    hop_ratio: 0.1
+    hop_ratio: 0.05
   transformer_args:
     model_dim: 64
 

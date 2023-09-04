@@ -9,7 +9,7 @@ import torch
 from src.trainer_util import launch_trainer
 
 
-@hydra.main(config_path='configs', config_name='config_progress_prediction', version_base=None)
+@hydra.main(config_path='configs', config_name='config_progress_prediction', version_base='1.2')
 def train(cfg: DictConfig) -> None:
     os.environ['HYDRA_FULL_ERROR'] = '1'
     os.environ['NUMEXPR_MAX_THREADS'] = '16'
@@ -30,6 +30,7 @@ def train(cfg: DictConfig) -> None:
     log.info(f"if Cuda available:{torch.cuda.is_available()}")
     if torch.cuda.is_available():
         log.info(f"Cuda info:\n{torch.cuda.get_device_properties('cuda')}")
+        log.info(f"Cuda version:{torch.version.cuda}")
     else:
         log.info(f'no Cuda detected, using CPU instead !!')
     log.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")

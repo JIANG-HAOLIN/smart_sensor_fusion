@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_audio
-- models: vit
+- models: progress_prediction/vit_time_patch_default
 - optimizers: adam_steplr
 - pl_modules: progress_predictor
 - trainers: progress_predictor
@@ -12,12 +12,19 @@ defaults:
 
 # General settings
 task_name: "progress_prediction"
+variable_name: n_mel
 seed: 42
 results_dir: 'results'
 # output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
 hydra:
-  run:
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
+  sweeper:
+    params:
+      models: progress_prediction/vit_time_patch_64_51,progress_prediction/vit_time_patch_128_51
+  sweep: #only controls where config.yaml is stored
+    dir: ./
+    subdir: ${results_dir}/${task_name}/${datasets.name}/exp_${variable_name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
+  run: #also works for multi-run
+    dir: ./${results_dir}/${task_name}/${datasets.name}/exp_${variable_name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}
 
 
 
