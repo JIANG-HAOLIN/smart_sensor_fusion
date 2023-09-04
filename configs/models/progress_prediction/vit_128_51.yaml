@@ -1,0 +1,24 @@
+name: 'vit_128_51'
+
+model:
+  _target_: src.models.progress_prediction.classification_model
+  preprocess_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 40000
+    sr: 16000
+    n_mels: 128
+    norm_audio: False
+    hop_ratio: 0.05
+  encoder_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  transformer_args:
+    _target_: src.models.trafo_classifier_vit.TransformerClassifierVit
+    channel_size: 1
+    model_dim: 64
+    patch_size: [16, 4]
+    input_size: [128, 51]
+
+inference:
+  ckpt_path: '/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_09-01-13:40:02/checkpoints/09-01-13:40:05-jobid=0-epoch=0-step=406.ckpt'
+
+

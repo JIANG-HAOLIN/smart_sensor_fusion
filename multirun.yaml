@@ -10,7 +10,7 @@ hydra:
     _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
     max_batch_size: null
     params:
-      models: progress_prediction/vit_time_patch_64_51,progress_prediction/vit_time_patch_128_51
+      models: progress_prediction/vit_64_51,progress_prediction/vit_64_101,progress_prediction/vit_64_251,progress_prediction/vit_128_51,progress_prediction/vit_128_101,progress_prediction/vit_128_101_8,progress_prediction/vit_128_251
   help:
     app_name: ${hydra.job.name}
     header: '${hydra.help.app_name} is powered by Hydra.
@@ -146,7 +146,7 @@ hydra:
       trainers: progress_predictor
       pl_modules: progress_predictor
       optimizers: adam_steplr
-      models: progress_prediction/vit_time_patch_default
+      models: progress_prediction/vit_64_51
       datasets: see_hear_feel_audio
       hydra/env: default
       hydra/callbacks: null
@@ -170,18 +170,30 @@ datasets:
       num_stack: 5
       frameskip: 5
 models:
-  name: vit_time_patch_16_251
+  name: vit_64_51
   model:
-    _target_: src.models.progress_prediction.time_patch_model
+    _target_: src.models.progress_prediction.classification_model
     preprocess_args:
+      _target_: src.models.utils.mel_spec.MelSpec
       length: 40000
       sr: 16000
-      n_mels: 16
+      n_mels: 64
       norm_audio: false
+      hop_ratio: 0.05
+    encoder_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
     transformer_args:
+      _target_: src.models.trafo_classifier_vit.TransformerClassifierVit
+      channel_size: 1
       model_dim: 64
+      patch_size:
+      - 16
+      - 4
+      input_size:
+      - 64
+      - 51
   inference:
-    ckpt_path: ' '
+    ckpt_path: /home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_09-01-13:40:02/checkpoints/09-01-13:40:05-jobid=0-epoch=0-step=406.ckpt
 optimizers:
   name: ''
   optimizer:

@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_audio
-- models: progress_prediction/vit_time_patch_default
+- models: progress_prediction/vit_64_51
 - optimizers: adam_steplr
 - pl_modules: progress_predictor
 - trainers: progress_predictor
@@ -19,7 +19,7 @@ results_dir: 'results'
 hydra:
   sweeper:
     params:
-      models: progress_prediction/vit_time_patch_64_51,progress_prediction/vit_time_patch_128_51
+      models: progress_prediction/vit_64_51,progress_prediction/vit_64_101,progress_prediction/vit_64_251,progress_prediction/vit_128_51,progress_prediction/vit_128_101,progress_prediction/vit_128_101_8,progress_prediction/vit_128_251
   sweep: #only controls where config.yaml is stored
     dir: ./
     subdir: ${results_dir}/${task_name}/${datasets.name}/exp_${variable_name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}

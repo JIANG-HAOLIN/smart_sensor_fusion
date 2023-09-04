@@ -1,4 +1,4 @@
-name: 'vit'
+name: 'vit_128_251'
 
 model:
   _target_: src.models.progress_prediction.classification_model
@@ -6,7 +6,7 @@ model:
     _target_: src.models.utils.mel_spec.MelSpec
     length: 40000
     sr: 16000
-    n_mels: 64
+    n_mels: 128
     norm_audio: False
     hop_ratio: 0.01
   encoder_args:
@@ -16,7 +16,7 @@ model:
     channel_size: 1
     model_dim: 64
     patch_size: [16, 16]
-    input_size: [64, 251]
+    input_size: [128, 251]
 
 inference:
   ckpt_path: '/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_09-01-13:40:02/checkpoints/09-01-13:40:05-jobid=0-epoch=0-step=406.ckpt'

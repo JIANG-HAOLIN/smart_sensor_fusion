@@ -53,4 +53,5 @@ def train(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    train()
+    for i in range(3):
+        train()
