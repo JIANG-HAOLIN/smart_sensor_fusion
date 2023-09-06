@@ -4,6 +4,7 @@ import torch
 import argparse
 import numpy as np
 import hydra
+from hydra.core.hydra_config import HydraConfig
 from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
 from torch.utils.data import DataLoader
@@ -20,7 +21,7 @@ def get_val_loader(val_csv: str, args, data_folder: str, **kwargs):
     return DataLoader(val_set, 1, num_workers=8, shuffle=False)
 
 
-@hydra.main(version_base=None, config_path="../results/progress_prediction/see_hear_feel_insert_audio/vit_time_patch_128_51_standardpe/exp_dim_batchsize/256_64/09-05-18:27:24/.hydra/", config_name='config.yaml')
+@hydra.main(version_base=None, config_path=" ", config_name='config')
 def inference(cfg: DictConfig) -> None:
     """
 
@@ -28,16 +29,18 @@ def inference(cfg: DictConfig) -> None:
         cfg: hydra config file
         args: the input arguments
 
-    Output the prediction sequence and visualization of the attention map
+    Output the validation accuracy and visualization of the confusion matrix
 
     """
     from utils.plot_confusion_matrix import plot_confusion_matrix
     torch.set_float32_matmul_precision('medium')
     val_loader = get_val_loader(**cfg.datasets.dataloader, project_path=project_path)
-    if os.path.isfile(cfg.models.inference.ckpt_path):
+    cfg_path = HydraConfig.get().runtime['config_sources'][1]['path']
+    checkpoints_path = os.path.abspath(os.path.join(cfg_path, '..', 'checkpoints', cfg.models.inference.ckpt_path))
+    if os.path.isfile(checkpoints_path):
         print("Found pretrained model, loading...")
         model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cpu')
-        checkpoint_state_dict = torch.load(cfg.models.inference.ckpt_path)['state_dict']
+        checkpoint_state_dict = torch.load(checkpoints_path)['state_dict']
         clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
         model.load_state_dict(clone_state_dict)
         model.eval()

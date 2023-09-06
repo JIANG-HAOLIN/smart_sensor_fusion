@@ -19,8 +19,11 @@ Repository for Smart Sensor Fusion project
 * Train the model for progress_prediction task with multiple configuration(sweeper): `python train.py -cn config_progress_prediction -m`
 
 ## Run inference
-* Test the model for transpose task by running: `python scripts/demo_transpose_numbers.py 'inference.ckpt_path="/home/jin4rng/Documents/code/smart_sensor_fusion/results/transpose/logits/simple_transformer/time_09-01-14:05:34/checkpoints/09-01-14:05:36-jobid=0-epoch=0-step=390.ckpt" inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]'`
-* Test the model for progress_prediction task by running: `python scripts/demo_progress_prediction.py 'models.inference.ckpt_path="/home/jin4rng/Documents/code/smart_sensor_fusion/results/progress_prediction/see_hear_feel_insert_audio/vit/time_08-31-10:32:13/checkpoints/08-31-10:32:15-jobid=0-epoch=7-step=3248.ckpt"'`
+* load the pretrained model based on the config and ckpt that stored in the results directory
+* Test the model for transpose task by running: `python scripts/demo_transpose_numbers.py 'inference.ckpt_path="path to .ckpt file" inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]'`
+* Test the model for progress_prediction task by running: `python scripts/demo_progress_prediction.py -cp 'path to the result folder that contain the config' 'models.inference.ckpt_path="name of ckpt file"'` 
+  e.g. `python demo_progress_prediction.py -cp '../results/progress_prediction/see_hear_feel_insert_audio/vit_time_patch_128_51_standardpe/exp_dim_batchsize/256_64/09-05-18:27:24/.hydra/' 'models.inference.ckpt_path="09-05-18:27:24-jobid=0-epoch=7-step=1624.ckpt"'`
+
 
 ## Help
 * Hydra command line flags and override
