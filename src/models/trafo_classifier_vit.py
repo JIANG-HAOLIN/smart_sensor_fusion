@@ -123,7 +123,8 @@ class TransformerClassifierVit_Mel(nn.Module):
 
         # Positional encoding for sequences
         if add_positional_encoding:
-            self.positional_encoding = TemporalPositionalEncoding(seq_len + 1, model_dim)
+            # self.positional_encoding = TemporalPositionalEncoding(seq_len + 1, model_dim)
+            self.positional_encoding = StandardPositionalEncoding(d_model=self.model_dim)
         self.transformer_encoder = TransformerEncoder(token_dim=self.model_dim,
                                                       num_blocks=self.num_layers,
                                                       num_heads=self.num_heads,

@@ -20,7 +20,7 @@ def get_val_loader(val_csv: str, args, data_folder: str, **kwargs):
     return DataLoader(val_set, 1, num_workers=8, shuffle=False)
 
 
-@hydra.main(version_base=None, config_path="../configs/", config_name='config_progress_prediction')
+@hydra.main(version_base=None, config_path="../results/progress_prediction/see_hear_feel_insert_audio/vit_time_patch_128_51_standardpe/exp_dim_batchsize/256_64/09-05-18:27:24/.hydra/", config_name='config.yaml')
 def inference(cfg: DictConfig) -> None:
     """
 
