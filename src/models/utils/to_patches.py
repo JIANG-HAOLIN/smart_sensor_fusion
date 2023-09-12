@@ -8,7 +8,8 @@ import logging
 class Img2Patches(torch.nn.Module):
     """Convert an image tensor to patches"""
 
-    def __init__(self, input_size: Optional[tuple] = None, patch_size: tuple = (4, 4)):
+    def __init__(self, input_size: Optional[tuple] = None,
+                 patch_size: tuple = (4, 4),):
         """
         Args:
             patch_size: should have shape [patch_h, patch_w]
@@ -23,6 +24,7 @@ class Img2Patches(torch.nn.Module):
                 crop_w = int(input_size[1] / self.patch_w) * self.patch_w
                 print(f"input can not be exactly divided! input has to be cropped to size ({crop_h, crop_w})")
                 self.rand_crop = torchvision.transforms.RandomCrop(size=[crop_h, crop_w])
+                self.num_patches = (input_size[0] % self.patch_h)*(input_size[1] % self.patch_w)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """

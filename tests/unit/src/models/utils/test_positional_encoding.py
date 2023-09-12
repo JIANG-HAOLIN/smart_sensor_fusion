@@ -3,9 +3,9 @@ import torch
 from src.models.utils.positional_encoding import StandardPositionalEncoding, TemporalPositionalEncoding
 
 
-class TestAddNumbers(unittest.TestCase):
+class TestStandardPositionalEncoding(unittest.TestCase):
 
-    def test_standard_postional_encoding(self):
+    def test_standard_positional_encoding(self):
         pe = StandardPositionalEncoding()
         input = torch.randn([2, 1000, 256])
         self.assertEqual(pe(input).shape, torch.Size([2, 1000, 256]))
