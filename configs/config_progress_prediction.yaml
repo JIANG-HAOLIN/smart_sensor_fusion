@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_audio
-- models: progress_prediction/vit_time_patch_128_51_standardpe
+- models: progress_prediction/vit_time_patch_128_51_standardpe_8h
 - optimizers: adam_steplr
 - pl_modules: progress_predictor
 - trainers: progress_predictor

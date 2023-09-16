@@ -147,7 +147,7 @@ hydra:
       trainers: progress_predictor
       pl_modules: progress_predictor
       optimizers: adam_steplr
-      models: progress_prediction/vit_time_patch_128_51_standardpe
+      models: progress_prediction/vit_time_patch_128_51_standardpe_8h
       datasets: see_hear_feel_audio
       hydra/env: default
       hydra/callbacks: null
@@ -171,7 +171,7 @@ datasets:
       num_stack: 5
       frameskip: 5
 models:
-  name: vit_time_patch_128_51_standardpe
+  name: vit_time_patch_128_51
   model:
     _target_: src.models.progress_prediction.time_patch_model
     preprocess_args:
@@ -181,9 +181,9 @@ models:
       norm_audio: false
       hop_ratio: 0.05
     transformer_args:
-      model_dim: 256
+      model_dim: 128
       num_heads: 8
-      num_layers: 4
+      num_layers: 2
   inference:
     ckpt_path: ' '
 optimizers:
