@@ -4,7 +4,7 @@ from src.models.utils.to_patches import Img2Patches
 from typing import Optional
 
 
-class VanillaTokenization(nn.Module):
+class Vanilla2dTokenization(nn.Module):
     """The vanilla way of tokenization for 2D input tensor"""
 
     def __init__(self, channel_size: int = 3, model_dim: int = 32,
@@ -21,6 +21,7 @@ class VanillaTokenization(nn.Module):
 
         # convert the input image tensor to patches
         self.to_patches = Img2Patches(input_size, patch_size)
+        self.num_tokens = self.to_patches.num_patches
         # Input dim -> Model dim
         patch_dim = patch_size[0] * patch_size[1] * channel_size
         self.input_emb = nn.Sequential(

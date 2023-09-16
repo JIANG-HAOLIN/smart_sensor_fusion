@@ -19,11 +19,11 @@ results_dir: 'results'
 hydra:
   sweeper:
     params:
-      models.name: 'earlycat'
-      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
+      models.name: 'mul2one_newemb'
+#      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
+#      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.model_dim: 256
-      datasets.dataloader.batch_size: 128
+      datasets.dataloader.batch_size: 32
   sweep: #only controls where config.yaml is stored
     dir: ./
     subdir: ${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${models.model.model_dim}_${datasets.dataloader.batch_size}/${now:%m-%d-%H:%M:%S}

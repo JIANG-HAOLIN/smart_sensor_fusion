@@ -50,6 +50,7 @@ class VisionAudioFusion(torch.nn.Module):
                  tokenization_vision: DictConfig,
                  pe_vision: DictConfig,
                  encoder_vision_args: DictConfig,
+                 last_pos_emb_args: DictConfig,
                  transformer_classifier_args: DictConfig,
                  **kwargs
                  ):
@@ -75,9 +76,12 @@ class VisionAudioFusion(torch.nn.Module):
 
         self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
         self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
-        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision,
+                                                                  num_patches=self.tokenization_vision.num_tokens)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
 
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, last_pos_emb_args.emb_dim))
+        self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
         self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
 
     def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
@@ -95,5 +99,11 @@ class VisionAudioFusion(torch.nn.Module):
             audio_signal, attn_audio = audio_signal
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
-        cated_signal = torch.cat([audio_signal, vision_signal], dim=1)
-        return self.transformer_classifier(cated_signal)
+
+        cls = self.cls.expand(audio_signal.shape[0], self.cls.shape[1], self.cls.shape[2])
+        cls = self.last_pos_emb(cls, index=0)
+        audio_signal = self.last_pos_emb(audio_signal, index=1)
+        vision_signal = self.last_pos_emb(vision_signal, index=2)
+
+        x = torch.cat([cls, audio_signal, vision_signal], dim=1)
+        return self.transformer_classifier(x)

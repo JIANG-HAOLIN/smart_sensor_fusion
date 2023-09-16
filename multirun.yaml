@@ -10,11 +10,9 @@ hydra:
     _target_: hydra._internal.core_plugins.basic_sweeper.BasicSweeper
     max_batch_size: null
     params:
-      models.name: earlycat
-      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
+      models.name: mul2one_newemb
       models.model.model_dim: '256'
-      datasets.dataloader.batch_size: '128'
+      datasets.dataloader.batch_size: '32'
   help:
     app_name: ${hydra.job.name}
     header: '${hydra.help.app_name} is powered by Hydra.
@@ -196,7 +194,7 @@ models:
       norm_audio: false
       hop_ratio: 0.05
     tokenization_audio:
-      _target_: src.models.utils.tokenization.VanillaTokenization
+      _target_: src.models.utils.tokenization.Vanilla2dTokenization
       channel_size: 1
       patch_size:
       - 64
@@ -219,7 +217,7 @@ models:
     preprocess_vision_args:
       _target_: src.models.encoders.identity.get_identity_encoder
     tokenization_vision:
-      _target_: src.models.utils.tokenization.VanillaTokenization
+      _target_: src.models.utils.tokenization.Vanilla2dTokenization
       channel_size: 3
       patch_size:
       - 16
@@ -229,8 +227,8 @@ models:
       - 90
       model_dim: ${models.model.model_dim}
     pe_vision:
-      _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
-      d_model: ${models.model.model_dim}
+      _target_: src.models.utils.embeddings.VitPatchEmbedding
+      emb_dim: ${models.model.model_dim}
     encoder_vision_args:
       _target_: src.models.transformer_implementations.TransformerEncoder
       token_dim: ${models.model.model_dim}
@@ -239,6 +237,10 @@ models:
       dropout: 0.0
       batch_first: true
       norm_first: true
+    last_pos_emb_args:
+      _target_: src.models.utils.embeddings.ModalTypeEmbedding
+      num_type: 3
+      emb_dim: ${models.model.model_dim}
     transformer_classifier_args:
       _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
       model_dim: ${models.model.model_dim}
@@ -246,8 +248,8 @@ models:
       num_heads: 8
       dropout: 0.0
       input_dropout: 0.0
-      add_positional_encoding: true
       num_layers: 4
+      add_positional_encoding: false
   inference:
     ckpt_path: ' '
 optimizers:

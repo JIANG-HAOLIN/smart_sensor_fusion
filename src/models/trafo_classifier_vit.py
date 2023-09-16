@@ -163,7 +163,7 @@ class TransformerClassifierVitNoPatch(nn.Module):
     """The ViT based Classifier."""
 
     def __init__(self, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
-                 dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
+                 dropout: float = 0.0, input_dropout: float = 0.0,
                  num_layers: int = 2, **kwargs):
         """
         Inputs:
@@ -182,11 +182,7 @@ class TransformerClassifierVitNoPatch(nn.Module):
         self.num_heads = num_heads
         self.dropout = dropout
         self.input_dropout = input_dropout
-        self.add_positional_encoding = add_positional_encoding
         self.num_layers = num_layers
-        self.cls = nn.Parameter(torch.randn(1, 1, model_dim))
-        if add_positional_encoding:
-            self.positional_encoding = StandardPositionalEncoding(d_model=self.model_dim)
         self.transformer_encoder = TransformerEncoder(token_dim=self.model_dim,
                                                       num_blocks=self.num_layers,
                                                       num_heads=self.num_heads,
@@ -209,10 +205,6 @@ class TransformerClassifierVitNoPatch(nn.Module):
             attn_map - list of attention maps of different with shape
                         [ num_layers x tensor(batch_size, num_heads, seq_len, seq_len) ]
         """
-        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
-        x = torch.cat([cls, x], dim=1)
-        if self.add_positional_encoding:
-            x = self.positional_encoding(x)
         x, attn_maps = self.transformer_encoder(x)
         x = x[:, 0]
         x = self.output_net(x)
