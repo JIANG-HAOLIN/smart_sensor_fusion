@@ -1,0 +1,12 @@
+name: 'see_hear_feel_insert_audio'
+
+dataloader:
+  _target_: src.datasets.progress_prediction.get_loaders
+  batch_size: 256
+  data_folder: "data/test_recordings"
+  train_csv: "data/train.csv"
+  val_csv: "data/val.csv"
+  args:
+    num_stack: 5
+    frameskip: 5
+

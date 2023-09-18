@@ -1,0 +1,20 @@
+# config_transpose.yaml
+
+
+defaults:
+- datasets: generate_digits
+- models: transpose/basic_transformer
+- optimizers: adam_steplr
+- pl_modules: transpose_predictor
+- trainers: transpose_predictor
+- _self_
+
+
+# General settings
+task_name: "transpose"
+seed: 42
+results_dir: 'results'
+# output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
+hydra:
+  run:
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/time_${now:%m-%d-%H:%M:%S}

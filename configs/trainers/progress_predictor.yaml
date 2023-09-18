@@ -1,0 +1,3 @@
+launch_trainer:
+  max_epochs: 25
+  monitor:  "val_acc"

@@ -21,7 +21,7 @@ def launch_trainer(pl_module: pl.LightningModule,
                       parameters are stored
         model_name:  the name of the model, can be found in .yaml file inside configs/models
         dataset_name: the name of the dataset, can be found in .yaml file inside configs/datasets
-        task_name: the name of the task(transpose etc.), can be found in config.yaml file in configs folder
+        task_name: the name of the task(transpose etc.), can be found in config_progress_prediction.yaml file in configs folder
         max_epochs: the maximum number of epoch for training
         monitor: which validation metrics to be monitored
         resume: the path of model parameters for inference
