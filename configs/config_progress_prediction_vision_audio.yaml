@@ -16,10 +16,12 @@ variable_name: dim_batchsize
 seed: 42
 results_dir: 'results'
 # output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
+
 hydra:
   sweeper:
     params:
       models.name: 'mul2one_newemb'
+      datasets.dataloader.data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
 #      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
 #      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.model_dim: 256

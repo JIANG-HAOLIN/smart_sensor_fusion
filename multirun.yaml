@@ -11,6 +11,7 @@ hydra:
     max_batch_size: null
     params:
       models.name: mul2one_newemb
+      datasets.dataloader.data_folder: /home/jin4rng/Documents/code/smart_sensor_fusion/data
       models.model.model_dim: '256'
       datasets.dataloader.batch_size: '32'
   help:
