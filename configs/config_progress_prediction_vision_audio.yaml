@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/mul2one_vit_audio_vision
+- models: progress_vision_audio/mul2one_vit_audio_vision.yaml
 - optimizers: adam_steplr
 - pl_modules: progress_predictor_vision_audio
 - trainers: progress_predictor
@@ -20,7 +20,7 @@ results_dir: 'results'
 hydra:
   sweeper:
     params:
-      models.name: 'mul2one_newemb'
+      models.name: 'earlycat_multi_images'
       datasets.dataloader.data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
 #      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
 #      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder

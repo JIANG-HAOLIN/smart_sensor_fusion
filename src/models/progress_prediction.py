@@ -76,8 +76,7 @@ class VisionAudioFusion(torch.nn.Module):
 
         self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
         self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
-        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision,
-                                                                  num_patches=self.tokenization_vision.num_tokens)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
 
         self.cls = torch.nn.Parameter(torch.randn(1, 1, last_pos_emb_args.emb_dim))
@@ -90,8 +89,11 @@ class VisionAudioFusion(torch.nn.Module):
         audio_signal = self.positional_encoding_audio(audio_signal)
         audio_signal = self.encoder_audio(audio_signal)
 
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
         vision_signal = self.preprocess_vision(vision_signal)
         vision_signal = self.tokenization_vision(vision_signal)
+        vision_signal = vision_signal.view(batch_size, num_stack*vision_signal.shape[-2], vision_signal.shape[-1])
         vision_signal = self.positional_encoding_vision(vision_signal)
         vision_signal = self.encoder_vision(vision_signal)
 

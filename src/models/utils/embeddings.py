@@ -28,4 +28,7 @@ class VitPatchEmbedding(torch.nn.Module):
         args:
             x - input sequence of type [batch size, sequence len, token dim]
         """
-        return x + self.pos_embedding
+        if x.shape[1] > self.pos_embedding.shape[1]:
+            raise RuntimeError('the input sequence length is larger than the maximum number of usable positional '
+                               'embedding vectors, please use larger num_patches !')
+        return x + self.pos_embedding[:, :x.shape[1]]

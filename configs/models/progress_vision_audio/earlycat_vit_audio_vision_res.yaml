@@ -20,7 +20,7 @@ model:
     _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
     d_model: ${models.model.model_dim}
   encoder_audio_args:
-    _target_: src.models.transformer_implementations.TransformerEncoder
+    _target_: src.models.encoders.identity.get_identity_encoder
     token_dim: ${models.model.model_dim}
     num_blocks: 4
     num_heads: 8
@@ -29,9 +29,10 @@ model:
     norm_first: True
 
   preprocess_vision_args:
-    _target_: src.models.encoders.identity.get_identity_encoder
+    _target_: src.models.encoders.res_net_18.make_vision_encoder
+    out_dim: 256
   tokenization_vision:
-    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    _target_: src.models.encoders.identity.get_identity_encoder
     channel_size: 3
     patch_size: [ 16, 16 ]
     input_size: [ 67, 90 ]
@@ -39,9 +40,9 @@ model:
   pe_vision:
     _target_: src.models.utils.embeddings.VitPatchEmbedding
     emb_dim: ${models.model.model_dim}
-    num_patches: 100
+    num_patches: 5
   encoder_vision_args:
-    _target_: src.models.transformer_implementations.TransformerEncoder
+    _target_: src.models.encoders.identity.get_identity_encoder
     token_dim: ${models.model.model_dim}
     num_blocks: 4
     num_heads: 8

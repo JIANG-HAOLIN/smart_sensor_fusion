@@ -27,6 +27,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.num_classes = kwargs['num_classes']
+        self.num_images = kwargs['num_images']
         self.validation_epoch_outputs = []
         self.validation_preds = []
 
@@ -39,7 +40,7 @@ class TransformerPredictorPl(pl.LightningModule):
         # Fetch data and transform categories to one-hot vectors
         inp_data, _, _, _, _, labels = batch
         # Perform prediction and calculate loss and accuracy
-        out = self.mdl.forward(inp_data[1][:, -1, :, :], inp_data[4])
+        out = self.mdl.forward(inp_data[1][:, -1 * self.num_images:, :, :, :], inp_data[4])
         preds = out[0]
         loss = F.cross_entropy(preds.view(-1, preds.size(-1)), labels.view(-1))
         acc = (preds.argmax(dim=-1) == labels).float().mean()
