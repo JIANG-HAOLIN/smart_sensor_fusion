@@ -12,7 +12,7 @@ class TransformerEncoder(nn.Module):
         """
 
         Args:
-            token_dim: the input dimension of embedded tokens
+            token_dim: the input dimension of embedded tokens and embedded q,k,v dimension
             num_blocks: number of blocks
             num_heads: number of attention heads
             middle_dim_mlp: the intermediate dimension of feedforward network

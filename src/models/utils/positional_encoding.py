@@ -7,7 +7,7 @@ import math
 
 class StandardPositionalEncoding(torch.nn.Module):
 
-    def __init__(self, d_model: int = 256, max_len: int = 5000) -> None:
+    def __init__(self, d_model: int = 256, max_len: int = 5000, **kwargs) -> None:
         """Add positional encoding from tutorial 6 to the input tokens for transformer.
 
         Inputs
