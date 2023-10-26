@@ -41,9 +41,5 @@ class TestVisionAudioFusion(unittest.TestCase):
             self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
 
-
-if __name__ == '__main__':
-    unittest.main()
-
 if __name__ == "__main__":
     unittest.main()

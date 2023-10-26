@@ -221,7 +221,7 @@ class VisionAudioTactile(Dataset):
         # compute which frames to use
         frame_idx = np.arange(start, idx + 1, self.frameskip)
         frame_idx[frame_idx < 0] = -1
-        # images
+        # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0
         cam_fixed_framestack = 0
