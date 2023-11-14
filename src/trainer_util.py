@@ -1,7 +1,7 @@
 import os
 import pytorch_lightning as pl
 import numpy as np
-from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from datetime import datetime
 from typing import Optional
@@ -38,10 +38,11 @@ def launch_trainer(pl_module: pl.LightningModule,
         mode="max",
     )
 
-    logger = TensorBoardLogger(
+    tensorboard_logger = TensorBoardLogger(
         save_dir=out_dir_path,
         version=task_name + exp_time, name="lightning_tensorboard_logs"
     )
+    csv_logger = CSVLogger(save_dir=out_dir_path, version=task_name + exp_time, name="csv_logs")
     trainer = pl.Trainer(
         max_epochs=max_epochs,
         callbacks=[checkpoint],
@@ -51,7 +52,7 @@ def launch_trainer(pl_module: pl.LightningModule,
         strategy="auto",
         check_val_every_n_epoch=1,
         log_every_n_steps=1,
-        logger=logger,
+        logger=[tensorboard_logger, csv_logger],
     )
     trainer.fit(
         pl_module,
@@ -59,6 +60,8 @@ def launch_trainer(pl_module: pl.LightningModule,
         if resume is None
         else resume,
     )
-    print("best_model", checkpoint.best_model_path)
+    with open(out_dir_path+'/best_model.text', 'w') as f:
+        f.write(f"best validation accuracy: {checkpoint.best_model_score}\n")
+        f.write(f"best_model path: {checkpoint.best_model_path}")
 
 

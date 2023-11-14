@@ -1,5 +1,5 @@
 pl_module:
   _target_: src.pl_modules.progress_prediction_vision_audio.TransformerPredictorPl
   num_classes: 10
-  num_images: 1
+  num_images: 5
 

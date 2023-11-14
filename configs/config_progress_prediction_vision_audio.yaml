@@ -20,13 +20,13 @@ results_dir: 'results'
 hydra:
   sweeper:
     params:
-      models.name: 'earlycat_multi_images_no_extractor'
+      models.name: 'earlycat'
       datasets.dataloader.data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
       models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.model_dim: 256
+#      models.model.model_dim: 256
       datasets.dataloader.batch_size: 32
-      pl_modules.pl_module.num_images: 1,5
+      pl_modules.pl_module.num_images: 5
   sweep: #only controls where config.yaml is stored
     dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${pl_modules.pl_module.num_images}/${now:%m-%d-%H:%M:%S}
     subdir: ./

@@ -29,13 +29,13 @@ class CoordConv(nn.Module):
 
 class Encoder(nn.Module):
     """Feature Extractor using Resnet-18"""
-    def __init__(self, feature_extractor, out_dim=None):
+    def __init__(self, feature_extractor, in_dim=256, out_dim=None):
         super().__init__()
         self.feature_extractor = feature_extractor
         self.coord_conv = CoordConv()
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         if out_dim is not None:
-            self.fc = nn.Conv2d(256, out_dim, kernel_size=1)
+            self.fc = nn.Conv2d(in_dim, out_dim, kernel_size=1)
 
     def forward(self, x):
         """
@@ -53,17 +53,23 @@ class Encoder(nn.Module):
         return torch.flatten(x, start_dim=1).unsqueeze(1)
 
 
-def make_audio_encoder(out_dim=None):
+def make_audio_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
     audio_extractor = resnet18()
     audio_extractor.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False)
-    audio_extractor = create_feature_extractor(audio_extractor, ["layer3.1.relu_1"])
+    audio_extractor = create_feature_extractor(audio_extractor, [out_layer])
+    out_dim_dict = {
+        "layer3.1.relu_1": 256,
+        "layer4.1.relu_1": 512,
+    }
+    return Encoder(audio_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
 
-    return Encoder(audio_extractor, out_dim)
 
-
-def make_vision_encoder(out_dim=None):
+def make_vision_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
     audio_extractor = resnet18()
     audio_extractor.conv1 = nn.Conv2d(5, 64, kernel_size=7, stride=1, padding=3, bias=False)
-    audio_extractor = create_feature_extractor(audio_extractor, ["layer3.1.relu_1"])
-
-    return Encoder(audio_extractor, out_dim)
+    audio_extractor = create_feature_extractor(audio_extractor, [out_layer])
+    out_dim_dict = {
+        "layer3.1.relu_1": 256,
+        "layer4.1.relu_1": 512,
+    }
+    return Encoder(audio_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)

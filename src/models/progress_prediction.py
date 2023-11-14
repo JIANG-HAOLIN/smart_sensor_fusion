@@ -1,4 +1,6 @@
 import torch
+import torch.nn as nn
+from torch.nn.modules.activation import MultiheadAttention
 from src.models.trafo_classifier_vit import TransformerClassifierVit, TransformerClassifierVit_Mel
 from src.models.utils.mel_spec import MelSpec
 from omegaconf import DictConfig, OmegaConf
@@ -7,6 +9,7 @@ import hydra
 
 class classification_model(torch.nn.Module):
     """Classification model for progress prediction for audio signal from see_hear_feel using vanilla ViT"""
+
     def __init__(self,
                  preprocess_args: DictConfig,
                  encoder_args: DictConfig,
@@ -25,6 +28,7 @@ class classification_model(torch.nn.Module):
 
 class time_patch_model(torch.nn.Module):
     """Classification model for progress prediction for audio signal from see_hear_feel using columns from mel spec"""
+
     def __init__(self,
                  preprocess_args: DictConfig,
                  transformer_args: DictConfig,
@@ -41,6 +45,7 @@ class time_patch_model(torch.nn.Module):
 
 class VisionAudioFusion(torch.nn.Module):
     """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
+
     def __init__(self,
                  preprocess_audio_args: DictConfig,
                  tokenization_audio: DictConfig,
@@ -93,7 +98,7 @@ class VisionAudioFusion(torch.nn.Module):
         vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
         vision_signal = self.preprocess_vision(vision_signal)
         vision_signal = self.tokenization_vision(vision_signal)
-        vision_signal = vision_signal.view(batch_size, num_stack*vision_signal.shape[-2], vision_signal.shape[-1])
+        vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
         vision_signal = self.positional_encoding_vision(vision_signal)
         vision_signal = self.encoder_vision(vision_signal)
 
@@ -109,3 +114,103 @@ class VisionAudioFusion(torch.nn.Module):
 
         x = torch.cat([cls, audio_signal, vision_signal], dim=1)
         return self.transformer_classifier(x)
+
+
+class VisionAudioFusion_seehearfeel(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using see_hear_feel vg_ah ablation"""
+
+    def __init__(self,
+                 a_encoder: DictConfig,
+                 v_encoder: DictConfig,
+                 preprocess_audio_args: DictConfig,
+                 args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+
+             **kwargs:
+        """
+        super().__init__()
+        self.v_encoder = hydra.utils.instantiate(v_encoder)
+        self.a_encoder = hydra.utils.instantiate(a_encoder)
+        self.a_mel = hydra.utils.instantiate(preprocess_audio_args)
+        self.mlp = None
+        self.layernorm_embed_shape = args.encoder_dim * args.num_stack  ### 256x5 ### why 5 ????
+        self.encoder_dim = args.encoder_dim
+        self.ablation = args.ablation
+        self.use_vision = False
+        self.use_tactile = False
+        self.use_audio = False
+        self.use_mha = args.use_mha
+        self.query = nn.Parameter(torch.randn(1, 1, self.layernorm_embed_shape))
+
+        ## load models
+        self.modalities = self.ablation.split("_")  #### vg=gripper_cam t=tactile ah=fixed_mic
+        print(f"Using modalities: {self.modalities}")
+        self.embed_dim = self.layernorm_embed_shape * len(self.modalities)  ## 256 5 3 all emb concat together!
+        self.layernorm = nn.LayerNorm(self.layernorm_embed_shape)
+        self.mha = MultiheadAttention(self.layernorm_embed_shape, args.num_heads)
+        self.bottleneck = nn.Linear(
+            self.embed_dim, self.layernorm_embed_shape
+        )  # if we dont use mha
+
+        # action_dim = 3 ** task2actiondim[args.task]
+
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(self.layernorm_embed_shape, 1024),  ## 256x6->1024
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, 1024),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, 10),
+        )
+        self.aux_mlp = torch.nn.Linear(self.layernorm_embed_shape, 6)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+        """
+                Args:
+                    cam_fixed_framestack, cam_gripper_framestack, tactile_framestack, audio_clip_g, audio_clip_h
+                    vf_inp: [batch, num_stack, 3, H, W]
+                    vg_inp: [batch, num_stack, 3, H, W]
+                    t_inp: [batch, num_stack, 3, H, W]
+                    a_inp: [batch, 1, T]
+
+                """
+
+        vg_inp, audio_h = vision_signal, audio_signal
+        embeds = []
+
+        if "vg" in self.modalities:
+            batch, num_stack, _, Hv, Wv = vg_inp.shape
+            vg_inp = vg_inp.view(batch * num_stack, 3, Hv, Wv)
+            vg_embeds = self.v_encoder(vg_inp)  # [batch * num_stack, encoder_dim]
+            vg_embeds = vg_embeds.view(
+                -1, self.layernorm_embed_shape
+            )  # [batch, encoder_dim * num_stack]
+            embeds.append(vg_embeds)
+        if "ah" in self.modalities:
+            batch, _, _ = audio_h.shape
+            ah_mel = self.a_mel(audio_h)
+            ah_embeds = self.a_encoder(ah_mel)
+            ah_embeds = ah_embeds.view(-1, self.layernorm_embed_shape)
+            embeds.append(ah_embeds)
+
+        if self.use_mha:  ## stack or concate
+            mlp_inp = torch.stack(embeds, dim=0)  # create a new dimension !!! [3, batch, D]
+            # batch first=False, (L, N, E)
+            # query = self.query.repeat(1, batch, 1) # [1, 1, D] -> [1, batch, D]
+            # change back to 3*3
+            mha_out, weights = self.mha(mlp_inp, mlp_inp, mlp_inp)  # [3, batch, D]
+            mha_out += mlp_inp
+            mlp_inp = torch.concat([mha_out[i] for i in range(mha_out.shape[0])], 1)
+            mlp_inp = self.bottleneck(mlp_inp)
+            # mlp_inp = mha_out.squeeze(0) # [batch, D]
+        else:
+            mlp_inp = torch.cat(embeds, dim=-1)
+            mlp_inp = self.bottleneck(mlp_inp)
+            weights = None
+
+        action_logits = self.mlp(mlp_inp)
+        xyzrpy = self.aux_mlp(mlp_inp)
+        return [action_logits, xyzrpy]
