@@ -4,6 +4,9 @@
 plot.py
 sample_noise_vector.py
 
+*.csv
+**/*.csv
+
 checkpoints/
 **/checkpoints/
 
