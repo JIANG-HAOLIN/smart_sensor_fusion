@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/mul2one_vit_audio_vision
+- models: progress_vision_audio/earlycat_vit_vgah_timeemb
 - optimizers: adam_steplr
 - pl_modules: progress_predictor_vision_audio
 - trainers: progress_predictor
@@ -12,7 +12,7 @@ defaults:
 
 # General settings
 task_name: "progress_prediction"
-variable_name: num_images
+variable_name: time_emb
 seed: 42
 results_dir: 'results'
 # output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
@@ -28,10 +28,10 @@ hydra:
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5
   sweep: #only controls where config.yaml is stored
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${pl_modules.pl_module.num_images}/${now:%m-%d-%H:%M:%S}
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
     subdir: ./
   run: #also works for multi-run
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${pl_modules.pl_module.num_images}/${now:%m-%d-%H:%M:%S}
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
 
 
 

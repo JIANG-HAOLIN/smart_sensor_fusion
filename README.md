@@ -13,6 +13,8 @@ Repository for Smart Sensor Fusion project
 * Fourth, to split the training/testing dataset, run `python utils/split_train_val.py`
 * Brief explanation for the example dataset: Under data/test_recordings, each folder is an episode. timestamps.json contains the human demo actions and the pose history of the robot, while each subfolder contains a stream of sensory inputs.
 
+* Bosch raw dataset 2023-04-19 14-56-56.csv has 1636402 lines and 822 columns
+ 
 ## Run training
 * Train the model for transpose task: `python train.py --config-name config_transpose`
 * Train the model for progress_prediction task with default configuration: `python train.py --config-name config_progress_prediction`

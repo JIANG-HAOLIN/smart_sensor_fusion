@@ -54,6 +54,15 @@ class TestVisionAudioFusion_seehearfeel(unittest.TestCase):
             out = mdl(*input)
             self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
+class TestVisionAudioFusionTimeEmb(unittest.TestCase):
+    def test_vision_audio_fusion_time_emb(self):
+        with initialize(version_base='1.2', config_path="../../../../configs/"):
+            # config is relative to a module
+            cfg = compose(config_name="config_progress_prediction_vision_audio", overrides=['models=progress_vision_audio/earlycat_vit_vgah_timeemb'])
+            mdl = hydra.utils.instantiate(cfg.models.model, _recursive_=False)
+            input = (torch.randn([2, 5, 3, 67, 90]), torch.randn([2, 1, 40000]),)
+            out = mdl(*input)
+            self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,4 +1,5 @@
 import torch
+from typing import Optional
 
 
 class ModalTypeEmbedding(torch.nn.Module):
@@ -32,3 +33,25 @@ class VitPatchEmbedding(torch.nn.Module):
             raise RuntimeError('the input sequence length is larger than the maximum number of usable positional '
                                'embedding vectors, please use larger num_patches !')
         return x + self.pos_embedding[:, :x.shape[1]]
+
+
+class LearnablePosEmb(torch.nn.Module):
+    """General embedding for token sequence of any shape alone single dimension"""
+
+    def __init__(self, num_emb: int, emb_dim: int = 256, **kwargs):
+        super().__init__()
+        self.pos_embedding = torch.nn.Parameter(torch.randn(num_emb, emb_dim))
+
+    def forward(self, x: torch.Tensor, which_dim: int = 1, **kwargs) -> torch.Tensor:
+        """
+        args:
+            x - input sequence of type [batch size, sequence len, token dim]
+            which_dim - embded along which dimension
+        """
+        out_shape = len(x.shape)
+        pos_embedding = self.pos_embedding
+        for i in range(out_shape - 1):
+            if i != which_dim:
+                pos_embedding = pos_embedding.unsqueeze(i)
+        embs = pos_embedding.index_select(which_dim, torch.arange(x.shape[which_dim], device=x.device))
+        return x + embs

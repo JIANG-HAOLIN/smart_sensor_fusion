@@ -81,7 +81,7 @@ class TransformerPredictorPl(pl.LightningModule):
         val_acc = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.validation_preds.clear()
-        self.log("val_acc", val_acc, on_step=False, on_epoch=True)
+        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
 
         print(f'val_acc at epoch {self.current_epoch}:', float(val_acc.item()))
 

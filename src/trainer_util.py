@@ -2,10 +2,10 @@ import os
 import pytorch_lightning as pl
 import numpy as np
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, RichProgressBar
+from utils.progress_bar import MyProgressBar
 from datetime import datetime
 from typing import Optional
-
 
 def launch_trainer(pl_module: pl.LightningModule,
                    out_dir_path: str,
@@ -45,7 +45,7 @@ def launch_trainer(pl_module: pl.LightningModule,
     csv_logger = CSVLogger(save_dir=out_dir_path, version=task_name + exp_time, name="csv_logs")
     trainer = pl.Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint],
+        callbacks=[checkpoint, RichProgressBar()],
         default_root_dir=model_name,
         accelerator='gpu',
         devices=-1,

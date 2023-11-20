@@ -7,7 +7,7 @@ from typing import Optional
 
 
 class TransformerClassifierVit(nn.Module):
-    """The ViT based Classifier."""
+    """The ViT based Classifier w/ tokenization, standard 2d pos emb."""
 
     def __init__(self, channel_size: int = 3, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
@@ -83,7 +83,7 @@ class TransformerClassifierVit(nn.Module):
 
 
 class TransformerClassifierVit_Mel(nn.Module):
-    """The ViT based Classifier for Mel Spectrogram input."""
+    """The ViT based Classifier for Mel Spectrogram input w/ tokenization and embedding."""
 
     def __init__(self, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0, add_positional_encoding: bool = True,
@@ -141,7 +141,7 @@ class TransformerClassifierVit_Mel(nn.Module):
     def forward(self, x: torch.Tensor) -> [torch.Tensor, list]:
         """
         Inputs:
-            x - Input img tensor of shape [batch size, channel size, height, width]
+            x - Input mel spectrogram tensor of shape [batch size, channel size, height, width]
         Returns:
             x - Output features of shape [Batch, SeqLen, model_dim]
             attn_map - list of attention maps of different with shape
@@ -160,7 +160,7 @@ class TransformerClassifierVit_Mel(nn.Module):
 
 
 class TransformerClassifierVitNoPatch(nn.Module):
-    """The ViT based Classifier."""
+    """The ViT based Classifier w/o tokenization or embedding(directly takes embedded tokens as input)."""
 
     def __init__(self, model_dim: int = 32, num_classes: int = 10, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0,

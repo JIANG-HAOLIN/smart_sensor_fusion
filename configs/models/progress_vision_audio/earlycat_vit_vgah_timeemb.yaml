@@ -1,7 +1,7 @@
-name: 'mul2one_vit_audio_vision'
+name: 'earlycat_vgah_timeemb'
 
 model:
-  _target_: src.models.progress_prediction.VisionAudioFusion
+  _target_: src.models.progress_prediction.VisionAudioFusionTimeEmb
   model_dim: 256
   preprocess_audio_args:
     _target_: src.models.utils.mel_spec.MelSpec
@@ -29,18 +29,21 @@ model:
     norm_first: True
 
   preprocess_vision_args:
-    _target_: src.models.encoders.res_net_18.make_vision_encoder
-    out_dim: 256
-  tokenization_vision:
     _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_vision:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
     channel_size: 3
     patch_size: [ 16, 16 ]
     input_size: [ 67, 90 ]
     model_dim: ${models.model.model_dim}
-  pe_vision:
-    _target_: src.models.utils.embeddings.VitPatchEmbedding
+  pe_vision_temporal:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
     emb_dim: ${models.model.model_dim}
-    num_patches: 5
+    num_emb: 5
+  pe_vision_spatial:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 20
   encoder_vision_args:
     _target_: src.models.encoders.identity.get_identity_encoder
     token_dim: ${models.model.model_dim}
