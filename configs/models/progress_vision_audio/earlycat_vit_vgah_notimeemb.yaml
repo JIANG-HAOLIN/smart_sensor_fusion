@@ -1,4 +1,4 @@
-name: 'mul2one_vit_audio_vision'
+name: 'earlycat_vit_vgah_notimeemb'
 
 model:
   _target_: src.models.progress_prediction.VisionAudioFusion

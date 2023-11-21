@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/earlycat_vit_vgah_timeemb
+- models: progress_vision_audio/earlycat_vit_vgah_notimeemb
 - optimizers: adam_steplr
 - pl_modules: progress_predictor_vision_audio
 - trainers: progress_predictor
@@ -12,7 +12,7 @@ defaults:
 
 # General settings
 task_name: "progress_prediction"
-variable_name: time_emb
+variable_name: no_time_emb
 seed: 42
 results_dir: 'results'
 # output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
@@ -20,7 +20,6 @@ results_dir: 'results'
 hydra:
   sweeper:
     params:
-      models.name: 'earlycat'
       datasets.dataloader.data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
       models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
@@ -31,7 +30,7 @@ hydra:
     dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
     subdir: ./
   run: #also works for multi-run
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
+    dir: ${hydra.sweep.dir}
 
 
 

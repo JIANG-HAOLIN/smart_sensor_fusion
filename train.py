@@ -19,6 +19,7 @@ def train(cfg: DictConfig) -> None:
     out_dir_path = HydraConfig.get().run.dir
 
     log = logging.getLogger(__name__)
+
     log.info('*-------- train func starts --------*')
     log.info('output folder:' + out_dir_path + '\n')
     log.info('project_path:' + project_path + '\n')
@@ -40,6 +41,8 @@ def train(cfg: DictConfig) -> None:
     log.info(f"current experiment output path: {out_dir_path}")
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cuda')
+    log.info(f"model trainable params:{sum(p.numel() for p in model.parameters() if p.requires_grad)}")
+    log.info(f"model non-trainable params:{sum(p.numel() for p in model.parameters() if not p.requires_grad)}")
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path)
@@ -54,4 +57,5 @@ def train(cfg: DictConfig) -> None:
 
 if __name__ == "__main__":
     for i in range(3):
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
         train()

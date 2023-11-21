@@ -38,7 +38,7 @@ src/__pycache__/
 **/*.out
 
 *.log
-**/*.out
+**/miscellaneous.py
 
 
 delete.py
@@ -67,5 +67,3 @@ structure_experiments.py
 personal_experiments.py
 utils_contrastive/
 
-
-personal_experiments.py

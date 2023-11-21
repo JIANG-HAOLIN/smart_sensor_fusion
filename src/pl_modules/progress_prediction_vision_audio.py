@@ -3,6 +3,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import pytorch_lightning as pl
+import logging
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TransformerPredictorPl(pl.LightningModule):
@@ -83,8 +88,6 @@ class TransformerPredictorPl(pl.LightningModule):
         self.validation_preds.clear()
         self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        print(f'val_acc at epoch {self.current_epoch}:', float(val_acc.item()))
+        logger.info(f'val_acc at epoch {self.current_epoch}:, {float(val_acc.item())}')
 
         return val_acc
-
-
