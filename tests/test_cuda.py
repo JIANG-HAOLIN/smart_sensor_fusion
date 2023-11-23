@@ -12,19 +12,19 @@ if torch.cuda.is_available():
 else:
     print(f'no Cuda detected, using CPU instead !!')
 
-w = torch.nn.Parameter(torch.randn([1, ]), requires_grad=True)
-y = 1
+w = torch.nn.Parameter(torch.randn([1, ], device='cuda'), requires_grad=True)
+y = torch.tensor(1, device='cuda')
 
 loss = y - w
 grad = loss.backward()
-print(w.grad)
+print("gradient computed successfully!!", w.grad)
 
 
 # Generate synthetic data
 torch.manual_seed(42)  # for reproducibility
-X = torch.linspace(0, 99, 100).reshape(-1, 1)
+X = torch.linspace(0, 99, 100, device='cuda').reshape(-1, 1)
 y_true = torch.sin(X)
-y_noisy = y_true + torch.randn_like(y_true)
+y_noisy = y_true + torch.randn_like(y_true, device='cuda')
 
 # Define a simple neural network model
 class SimpleModel(nn.Module):
@@ -36,7 +36,7 @@ class SimpleModel(nn.Module):
         return self.MLP(x)
 
 # Instantiate the model, loss function, and optimizer
-model = SimpleModel()
+model = SimpleModel().to('cuda')
 criterion = nn.MSELoss()
 optimizer = optim.SGD(model.parameters(), lr=0.001)
 
@@ -57,5 +57,5 @@ for epoch in range(num_epochs):
 
     # Print the loss every 100 epochs
     if (epoch + 1) % 1 == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
+        print(f'GPU and pytorch are working correctly! Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.4f}')
 
