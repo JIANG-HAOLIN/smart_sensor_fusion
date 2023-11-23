@@ -40,6 +40,9 @@ src/__pycache__/
 *.log
 **/miscellaneous.py
 
+**/*.stderr
+**/*.stdout
+
 
 delete.py
 */delete.py
