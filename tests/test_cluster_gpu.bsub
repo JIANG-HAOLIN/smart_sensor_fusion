@@ -20,7 +20,7 @@
 # Anaconda virtualenv to be used
 # Create before runnign the job with e.g.
 # conda create -n pytorch-3.5 python=3.5 pytorch torchvision
-vEnv=pytorch-3.5 # (please change)
+vEnv=ssf # (please change)
 
 # Source environment (optional)
 #. /fs/applications/lsf/latest/conf/profile.lsf
@@ -31,7 +31,7 @@ module purge
 module load conda/4.3.33-readonly cuda/8.0.0 cudnn/8.0_v7.0
 
 # Activate environment
-source activate ssf
+source activate vEnv
 
 # Run your code here (please change, this is only an example)
 cat << EOT > pytorch-3.5.py
