@@ -34,4 +34,4 @@ module load conda/4.3.33-readonly cuda/8.0.0 cudnn/8.0_v7.0
 source activate ssf
 
 # Run your code here (please change, this is only an example)
-python train.py -cn config_transpose
+python train.py -cn config_progress_prediction_vision_audio

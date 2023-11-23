@@ -15,12 +15,13 @@ task_name: "progress_prediction"
 variable_name: no_time_emb
 seed: 42
 results_dir: 'results'
+data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
 # output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
 
 hydra:
   sweeper:
     params:
-      datasets.dataloader.data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
+      datasets.dataloader.data_folder: ${data_folder_path}
       models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
 #      models.model.model_dim: 256

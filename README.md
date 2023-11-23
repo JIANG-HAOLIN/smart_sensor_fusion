@@ -16,11 +16,11 @@ Repository for Smart Sensor Fusion project
 * Bosch raw dataset 2023-04-19 14-56-56.csv has 1636402 lines and 822 columns
  
 ## Run training
+* Remember to override the data_folder_path if your data folder is not saved at default location, see ```Help``` #2 for more detail
 * Train the model for transpose task: `python train.py --config-name config_transpose`
 * Train the model for progress_prediction task with default configuration: `python train.py --config-name config_progress_prediction`
 * Train the model for progress_prediction task with multiple configuration(sweeper): `python train.py -cn config_progress_prediction -m`
 * Train the model for progress_prediction task using both vision and audio signal with multiple configuration(sweeper):
-  * first fill the datasets.dataloader.data_folder variable with absolute path of the dataset folder in config_progress_prediction_vision_audio.yaml
   * `python train.py -cn config_progress_prediction_vision_audio -m`
 
 ## Run inference
@@ -32,7 +32,7 @@ Repository for Smart Sensor Fusion project
   e.g. `python demo_progress_prediction_vision_audio.py -cp '../results/progress_prediction/vision_audio/earlycat_newemb/exp_dim_batchsize/256_32/09-13-14:11:41/.hydra' 'models.inference.ckpt_path="09-13-14:11:41-jobid=0-epoch=13-step=5684.ckpt"'`
 
 ## Help
-* Hydra command line flags and override
+* #1 Hydra command line flags and override
   * if using run configuration of IDE to pass the arguments:
     * override hydra arguments example: `python train.py task_name='override_args'` (check [here](https://hydra.cc/docs/advanced/override_grammar/basic/))
     * manipulate hydra config using command line: `python train.py --config-name config_transpose` (check [here](https://hydra.cc/docs/advanced/hydra-command-line-flags/))
@@ -41,3 +41,6 @@ Repository for Smart Sensor Fusion project
     * override hydra arguments example: `python train.py 'task_name="override_args"'` (check [here](https://hydra.cc/docs/advanced/override_grammar/basic/))
     * manipulate hydra config using command line: `python train.py --config-name config_transpose` (check [here](https://hydra.cc/docs/advanced/hydra-command-line-flags/))
     * manipulate hydra config and override hydra args: `python train.py --config-name config_transpose 'task_name="override_args"'`
+* #2 About where datasets are saved and specifying the path to the folder:
+  * the default path to data folder is: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data' for both my laptop and cluster, if your data are store on a different location, please override the data_folder_path by add the following flag when running train.py:
+    * data_folder_path='...' if using IDEs like pycharm or 'data_folder_path="..."' if running in terminal

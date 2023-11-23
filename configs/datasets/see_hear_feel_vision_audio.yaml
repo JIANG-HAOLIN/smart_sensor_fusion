@@ -4,7 +4,7 @@ dataloader:
   # norm_audio: True
   _target_: src.datasets.vision_audio.get_loaders
   batch_size: 128
-  data_folder: '/home/jin4rng/Documents/code/smart_sensor_fusion/data'
+  data_folder: ''
   args:
     ablation: 'vg_ah'
     train_csv: 'train.csv'
