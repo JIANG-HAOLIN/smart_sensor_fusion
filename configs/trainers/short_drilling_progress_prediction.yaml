@@ -1,0 +1,3 @@
+launch_trainer:
+  max_epochs: 10
+  monitor:  "avg_val_loss"

@@ -1,0 +1,4 @@
+pl_module:
+  _target_: src.pl_modules.short_drilling_progress.TransformerPredictorPl
+  num_classes: 1
+

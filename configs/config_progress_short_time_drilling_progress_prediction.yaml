@@ -1,0 +1,34 @@
+# config_progress_prediction.yaml
+
+
+defaults:
+- datasets: bautiro_drilling
+- models: short_drilling_progress/earlycat_short_drilling_progress_prediction_vanilla
+- optimizers: adam_steplr
+- pl_modules: short_drilling_progress_prediction
+- trainers: short_drilling_progress_prediction
+- _self_
+
+
+# General settings
+task_name: "short_term_drilling_progress_prediction"
+variable_name: vanilla_model
+seed: 42
+results_dir: 'results'
+data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data/'
+# output dir path: smart_sensor_fusion/results/task name/dataset name/model name/time stamp/
+
+hydra:
+  sweeper:
+    params:
+      datasets.dataloader.data_folder: ${data_folder_path}
+#      models.model.model_dim: 256
+      datasets.dataloader.batch_size: 32
+  sweep: #only controls where config.yaml is stored
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
+    subdir: ./
+  run: #also works for multi-run
+    dir: ${hydra.sweep.dir}
+
+
+

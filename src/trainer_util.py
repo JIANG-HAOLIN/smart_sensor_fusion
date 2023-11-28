@@ -2,8 +2,8 @@ import os
 import pytorch_lightning as pl
 import numpy as np
 from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
-from pytorch_lightning.callbacks import ModelCheckpoint
-from utils.progress_bar import MyProgressBar
+from pytorch_lightning.callbacks import ModelCheckpoint, Timer
+from utils.my_callbacks import MyProgressBar, MyEpochTimer
 from datetime import datetime
 from typing import Optional
 
@@ -37,7 +37,6 @@ def launch_trainer(pl_module: pl.LightningModule,
         monitor=monitor,
         mode="max",
     )
-
     tensorboard_logger = TensorBoardLogger(
         save_dir=out_dir_path,
         version=task_name + exp_time, name="lightning_tensorboard_logs"
@@ -45,7 +44,7 @@ def launch_trainer(pl_module: pl.LightningModule,
     csv_logger = CSVLogger(save_dir=out_dir_path, version=task_name + exp_time, name="csv_logs")
     trainer = pl.Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint, MyProgressBar()],
+        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer()],
         default_root_dir=model_name,
         accelerator='gpu',
         devices=-1,
@@ -61,7 +60,7 @@ def launch_trainer(pl_module: pl.LightningModule,
         else resume,
     )
     with open(out_dir_path+'/best_model.text', 'w') as f:
-        f.write(f"best validation accuracy: {checkpoint.best_model_score}\n")
+        f.write(f"best val accu/lowest val loss: {checkpoint.best_model_score}\n")
         f.write(f"best_model path: {checkpoint.best_model_path}")
 
 

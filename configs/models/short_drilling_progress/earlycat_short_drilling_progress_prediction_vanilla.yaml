@@ -1,0 +1,115 @@
+name: 'earlycat_short_drilling_progress_prediction_vanilla'
+
+model:
+  _target_: src.models.progress_prediction.ShortDrillingProgressPredictionVanilla
+  model_dim: 256
+  
+  preprocess_acc_cage_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 37500
+    sr: 12500
+    n_mels: 64
+    norm_audio: false
+    hop_ratio: 0.02
+  tokenization_acc_cage:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 1
+    patch_size: [64, 10]
+    input_size: [64, 151]
+    model_dim: ${models.model.model_dim}
+  pe_acc_cage_temporal:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 3
+  pe_acc_cage_spatial:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 15
+
+  preprocess_acc_ptu_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 37500
+    sr: 12500
+    n_mels: 64
+    norm_audio: false
+    hop_ratio: 0.02
+  tokenization_acc_ptu:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 1
+    patch_size: [64, 10]
+    input_size: [64, 151]
+    model_dim: ${models.model.model_dim}
+  pe_acc_ptu_temporal:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 3
+  pe_acc_ptu_spatial:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 15
+    
+  preprocess_force_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 3000
+    sr: 1000
+    n_mels: 16
+    norm_audio: false
+    hop_ratio: 0.02
+  tokenization_force:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 1
+    patch_size: [16, 10]
+    input_size: [16, 150]
+    model_dim: ${models.model.model_dim}
+  pe_force_temporal:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 3
+  pe_force_spatial:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 15
+
+  preprocess_current_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 3000
+    sr: 1000
+    n_mels: 16
+    norm_audio: false
+    hop_ratio: 0.02
+  tokenization_current:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 1
+    patch_size: [16, 10]
+    input_size: [16, 150]
+    model_dim: ${models.model.model_dim}
+  pe_current_temporal:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 3
+  pe_current_spatial:
+    _target_: src.models.utils.embeddings.LearnablePosEmb
+    emb_dim: ${models.model.model_dim}
+    num_emb: 15
+
+
+  last_pos_emb_args:
+    _target_: src.models.utils.embeddings.ModalTypeEmbedding
+    num_type: 5
+    emb_dim: ${models.model.model_dim}
+
+  transformer_classifier_args:
+    _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
+    model_dim: ${models.model.model_dim}
+    num_classes: 1
+    num_heads: 8
+    dropout: 0.0
+    input_dropout: 0.0
+    num_layers: 4
+    add_positional_encoding: False
+
+
+
+inference:
+  ckpt_path: ' '
+

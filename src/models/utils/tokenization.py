@@ -40,3 +40,5 @@ class Vanilla2dTokenization(nn.Module):
         x = self.to_patches(x)
         x = self.input_emb(x)
         return x
+
+
