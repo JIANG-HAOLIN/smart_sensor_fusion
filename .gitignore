@@ -70,3 +70,6 @@ structure_experiments.py
 personal_experiments.py
 utils_contrastive/
 
+*.bsub
+**/*.bsub
+
