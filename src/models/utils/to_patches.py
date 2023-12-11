@@ -1,6 +1,7 @@
 import torch
 import torchvision
 from einops.layers.torch import Rearrange
+from einops import rearrange
 from typing import Optional
 import logging
 
@@ -46,12 +47,40 @@ def img_2_patches(x: torch.Tensor, patch_size: tuple = (4, 4)) -> torch.Tensor:
         x: input img tensor of shape [batch size, channel size, height, width]
         patch_size: should have shape [patch_h, patch_w]
 
-    Returns:patches of shape [batch size, num of patches, patch dim]
+    Returns:patches of shape [batch size, num of patches, dim]
 
     """
+    h, w = x.shape[2], x.shape[3]
     patch_h, patch_w = patch_size
+    if not ((h % patch_h) == 0 and (w % patch_w) == 0):
+        crop_h = (h // patch_h) * patch_h
+        crop_w = (w // patch_w) * patch_w
+        print(f"input can not be exactly divided! inputs are bilinearly resized to ({crop_h, crop_w})")
+        x = torch.nn.functional.interpolate(x, [crop_h, crop_w], mode='bilinear')
     assert x.shape[2] % patch_h == 0 and x.shape[3] % patch_w == 0
-    return x.unfold(2, patch_h, patch_h).unfold(3, patch_w, patch_w)
+    x = rearrange(x, 'b c (h h1) (w w1) -> b (h w) (h1 w1 c)', h1=patch_h, w1=patch_w)
+    return x
+
+
+def img_2_patches_unfold(x: torch.Tensor, patch_size: tuple = (4, 4)) -> torch.Tensor:
+    """
+    Args:
+        x: input img tensor of shape [batch size, channel size, height, width]
+        patch_size: should have shape [patch_h, patch_w]
+
+    Returns:patches of shape [batch size, num of patches along h, num of patches along w, patch_h, patch_w]
+
+    """
+    h, w = x.shape[2], x.shape[3]
+    patch_h, patch_w = patch_size
+    if not ((h % patch_h) == 0 and (w % patch_w) == 0):
+        crop_h = (h // patch_h) * patch_h
+        crop_w = (w // patch_w) * patch_w
+        print(f"input can not be exactly divided! inputs are bilinearly resized to ({crop_h, crop_w})")
+        x = torch.nn.functional.interpolate(x, [crop_h, crop_w], mode='bilinear')
+    assert x.shape[2] % patch_h == 0 and x.shape[3] % patch_w == 0
+    x = x.unfold(2, patch_h, patch_h).unfold(3, patch_w, patch_w)
+    return x
 
 
 class Mel2Patches_Time_Axis(torch.nn.Module):
@@ -70,3 +99,26 @@ class Mel2Patches_Time_Axis(torch.nn.Module):
 
         """
         return self.to_patches(x)
+
+
+def seq_2_patches(x: torch.Tensor, patch_size: int = 4, step_size: Optional[int] = None) -> torch.Tensor:
+    """
+    Args:
+        x: input tensor of shape [batch size, channel size, length]
+        patch_size: window size
+        step_size: step size of moving window
+
+    Returns:patches of shape [batch size, num of patches, patch_h, patch_w]
+
+    """
+    l = x.shape[2]
+    if not ((l % patch_size) == 0):
+        crop_l = (l // patch_size) * patch_size
+        print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
+        x = torch.nn.functional.interpolate(x, crop_l, mode='linear')
+    assert x.shape[2] % patch_size == 0
+    x = x.unfold(2, patch_size, patch_size if step_size is None else step_size).permute(0, 2, 1, 3)
+    x = x.reshape(x.shape[0], x.shape[1], -1)
+    return x
+
+

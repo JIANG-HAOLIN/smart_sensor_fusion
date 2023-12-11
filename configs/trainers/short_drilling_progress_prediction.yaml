@@ -1,3 +1,5 @@
 launch_trainer:
   max_epochs: 10
   monitor:  "avg_val_loss"
+  mode: 'min'
+  save_top_k: 1

@@ -1,0 +1,10 @@
+name: 'short_drilling_progress_bind_vanilla'
+
+model:
+  _target_: src.models.ultrasonic_bind.SeparateEncoder
+
+
+
+inference:
+  ckpt_path: ' '
+

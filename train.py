@@ -56,6 +56,5 @@ def train(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    for i in range(3):
-        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-        train()
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    train()

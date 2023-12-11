@@ -7,8 +7,7 @@ class TestBautiroDrillingDataset(unittest.TestCase):
     def test_bautiro_drilling_dataset(self):
         from tqdm import tqdm
         import os
-        data_folder_path = '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/'
-        data_folder_path = os.path.join(data_folder_path, 'data/processed_drilling_data/separate_data/np_arr')
+        data_folder_path = '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
 
         # if not os.path.exists(data_folder_path):
         #     os.makedirs(data_folder_path)
@@ -25,8 +24,8 @@ class TestBautiroDrillingDataset(unittest.TestCase):
         batch_size = 32
         windows_size = 3 * 50000  # according to 3s
         step_size = 50000  # according to 1s
-        train_loader = get_loaders(data_folder_path, shuffle=True, window_size=windows_size, step_size=step_size,
-                                   batch_size=batch_size)
+        train_loader, val_loader, _ = get_loaders(data_folder_path, shuffle=True, window_size=windows_size, step_size=step_size,
+                                      batch_size=batch_size)
         for idx, data in tqdm(enumerate(train_loader)):
             for key, tensor in data.items():
                 print(f'{key}: {tensor.shape}')

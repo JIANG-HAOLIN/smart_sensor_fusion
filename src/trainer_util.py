@@ -1,21 +1,25 @@
 import os
-import pytorch_lightning as pl
+import lightning as pl
 import numpy as np
-from pytorch_lightning.loggers import TensorBoardLogger, CSVLogger
-from pytorch_lightning.callbacks import ModelCheckpoint, Timer
-from utils.my_callbacks import MyProgressBar, MyEpochTimer
+from lightning.pytorch.loggers import TensorBoardLogger, CSVLogger
+from lightning.pytorch.callbacks import ModelCheckpoint, Timer
+from utils.my_callbacks import MyProgressBar, MyEpochTimer, SaveBestTxt
 from datetime import datetime
 from typing import Optional
+
 
 def launch_trainer(pl_module: pl.LightningModule,
                    out_dir_path: str,
                    model_name: str, dataset_name: str, task_name: str,
                    max_epochs: int,
                    monitor: str = "val_acc", resume: Optional[str] = None,
+                   mode: str = 'max', save_top_k: int = 4,
                    **kwargs) -> None:
     """ Construct the trainer and start the training process.
 
     Args:
+        save_top_k: save top K best model as .ckpt
+        mode: is the monitored metrics lower the better or the opposite
         pl_module:  the pytorch lighting module, which contains the network and train/val step and datasets etc.
         out_dir_path: the path of output folder where the tensorboard log, the best epoch, and hyper
                       parameters are stored
@@ -31,20 +35,22 @@ def launch_trainer(pl_module: pl.LightningModule,
     exp_time = datetime.now().strftime("%m-%d-%H:%M:%S") + "-jobid=" + str(jobid)
     checkpoint = ModelCheckpoint(
         dirpath=os.path.join(out_dir_path, 'checkpoints', ),
-        filename=exp_time + "-{epoch}-{step}",
-        save_top_k=4,
+        filename='best' + exp_time + "-{epoch}-{step}",
+        save_top_k=save_top_k,
         save_last=True,
         monitor=monitor,
-        mode="max",
+        mode=mode,
     )
     tensorboard_logger = TensorBoardLogger(
         save_dir=out_dir_path,
         version=task_name + exp_time, name="lightning_tensorboard_logs"
     )
     csv_logger = CSVLogger(save_dir=out_dir_path, version=task_name + exp_time, name="csv_logs")
+
     trainer = pl.Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer()],
+        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer(), SaveBestTxt(out_dir_path),
+                   ],
         default_root_dir=model_name,
         accelerator='gpu',
         devices=-1,
@@ -59,8 +65,3 @@ def launch_trainer(pl_module: pl.LightningModule,
         if resume is None
         else resume,
     )
-    with open(out_dir_path+'/best_model.text', 'w') as f:
-        f.write(f"best val accu/lowest val loss: {checkpoint.best_model_score}\n")
-        f.write(f"best_model path: {checkpoint.best_model_path}")
-
-

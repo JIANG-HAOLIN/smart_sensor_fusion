@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
 from src.models.utils.positional_encoding import StandardPositionalEncoding, TemporalPositionalEncoding
-from src.models.transformer_implementations import TransformerEncoder
+from src.models.transformer_implementations import TransformerEncoder, TransformerEncoderVanilla
 from src.models.utils.to_patches import Img2Patches, Mel2Patches_Time_Axis
 from typing import Optional
+from src.models.utils.helpers import SelectToken, Normalize1Dim, LearnableLogitScaling
 
 
 class TransformerClassifierVit(nn.Module):
@@ -207,5 +208,64 @@ class TransformerClassifierVitNoPatch(nn.Module):
         """
         x, attn_maps = self.transformer_encoder(x)
         x = x[:, 0]
+        x = self.output_net(x)
+        return x, attn_maps
+
+
+class VitImageBind(nn.Module):
+    """The ViT based transformer takes Unembed tokens as input using TransformerEncoderVanilla with norm first and
+    output the latent vector."""
+
+    def __init__(self, model_dim: int = 32, num_heads: int = 2,
+                 dropout: float = 0.0, input_dropout: float = 0.0,
+                 num_layers: int = 2, num_pos_emb: int = 31, **kwargs):
+        """
+        Inputs:
+            channel_size - Hidden dimensionality of the input
+            model_dim - Hidden dimensionality to use inside the Transformer
+            num_classes - Number of classes to predict per sequence element
+            num_heads - Number of heads to use in the Multi-Head Attention blocks
+            dropout - Dropout to apply inside the model
+            input_dropout - Dropout to apply on the input features
+            add_positional_encoding - if positional encoding added
+            num_layers - number of attention layers
+        """
+        super().__init__()
+        self.model_dim = model_dim
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.input_dropout = input_dropout
+        self.num_layers = num_layers
+        self.cls = nn.Parameter(torch.randn(1, 1, model_dim))
+        self.pos_emb = torch.nn.Parameter(torch.randn([1, num_pos_emb, model_dim]))
+        self.transformer_encoder = TransformerEncoderVanilla(token_dim=self.model_dim,
+                                                             num_blocks=self.num_layers,
+                                                             num_heads=self.num_heads,
+                                                             dropout=self.dropout,
+                                                             batch_first=True,
+                                                             norm_first=True)
+        # Output classifier per sequence element
+        self.output_net = nn.Sequential(
+                                        nn.LayerNorm(self.model_dim),
+                                        SelectToken(index=0),
+                                        nn.Dropout(self.dropout),
+                                        nn.Linear(self.model_dim, self.model_dim),
+                                        Normalize1Dim(dim=-1),
+                                        LearnableLogitScaling(logit_scale_init=5.0, learnable=True),
+                                        )
+
+    def forward(self, x: torch.Tensor) -> [torch.Tensor, list]:
+        """
+        Inputs:
+            x - Input sequence of tokens [batch size, SeqLen, model_dim]
+        Returns:
+            x - Output features of shape [Batch, SeqLen, model_dim]
+            attn_map - list of attention maps of different with shape
+                        [ num_layers x tensor(batch_size, num_heads, seq_len, seq_len) ]
+        """
+        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
+        x = torch.cat([cls, x], dim=1)
+        x += self.pos_emb[:, :x.shape[1], :]
+        x, attn_maps = self.transformer_encoder(x)
         x = self.output_net(x)
         return x, attn_maps

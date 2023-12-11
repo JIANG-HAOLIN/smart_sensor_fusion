@@ -9,7 +9,10 @@ from utils.interpolate_array import linearly_interpolated_array
 class BautiroDrillingDataset(Dataset):
     """Input pipeline for bautiro drilling dataset using moving window and returns only the signal with _C or _corr"""
 
-    def __init__(self, data_folder: str, window_size: int = 1000, step_size: int = 500, train: bool = True):
+    def __init__(self, data_folder: str, window_size: int = 1000, step_size: int = 500, train: bool = True,
+                 train_trajs: tuple = tuple(range(1, 14)) + tuple(range(17, 30)),
+                 val_trajs: tuple = (14, 15, 16, 30, 31, 32),
+                 resample_rate: tuple = (4, 50, 400), z_norm: bool = True):
         """
 
         Args:
@@ -30,10 +33,15 @@ class BautiroDrillingDataset(Dataset):
         self.window_size = window_size
         self.step_size = step_size
         self.train = train
-        self.traj_list = list(range(1, 14)) + list(range(17, 30)) if train else [14, 15, 16, 30, 31, 32]
+        self.train_trajs = train_trajs
+        self.traj_list = train_trajs if train else val_trajs
         self.mov_len_dict = self.get_movement_len()
         self.cumulative_lengths, self.cumulative_step = self.calculate_cumulative_lengths_and_steps()
-
+        self.z_norm = z_norm
+        if z_norm:
+            self.mean, self.std = self.compute_mean_std()
+        self.resample_rate = resample_rate
+        # print(self.mean, self.std)
 
     def get_movement_len(self):
         """get valid length according to acx"""
@@ -44,9 +52,25 @@ class BautiroDrillingDataset(Dataset):
                     traj_path = os.path.join(signal, str(traj) + '.npy')
                     arr = np.load(traj_path, mmap_mode='r')
                     arr_len = np.count_nonzero(~np.isnan(arr)) - 1
-                    print(f'at {traj_path}: valid len {arr_len} time {arr_len/50000} \n')
+                    print(f'at {traj_path}: valid len {arr_len} time {arr_len / 50000} \n')
                     len_dict[traj] = arr_len
         return len_dict
+
+    def compute_mean_std(self):
+        """compute the mean and std of the training dataset of all samples from all trajectories"""
+        mean_dict = {}
+        std_dict = {}
+        for sig, sig_path in zip(self.signal_list, self.signal_folder_path):
+            arr_list = []
+            for traj in self.train_trajs:
+                arr_path = os.path.join(sig_path, str(traj) + '.npy')
+                arr = np.load(arr_path, mmap_mode='r')
+                arr_list.append(arr)
+            arrs = np.concatenate(arr_list)
+            # sig_len = np.count_nonzero(~np.isnan(arrs))
+            mean_dict[sig] = np.nanmean(arrs)
+            std_dict[sig] = np.nanstd(arrs)
+        return mean_dict, std_dict
 
     def calculate_cumulative_lengths_and_steps(self):
         """output the cumulate number of observation and steps of moving windows for each signal"""
@@ -98,17 +122,17 @@ class BautiroDrillingDataset(Dataset):
 
     def get_frequency(self, signal_name: str) -> int:
         if 'ac' in signal_name or 'ap' in signal_name:
-            return 4
+            return self.resample_rate[0]
         elif '_C' in signal_name:
-            return 50
+            return self.resample_rate[1]
         else:
-            return 400
+            return self.resample_rate[2]
 
     def __getitem__(self, step):
         data = {}
         traj_idx, start, end = self.get_array_and_offset(step)
-        for idx, signal_path in enumerate(self.signal_folder_path):
-            signal_name = self.signal_list[idx]
+        data['traj_idx'] = traj_idx
+        for signal_name, signal_path in zip(self.signal_list, self.signal_folder_path):
             sig_freq = self.get_frequency(signal_name)
             traj_path = os.path.join(signal_path, str(traj_idx) + '.npy')
             subset = np.load(traj_path, mmap_mode='r')
@@ -117,7 +141,11 @@ class BautiroDrillingDataset(Dataset):
                 print(f'all NaN array at {signal_path, traj_idx, start, end}')
             subset = self.interpolate_downsample(subset)
             subset = subset[::sig_freq]
+            # if signal_name == 'Y_corr':
+            #     subset = subset*1000  # convert to mm ?
             subset = torch.tensor(subset, dtype=torch.float32)
+            if self.z_norm:
+                subset = (subset - self.mean[signal_name])/self.std[signal_name]
             data[signal_name] = subset
         return data
 
@@ -132,10 +160,17 @@ class BautiroDrillingDataset(Dataset):
 
 
 def get_loaders(data_folder: str, window_size: int = 1000, step_size: int = 500, train: bool = True,
-                batch_size: int = 32, shuffle: bool = True, drop_last: bool = True, **kwargs):
-    train_dataset = BautiroDrillingDataset(data_folder, window_size, step_size, train)
-    val_dataset = BautiroDrillingDataset(data_folder, window_size, step_size, train=False)
+                batch_size: int = 32, shuffle: bool = True, drop_last: bool = True,
+                train_trajs: tuple = tuple(range(1, 14)) + tuple(range(17, 30)),
+                val_trajs: tuple = (14, 15, 16, 30, 31, 32), val_batch_size: int = 1,
+                z_norm: bool = True, **kwargs):
+    train_dataset = BautiroDrillingDataset(data_folder, window_size, step_size, train,
+                                           train_trajs=train_trajs, val_trajs=val_trajs,
+                                           z_norm=z_norm)
+    val_dataset = BautiroDrillingDataset(data_folder, window_size, step_size, train=False,
+                                         train_trajs=train_trajs, val_trajs=val_trajs,
+                                         z_norm=z_norm)
 
-    return DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=16), \
-        DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=16), \
-        DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=16),
+    return DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=8), \
+        DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=8), \
+        DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=8),

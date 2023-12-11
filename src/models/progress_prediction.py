@@ -416,3 +416,95 @@ class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
 
         x = torch.cat([cls, acc_cage, acc_ptu, force, current], dim=1)
         return self.transformer_classifier(x)
+
+
+class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
+    """Model for short term drilling progress prediction(Y_corr) using acc cage(ac), acc PTU(ap), Force(F), Current(I)"""
+
+    def __init__(self,
+                 preprocess_acc_cage_args: DictConfig,
+                 tokenization_acc_cage: DictConfig,
+                 pe_acc_cage_temporal: DictConfig,
+                 pe_acc_cage_spatial: DictConfig,
+                 preprocess_acc_ptu_args: DictConfig,
+                 tokenization_acc_ptu: DictConfig,
+                 pe_acc_ptu_temporal: DictConfig,
+                 pe_acc_ptu_spatial: DictConfig,
+                 preprocess_force_args: DictConfig,
+                 tokenization_force: DictConfig,
+                 pe_force_temporal: DictConfig,
+                 pe_force_spatial: DictConfig,
+                 preprocess_current_args: DictConfig,
+                 tokenization_current: DictConfig,
+                 pe_current_temporal: DictConfig,
+                 pe_current_spatial: DictConfig,
+                 last_pos_emb_args: DictConfig,
+                 transformer_classifier_args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.ac_preprocess = torch.nn.Conv1d(kernel_size=12, stride=12, in_channels=6, out_channels=6)
+
+        # self.fusion0 = torch.nn.LSTM(input_size=3+3+3+2, hidden_size=128, num_layers=1, bias=True, batch_first=True,
+        #                             bidirectional=False, device=None, )
+
+        self.fusionlist = torch.nn.Sequential(torch.nn.Conv1d(kernel_size=5, stride=5,
+                                                              in_channels=11, out_channels=32),
+                                              torch.nn.Tanh(),  # 600 32
+                                              torch.nn.Conv1d(kernel_size=5, stride=5,
+                                                              in_channels=32, out_channels=64),
+                                              torch.nn.Tanh(),  # 120 64
+                                              torch.nn.Conv1d(kernel_size=5, stride=5,
+                                                              in_channels=64, out_channels=128),
+                                              torch.nn.ReLU(),  # 24  128
+                                              torch.nn.Conv1d(kernel_size=3, stride=3,
+                                                              in_channels=128, out_channels=256),
+                                              torch.nn.ReLU(),  # 8   256
+                                              torch.nn.Conv1d(kernel_size=2, stride=2,
+                                                              in_channels=256, out_channels=512),
+                                              torch.nn.ReLU(),  # 4   512
+                                              torch.nn.Conv1d(kernel_size=2, stride=2,
+                                                              in_channels=512, out_channels=1024),
+                                              torch.nn.ReLU(),  # 2   1024
+                                              torch.nn.Conv1d(kernel_size=2, stride=2,
+                                                              in_channels=1024, out_channels=2048),
+                                              torch.nn.Flatten(),
+                                              torch.nn.Linear(in_features=2048, out_features=1),)
+
+    def forward(self,
+                acc_cage_x: torch.Tensor,
+                acc_cage_y: torch.Tensor,
+                acc_cage_z: torch.Tensor,
+                acc_ptu_x: torch.Tensor,
+                acc_ptu_y: torch.Tensor,
+                acc_ptu_z: torch.Tensor,
+                f_x: torch.Tensor,
+                f_y: torch.Tensor,
+                f_z: torch.Tensor,
+                i_s: torch.Tensor,
+                i_z: torch.Tensor,
+                ):
+        batch_size = acc_ptu_x.shape[0]
+
+        acc_cage = torch.stack([acc_cage_x, acc_cage_y, acc_cage_z, acc_ptu_x, acc_ptu_y, acc_ptu_z], dim=1)
+        acc_cage = torch.nn.functional.interpolate(acc_cage, [36000], mode='linear')
+        acc_cage = self.ac_preprocess(acc_cage)
+        x = torch.stack([f_x, f_y, f_z, i_s, i_z], dim=1)
+        x = torch.cat([acc_cage, x], dim=1)  # N 11 3000
+        # x= self.fusion0(x.permute(0, 2, 1))[0].permute(0, 2, 1)  # N 3000 32
+        x = self.fusionlist(x)
+        return x, 0

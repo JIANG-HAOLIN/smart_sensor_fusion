@@ -1,0 +1,4 @@
+pl_module:
+  _target_: src.pl_modules.ultrasonic_bind.TransformerPredictorPl
+  num_classes: 1
+  temp: 0.5

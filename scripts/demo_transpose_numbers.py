@@ -19,7 +19,7 @@ def inference(cfg: DictConfig) -> None:
     Output the prediction sequence and visualization of the attention map
 
     """
-    from utils.plot_attn import plot_attention_maps
+    from utils.visualizations import plot_attention_maps
     test_seq = torch.randint(10, size=(1, 17), device='cpu') if cfg.inference.test_seq is None \
         else torch.from_numpy(np.array(cfg.inference.test_seq)).unsqueeze(0).to('cpu')
     torch.set_float32_matmul_precision('medium')

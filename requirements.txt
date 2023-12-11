@@ -5,7 +5,8 @@ omegaconf==2.3.0
 torch==2.0.1
 torchaudio==2.0.2
 torchvision==0.15.2
-pytorch-lightning==2.0.6
+#pytorch-lightning==2.0.6
+lightning==
 tensorboard==2.15.0
 matplotlib==3.7.2
 scikit-learn==1.3.0
@@ -13,3 +14,12 @@ einops==0.6.1 pypi
 pandas==2.1.1 default
 pysoundfile==0.12.1 pypi
 shellcheck==0.7.2 defaults
+einops~=0.6.1
+pandas~=2.1.1
+pillow~=10.0.1
+lightning~=2.1.2
+h5py~=3.9.0
+opencv-python~=4.8.1.78
+tqdm~=4.66.1
+seaborn~=0.12.2
+setuptools~=68.0.0

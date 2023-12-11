@@ -45,7 +45,7 @@ class LearnablePosEmb(torch.nn.Module):
     def forward(self, x: torch.Tensor, which_dim: int = 1, **kwargs) -> torch.Tensor:
         """
         args:
-            x - input sequence of type [batch size, sequence len, token dim]
+            x - input sequence of type [batch size, len1, len2, len3, token dim]
             which_dim - embded along which dimension
         """
         out_shape = len(x.shape)

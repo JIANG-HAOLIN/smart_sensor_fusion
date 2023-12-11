@@ -25,7 +25,7 @@ def inference(cfg: DictConfig) -> None:
     Output the validation accuracy and visualization of the confusion matrix
 
     """
-    from utils.plot_confusion_matrix import plot_confusion_matrix
+    from utils.visualizations import plot_confusion_matrix
     torch.set_float32_matmul_precision('medium')
     _, val_loader, _ = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path)
     cfg_path = HydraConfig.get().runtime['config_sources'][1]['path']

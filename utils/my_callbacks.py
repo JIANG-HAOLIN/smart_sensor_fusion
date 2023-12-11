@@ -1,7 +1,9 @@
-from pytorch_lightning.callbacks import TQDMProgressBar
-from pytorch_lightning import Callback
+from lightning.pytorch.callbacks import TQDMProgressBar
+from lightning.pytorch.callbacks import Callback
+from lightning import Trainer
 import sys
 import time
+import os
 
 
 class MyProgressBar(TQDMProgressBar):
@@ -32,3 +34,29 @@ class MyEpochTimer(Callback):
     def on_epoch_end(self, trainer, pl_module):
         elapsed_time = time.time() - self.epoch_start_time
         print(f"Epoch {trainer.current_epoch + 1} took {elapsed_time:.2f} seconds")
+
+
+class SaveBestTxt(Callback):
+    def __init__(self, out_dir_path):
+        super().__init__()
+        self.out_dir_path = out_dir_path
+
+    def on_validation_epoch_end(self, trainer: Trainer, pl_module):
+        # Log the current best model score and path to a text file
+        if trainer.current_epoch > 0:
+            txt_file_path = os.path.join(self.out_dir_path, 'best_model.text')
+            with open(txt_file_path, 'a') as file:
+                file.write(f"Epoch: {trainer.current_epoch}, "
+                           f"Best Model Score: {trainer.checkpoint_callback.best_model_score:.8f}, "
+                           f"Best Model Path: {trainer.checkpoint_callback.best_model_path}\n")
+
+    def on_fit_end(self, trainer: Trainer, pl_module):
+        # Log the current best model score and path to a text file
+            txt_file_path = os.path.join(self.out_dir_path, 'best_model.text')
+            with open(txt_file_path, 'a') as file:
+                file.write(f"Epoch: {trainer.current_epoch}, "
+                           f"Best Model Score: {trainer.checkpoint_callback.best_model_score:.8f}, "
+                           f"Best Model Path: {trainer.checkpoint_callback.best_model_path}\n")
+
+
+

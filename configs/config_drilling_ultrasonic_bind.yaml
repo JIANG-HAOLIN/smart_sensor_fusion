@@ -3,16 +3,16 @@
 
 defaults:
 - datasets: bautiro_drilling
-- models: short_drilling_progress/earlycat_short_drilling_progress_prediction_vanilla
+- models: short_drilling_progress/ultrasonic_bind_vanilla
 - optimizers: adam_steplr
-- pl_modules: short_drilling_progress_prediction
+- pl_modules: ultrasonic_bind
 - trainers: short_drilling_progress_prediction
 - _self_
 
 
 # General settings
 task_name: "short_term_drilling_progress_prediction"
-variable_name: NoYcorrNorm
+variable_name: step_size_75k
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data/'
@@ -22,10 +22,13 @@ hydra:
   verbose: False
   sweeper:
     params:
+      trainers.launch_trainer.max_epochs: 10
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.z_norm: True
 #      models.model.model_dim: 256
       datasets.dataloader.batch_size: 32
+      datasets.dataloader.step_size: 50000
+      datasets.dataloader.val_batch_size: 32
   sweep: #only controls where config.yaml is stored
     dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
     subdir: ./

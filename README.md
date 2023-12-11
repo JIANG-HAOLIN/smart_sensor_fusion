@@ -22,14 +22,22 @@ Repository for Smart Sensor Fusion project
 * Train the model for progress_prediction task with multiple configuration(sweeper): `python train.py -cn config_progress_prediction -m`
 * Train the model for progress_prediction task using both vision and audio signal with multiple configuration(sweeper):
   * `python train.py -cn config_progress_prediction_vision_audio -m`
+* Train the model for short term drilling movement prediction task:
+  * `python train.py -cn config_progress_short_time_drilling_progress_prediction -m`
 
-## Run inference
+## Run inference(don't directly run the command line here)
 * load the pretrained model based on the config and ckpt that stored in the results directory
-* Test the model for transpose task by running: `python scripts/demo_transpose_numbers.py 'inference.ckpt_path="path to .ckpt file" inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]'`
-* Test the model for progress_prediction task by running in terminal: `python scripts/demo_progress_prediction.py -cp 'path to the result folder that contain the config' 'models.inference.ckpt_path="name of ckpt file"'` 
+* Test the model for transpose task by running: 
+  * `python scripts/demo_transpose_numbers.py 'inference.ckpt_path="path to .ckpt file" inference.test_seq=[0,1,1,1,1,6,7,8,9,8,0,1,2,3,4,5,6]'`
+* Test the model for progress_prediction task by running in terminal: 
+  * `python scripts/demo_progress_prediction.py -cp 'path to the result folder that contain the config' 'models.inference.ckpt_path="name of ckpt file"'` 
   e.g. `python demo_progress_prediction.py -cp '../results/progress_prediction/see_hear_feel_insert_audio/vit_time_patch_128_51_standardpe/exp_dim_batchsize/256_64/09-05-18:27:24/.hydra/' 'models.inference.ckpt_path="09-05-18:27:24-jobid=0-epoch=7-step=1624.ckpt"'`
-* Test the model for progress_prediction task using both vision and audio signal by running in terminal: `python scripts/demo_progress_prediction_vision_audio.py -cp 'path to the result folder that contain the config' 'models.inference.ckpt_path="name of ckpt file"'` 
+* Test the model for progress_prediction task using both vision and audio signal by running in terminal: 
+  * `python scripts/demo_progress_prediction_vision_audio.py -cp 'path to the result folder that contain the config' 'models.inference.ckpt_path="name of ckpt file"'` 
   e.g. `python demo_progress_prediction_vision_audio.py -cp '../results/progress_prediction/vision_audio/earlycat_newemb/exp_dim_batchsize/256_32/09-13-14:11:41/.hydra' 'models.inference.ckpt_path="09-13-14:11:41-jobid=0-epoch=13-step=5684.ckpt"'`
+* Test the model for short term drilling movement prediction task by running in both terminal and IDE (here I switch to argparser for arguments input as the vanilla hydra initialization won't work in IDE):
+  * `python scripts/demo_short_drilling_progress_prediction.py --config_path '../results/short_term_drilling_progress_prediction/bautiro_drilling/earlycat_short_drilling_progress_prediction_vanilla/exp_vanilla_model/11-29-14:08:04/.hydra' --ckpt_path '11-29-14:08:05-jobid=0-epoch=9-step=240.ckpt'
+`
 
 ## Help
 * #1 Hydra command line flags and override
