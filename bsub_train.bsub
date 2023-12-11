@@ -3,13 +3,13 @@
 
 ## Scheduler parameters ##
 
-#BSUB -J ultrasonic-bind                # job name
-#BSUB -o ultrasonic-bind.%J.stdout      # optional: Have output written to specific file
-#BSUB -e ultrasonic-bind.%J.stderr      # optional: Have errors written to specific file
+BSUB -J ultrasonic-bind                # job name
+BSUB -o ultrasonic-bind.%J.stdout      # optional: Have output written to specific file
+BSUB -e ultrasonic-bind.%J.stderr      # optional: Have errors written to specific file
 # #BSUB -q rb_highend               # optional: use highend nodes w/ Volta GPUs (default: Geforce GPUs)
-#BSUB -W 20:00                       # fill in desired wallclock time [hours,]minutes (hours are optional)
-#BSUB -n 8                          # min CPU cores,max CPU cores (max cores is optional)
-#BSUB -M 6144                       # fill in required amount of RAM (in Mbyte)
+BSUB -W 60:00                       # fill in desired wallclock time [hours,]minutes (hours are optional)
+BSUB -n 8                          # min CPU cores,max CPU cores (max cores is optional)
+BSUB -M 12800                       # fill in required amount of RAM (in Mbyte)
 # #BSUB -R "span[hosts=1]"          # optional: run on single host (if using more than 1 CPU cores)
 # #BSUB -R "span[ptile=28]"         # optional: fill in to specify cores per node (max 28)
 # #BSUB -P myProject                # optional: fill in cluster project
