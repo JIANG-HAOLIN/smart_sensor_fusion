@@ -6,14 +6,20 @@ from lightning.pytorch.callbacks import ModelCheckpoint, Timer
 from utils.my_callbacks import MyProgressBar, MyEpochTimer, SaveBestTxt
 from datetime import datetime
 from typing import Optional
+from omegaconf import DictConfig
+from utils.hydra_utils import extract_sweeper_output_label
 
 
 def launch_trainer(pl_module: pl.LightningModule,
                    out_dir_path: str,
                    model_name: str, dataset_name: str, task_name: str,
                    max_epochs: int,
-                   monitor: str = "val_acc", resume: Optional[str] = None,
-                   mode: str = 'max', save_top_k: int = 4,
+                   monitor: str,
+                   label: str,
+                   resume: Optional[str] = None,
+                   mode: str = 'max',
+                   save_top_k: int = 4,
+                   hydra_conf: Optional[DictConfig] = None,
                    **kwargs) -> None:
     """ Construct the trainer and start the training process.
 
@@ -28,14 +34,18 @@ def launch_trainer(pl_module: pl.LightningModule,
         task_name: the name of the task(transpose etc.), can be found in config_progress_prediction.yaml file in configs folder
         max_epochs: the maximum number of epoch for training
         monitor: which validation metrics to be monitored
+        label: label for the output file contains variable names and value for multirun setup
         resume: the path of model parameters for inference
+        hydra_conf: the hydra config file for single run
         **kwargs: other keyword arguments
     """
     jobid = os.environ.get("SLURM_JOB_ID", 0)
     exp_time = datetime.now().strftime("%m-%d-%H:%M:%S") + "-jobid=" + str(jobid)
+    checkpoints_out_path = os.path.join(out_dir_path, 'checkpoints', )
     checkpoint = ModelCheckpoint(
-        dirpath=os.path.join(out_dir_path, 'checkpoints', ),
-        filename='best' + exp_time + "-{epoch}-{step}",
+        dirpath=checkpoints_out_path,
+        # filename='best' + exp_time + "-{epoch}-{step}",
+        filename='best_' + label + exp_time,
         save_top_k=save_top_k,
         save_last=True,
         monitor=monitor,
@@ -43,13 +53,13 @@ def launch_trainer(pl_module: pl.LightningModule,
     )
     tensorboard_logger = TensorBoardLogger(
         save_dir=out_dir_path,
-        version=task_name + exp_time, name="lightning_tensorboard_logs"
+        version=label + exp_time, name="lightning_tensorboard_logs"
     )
-    csv_logger = CSVLogger(save_dir=out_dir_path, version=task_name + exp_time, name="csv_logs")
+    csv_logger = CSVLogger(save_dir=out_dir_path, version=label + exp_time, name="csv_logs")
 
     trainer = pl.Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer(), SaveBestTxt(out_dir_path),
+        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer(), SaveBestTxt(checkpoints_out_path, label),
                    ],
         default_root_dir=model_name,
         accelerator='gpu',

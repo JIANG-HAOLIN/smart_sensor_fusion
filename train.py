@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch
 from src.trainer_util import launch_trainer
 
+log = logging.getLogger(__name__)
+
 
 @hydra.main(config_path='configs', config_name='config_progress_prediction', version_base='1.2')
 def train(cfg: DictConfig) -> None:
@@ -16,12 +18,10 @@ def train(cfg: DictConfig) -> None:
     os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')
     project_path = os.path.abspath(os.path.join(__file__, '..'))
-    out_dir_path = HydraConfig.get().run.dir
-
-    log = logging.getLogger(__name__)
+    multirun_dir_path = HydraConfig.get().sweep.dir
 
     log.info('*-------- train func starts --------*')
-    log.info('output folder:' + out_dir_path + '\n')
+    log.info('output folder:' + multirun_dir_path + '\n')
     log.info('project_path:' + project_path + '\n')
     sys.path.append(project_path)
     log.info('sys.path:', )
@@ -38,7 +38,17 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
+    log.info(f"current multi-run output path: {multirun_dir_path}")
+
+    from utils.hydra_utils import extract_sweeper_output_label
+    label = extract_sweeper_output_label(cfg)
+    log.info(f"current running output label: {label}")
+    out_dir_path = os.path.join(multirun_dir_path, label)
+    if not os.path.exists(out_dir_path):
+        os.makedirs(out_dir_path)
     log.info(f"current experiment output path: {out_dir_path}")
+    with open(os.path.join(out_dir_path, "config.yaml"), "w") as f:
+        OmegaConf.save(cfg, f)
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cuda')
     log.info(f"model trainable params:{sum(p.numel() for p in model.parameters() if p.requires_grad)}")
@@ -50,7 +60,7 @@ def train(cfg: DictConfig) -> None:
                                         optimizer, lr_scheduler,
                                         train_loader, val_loader, test_loader)
 
-    launch_trainer(pl_module, out_dir_path=out_dir_path,
+    launch_trainer(pl_module, out_dir_path=out_dir_path, label=label, hydra_conf=cfg,
                    model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,
                    **cfg.trainers.launch_trainer)
 

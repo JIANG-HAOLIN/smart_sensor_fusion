@@ -3,7 +3,7 @@ name: 'bautiro_drilling'
 dataloader:
   _target_: src.datasets.bautiro_drilling_dataset.get_loaders
   data_folder: ''
-  batch_size: 32
+  train_batch_size: 32
   window_size: 150000  # according to 3s
   step_size: 50000  # according to 1s
   val_batch_size: 1

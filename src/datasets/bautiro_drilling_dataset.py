@@ -160,7 +160,7 @@ class BautiroDrillingDataset(Dataset):
 
 
 def get_loaders(data_folder: str, window_size: int = 1000, step_size: int = 500, train: bool = True,
-                batch_size: int = 32, shuffle: bool = True, drop_last: bool = True,
+                train_batch_size: int = 32, shuffle: bool = True, drop_last: bool = True,
                 train_trajs: tuple = tuple(range(1, 14)) + tuple(range(17, 30)),
                 val_trajs: tuple = (14, 15, 16, 30, 31, 32), val_batch_size: int = 1,
                 z_norm: bool = True, **kwargs):
@@ -171,6 +171,6 @@ def get_loaders(data_folder: str, window_size: int = 1000, step_size: int = 500,
                                          train_trajs=train_trajs, val_trajs=val_trajs,
                                          z_norm=z_norm)
 
-    return DataLoader(train_dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=8), \
+    return DataLoader(train_dataset, batch_size=train_batch_size, shuffle=shuffle, drop_last=drop_last, num_workers=8), \
         DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=8), \
         DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=8),

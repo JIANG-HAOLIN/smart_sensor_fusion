@@ -12,7 +12,8 @@ defaults:
 
 # General settings
 task_name: "short_term_drilling_progress_prediction"
-variable_name: step_size_75k
+variable_name: datasets.dataloader.step_size&datasets.dataloader.train_batch_size
+output_name: stepsize_bs_epo15
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data/'
@@ -22,18 +23,21 @@ hydra:
   verbose: False
   sweeper:
     params:
-      trainers.launch_trainer.max_epochs: 10
+      trainers.launch_trainer.max_epochs: 15
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.z_norm: True
 #      models.model.model_dim: 256
-      datasets.dataloader.batch_size: 32
-      datasets.dataloader.step_size: 50000
+      datasets.dataloader.train_batch_size: 32,64,128,256
+      datasets.dataloader.step_size: 50000,75000,100000,125000
       datasets.dataloader.val_batch_size: 32
-  sweep: #only controls where config.yaml is stored
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/exp_${variable_name}/${now:%m-%d-%H:%M:%S}
+  sweep:
+    # control where output saved
+#    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/${variable_name}/${${variable_name}}_${now:%m-%d-%H:%M:%S}
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/${output_name}_${now:%m-%d-%H:%M:%S}
+    # only controls where config.yaml is saved
     subdir: ./
-  run: #also works for multi-run
-    dir: ${hydra.sweep.dir}
+  run: # control where multirun.yaml is saved
+    dir: ${hydra.sweep.dir}/.hydra
 
 
 

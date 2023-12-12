@@ -37,14 +37,15 @@ class MyEpochTimer(Callback):
 
 
 class SaveBestTxt(Callback):
-    def __init__(self, out_dir_path):
+    def __init__(self, out_dir_path: str, label: str):
         super().__init__()
         self.out_dir_path = out_dir_path
+        self.label = label
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module):
         # Log the current best model score and path to a text file
         if trainer.current_epoch > 0:
-            txt_file_path = os.path.join(self.out_dir_path, 'best_model.text')
+            txt_file_path = os.path.join(self.out_dir_path, f'best_{self.label}.text')
             with open(txt_file_path, 'a') as file:
                 file.write(f"Epoch: {trainer.current_epoch}, "
                            f"Best Model Score: {trainer.checkpoint_callback.best_model_score:.8f}, "
@@ -52,11 +53,8 @@ class SaveBestTxt(Callback):
 
     def on_fit_end(self, trainer: Trainer, pl_module):
         # Log the current best model score and path to a text file
-            txt_file_path = os.path.join(self.out_dir_path, 'best_model.text')
-            with open(txt_file_path, 'a') as file:
-                file.write(f"Epoch: {trainer.current_epoch}, "
-                           f"Best Model Score: {trainer.checkpoint_callback.best_model_score:.8f}, "
-                           f"Best Model Path: {trainer.checkpoint_callback.best_model_path}\n")
-
-
-
+        txt_file_path = os.path.join(self.out_dir_path, f'best_{self.label}.text')
+        with open(txt_file_path, 'a') as file:
+            file.write(f"Epoch: {trainer.current_epoch}, "
+                       f"Best Model Score: {trainer.checkpoint_callback.best_model_score:.8f}, "
+                       f"Best Model Path: {trainer.checkpoint_callback.best_model_path}\n")

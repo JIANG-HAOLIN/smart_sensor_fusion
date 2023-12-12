@@ -16,8 +16,9 @@ from utils.visualizations import scatter_tsne
 
 def inference(cfg: DictConfig, args: argparse.Namespace):
     torch.set_float32_matmul_precision('medium')
+    cfgs = HydraConfig.get()
     cfg_path = HydraConfig.get().runtime['config_sources'][1]['path']
-    checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, '..', 'checkpoints'))
+    checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
         if 'best' in p:
@@ -86,7 +87,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
             traj_outs = []
             pre_traj_idx = traj_idx
         scatter_tsne(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
-                     traj_name, os.path.join(checkpoints_folder_path, ckpt_path + '_infer_test.png'))
+                     traj_name, os.path.join(checkpoints_folder_path, ckpt_path + '_infer.png'))
 
     else:
         print(f'pretrained Model at {checkpoints_path} not found')
@@ -100,7 +101,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
                         default='../results/short_term_drilling_progress_prediction/bautiro_drilling'
-                                '/short_drilling_progress_bind_vanilla/exp_debug/12-06-17:43:43/.hydra')
+                                '/short_drilling_progress_bind_vanilla/datasets.dataloader.step_size_12-12-15:26:20'
+                                '/step_size50000')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     args = parser.parse_args()
