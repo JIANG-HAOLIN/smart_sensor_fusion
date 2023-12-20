@@ -114,7 +114,7 @@ def seq_2_patches(x: torch.Tensor, patch_size: int = 4, step_size: Optional[int]
     l = x.shape[2]
     if not ((l % patch_size) == 0):
         crop_l = (l // patch_size) * patch_size
-        print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
+        # print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
         x = torch.nn.functional.interpolate(x, crop_l, mode='linear')
     assert x.shape[2] % patch_size == 0
     x = x.unfold(2, patch_size, patch_size if step_size is None else step_size).permute(0, 2, 1, 3)

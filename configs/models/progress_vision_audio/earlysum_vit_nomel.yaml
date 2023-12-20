@@ -1,0 +1,51 @@
+name: 'EarlySum_vit_noMel'
+
+model:
+  _target_: src.models.progress_prediction.VisionAudioFusion_EarlySum
+  model_dim: 256
+  preprocess_audio_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_audio:
+    _target_: src.models.utils.tokenization.Vanilla1dTokenization
+    channel_size: 1
+    patch_size: 8000
+    input_size: 40000
+    out_dim: ${models.model.model_dim}
+  pe_audio:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  encoder_audio_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+
+  preprocess_vision_args:
+    _target_: src.models.encoders.res_net_18.make_vision_encoder
+    out_dim: ${models.model.model_dim}
+    out_layer: "layer4.1.relu_1"
+  tokenization_vision:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  pe_vision:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  encoder_vision_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+
+  pos_emb_args:
+    _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+    d_model: ${models.model.model_dim}
+
+
+  transformer_classifier_args:
+    _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
+    model_dim: ${models.model.model_dim}
+    num_classes: 10
+    num_heads: 8
+    dropout: 0.0
+    input_dropout: 0.0
+    num_layers: 4
+    add_positional_encoding: False
+
+
+
+inference:
+  ckpt_path: ' '
+
