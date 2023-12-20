@@ -1,0 +1,58 @@
+name: 'earlycat_extractor_vit_vgah_notimeemb'
+
+model:
+  _target_: src.models.progress_prediction.VisionAudioFusion_Extractor
+  model_dim: 256
+  preprocess_audio_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 40000
+    sr: 16000
+    n_mels: 64
+    norm_audio: false
+    hop_ratio: 0.05
+  tokenization_audio:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 1
+    patch_size: [64, 3]
+    input_size: [64, 51]
+    model_dim: ${models.model.model_dim}
+  pe_audio:
+    _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+    d_model: ${models.model.model_dim}
+  encoder_audio_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+
+  preprocess_vision_args:
+    _target_: src.models.encoders.res_net_18.make_vision_encoder
+    out_dim: ${models.model.model_dim}
+    out_layer: "layer4.1.relu_1"
+  tokenization_vision:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  pe_vision:
+    _target_: src.models.utils.embeddings.VitPatchEmbedding
+    emb_dim: ${models.model.model_dim}
+    num_patches: 5
+  encoder_vision_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+  last_pos_emb_args:
+    _target_: src.models.utils.embeddings.ModalTypeEmbedding
+    num_type: 3
+    emb_dim: ${models.model.model_dim}
+
+  transformer_classifier_args:
+    _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
+    model_dim: ${models.model.model_dim}
+    num_classes: 10
+    num_heads: 8
+    dropout: 0.0
+    input_dropout: 0.0
+    num_layers: 4
+    add_positional_encoding: False
+
+
+
+inference:
+  ckpt_path: ' '
+

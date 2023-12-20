@@ -52,7 +52,7 @@ class BautiroDrillingDataset(Dataset):
                     traj_path = os.path.join(signal, str(traj) + '.npy')
                     arr = np.load(traj_path, mmap_mode='r')
                     arr_len = np.count_nonzero(~np.isnan(arr)) - 1
-                    print(f'at {traj_path}: valid len {arr_len} time {arr_len / 50000} \n')
+                    # print(f'at {traj_path}: valid len {arr_len} time {arr_len / 50000} \n')
                     len_dict[traj] = arr_len
         return len_dict
 

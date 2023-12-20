@@ -1,0 +1,47 @@
+name: 'vanilla_shf'
+
+model:
+  _target_: src.models.seehear_imitation.Seehearfeel_Vanilla
+  preprocess_audio_args:
+    _target_: src.models.utils.mel_spec.MelSpec
+    length: 40000
+    sr: 16000
+    n_mels: 64
+    norm_audio: False
+    hop_ratio: 0.01
+  a_encoder:
+    _target_: src.models.encoders.res_net_18.make_audio_encoder
+    out_dim: 1280
+    out_layer: "layer4.1.relu_1"
+  v_encoder:
+    _target_: src.models.encoders.res_net_18.make_vision_encoder
+    out_dim: 256
+    out_layer: "layer4.1.relu_1"
+  args:
+    encoder_dim: 256
+    num_stack: 5
+    frameskip: 5
+    crop_percent: 0.1
+    conv_bottleneck: 128
+    ablation: vg_ah
+    gamma: 0.9
+    num_heads: 8
+    action_dim: 3
+    # norm_audio: True
+    use_mha: True
+    exp_name: default
+    task: "insertion"
+    aux_multiplier: 1.0
+
+
+  encoder_vision_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+  encoder_audio_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+
+
+inference:
+  ckpt_path: ' '
+

@@ -3,17 +3,17 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/earlycat_vit_vgah_notimeemb
-- optimizers: adam_cosine
-- pl_modules: progress_predictor_vision_audio
-- trainers: progress_predictor
+- models: seehear_imitation/shf_vanilla
+- optimizers: adam_steplr
+- pl_modules: seehear_imitation
+- trainers: seehear_imitation
 - _self_
 
 
 # General settings
-task_name: "progress_prediction"
-variable_name: models.model.model_dim
-output_name: test_shuffle
+task_name: "seehear_imitation"
+variable_name: models.name
+output_name: debug_seehear_imitation_vanilla
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -25,7 +25,7 @@ hydra:
       datasets.dataloader.data_folder: ${data_folder_path}
       models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.model_dim: 256
+#      models.model.model_dim: 256
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5

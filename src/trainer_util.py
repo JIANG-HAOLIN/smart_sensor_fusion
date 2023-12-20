@@ -18,7 +18,7 @@ def launch_trainer(pl_module: pl.LightningModule,
                    label: str,
                    resume: Optional[str] = None,
                    mode: str = 'max',
-                   save_top_k: int = 4,
+                   save_top_k: int = 1,
                    hydra_conf: Optional[DictConfig] = None,
                    **kwargs) -> None:
     """ Construct the trainer and start the training process.

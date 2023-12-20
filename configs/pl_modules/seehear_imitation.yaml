@@ -1,0 +1,4 @@
+pl_module:
+  _target_: src.pl_modules.supervised_seehearfeel_vision_audio.TransformerPredictorPl
+  num_images: 5
+

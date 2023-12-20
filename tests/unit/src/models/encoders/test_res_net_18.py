@@ -13,7 +13,7 @@ class TestResNet18(unittest.TestCase):
 
     def test_make_vision_encoder(self):
         mdl = make_vision_encoder(out_dim=128, out_layer="layer4.1.relu_1")
-        input = torch.randn([2, 3, 64, 251])
+        input = torch.randn([2, 3, 67, 90])
         out = mdl(input)
         self.assertEqual(out.shape, torch.Size([2, 1, 128]))
 

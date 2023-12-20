@@ -1,4 +1,4 @@
 launch_trainer:
-  max_epochs: 15
+  max_epochs: 25
   monitor:  "val_acc"
   save_top_k: 1

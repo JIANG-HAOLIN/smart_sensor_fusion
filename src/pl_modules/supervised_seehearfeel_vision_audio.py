@@ -31,31 +31,43 @@ class TransformerPredictorPl(pl.LightningModule):
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
-        self.num_classes = kwargs['num_classes']
         self.num_images = kwargs['num_images']
-        self.validation_epoch_outputs = []
+        self.validation_epoch_accs = []
         self.validation_preds = []
+
+        self.loss_cce = torch.nn.CrossEntropyLoss()
+
+        self.wrong = 1
+        self.correct = 0
+        self.total = 0
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
 
         return {"optimizer": self.optimizer, "lr_scheduler": self.scheduler}
 
+    def compute_loss(self, demo, pred_logits, xyz_gt, xyz_pred):
+        immi_loss = self.loss_cce(pred_logits, demo)
+        aux_loss = F.mse_loss(xyz_gt, xyz_pred)
+        return immi_loss + aux_loss * 1.0, immi_loss, aux_loss
+
     def _calculate_loss(self, batch, mode="train"):
         """ Calculation of loss and prediction accuracy using output and label"""
         # Fetch data and transform categories to one-hot vectors
-        inp_data, keyboard, xyzrpy, optical_flow, start, labels = batch
+        inp_data, demo, xyzrpy_gt, optical_flow, start, labels = batch
         # Perform prediction and calculate loss and accuracy
-        out = self.mdl.forward(inp_data[1][:, -1 * self.num_images:, :, :, :], inp_data[4])
-        preds = out[0]
-        loss = F.cross_entropy(preds.view(-1, preds.size(-1)), labels.view(-1))
-        acc = (preds.argmax(dim=-1) == labels).float().mean()
-        # Logging
-        self.log(f"{mode}_loss", loss)
-        self.log(f"{mode}_acc", acc)
-        if mode == 'val' or mode == 'test':
-            return loss, acc, preds.argmax(dim=-1)
-        return loss, acc
+        action_logits, xyzrpy_pred, weights = self.mdl.forward(inp_data[1][:, -1 * self.num_images:, :, :, :], inp_data[4])
+
+        loss, immi_loss, aux_loss = self.compute_loss(
+            demo, action_logits, xyzrpy_gt, xyzrpy_pred
+        )
+
+        action_pred = torch.argmax(action_logits, dim=1)
+        acc = (action_pred == demo).sum() / action_pred.numel()
+        self.log(f"{mode}_immi_loss:", immi_loss)
+        self.log(f"{mode}_aux_loss:", aux_loss)
+        self.log(f"{mode}_acc:", acc)
+        return loss, immi_loss, aux_loss, acc, action_pred
 
     def train_dataloader(self):
         """Training dataloader"""
@@ -67,16 +79,17 @@ class TransformerPredictorPl(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """ Calculate training loss and accuracy after each batch """
-        loss, acc = self._calculate_loss(batch, mode="train")
+        loss, immi_loss, aux_loss, acc, action_pred = self._calculate_loss(batch, mode="train")
+
         return loss
 
     def validation_step(self, batch, batch_idx):
         """ Calculate validation loss and accuracy after each batch
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
-        val_loss, val_output, preds = self._calculate_loss(batch, mode="val")
+        val_loss, val_immi_loss, val_aux_loss, val_step_acc, preds = self._calculate_loss(batch, mode="val")
         self.validation_preds.append([batch[1][0], preds[0]])
-        self.validation_epoch_outputs.append(val_output)
+        self.validation_epoch_accs.append(val_step_acc)
 
     def on_validation_epoch_end(self) -> None:
         """ Calculate the validation accuracy after an entire epoch.
@@ -84,8 +97,8 @@ class TransformerPredictorPl(pl.LightningModule):
         Returns: validation accuracy of an entire epoch
 
         """
-        val_acc = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
-        self.validation_epoch_outputs.clear()
+        val_acc = sum(self.validation_epoch_accs) / len(self.validation_epoch_accs)
+        self.validation_epoch_accs.clear()
         self.validation_preds.clear()
         self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
 

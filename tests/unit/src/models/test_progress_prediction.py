@@ -48,6 +48,23 @@ class TestVisionAudioFusion(unittest.TestCase):
             self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
 
+class TestVisionAudioFusion_EarlyFuse(unittest.TestCase):
+    """
+    If directly use the config file in models folder, model_dim can not be correctly interpolated
+    """
+
+    def test_vision_audio_fusion_early_fuse(self):
+        with initialize(version_base='1.2', config_path="../../../../configs/"):
+            # config is relative to a module
+            cfg = compose(config_name="config_progress_prediction_vision_audio",
+                          overrides=['models=progress_vision_audio/earlyfuse_vit_vgah'])
+            mdl = hydra.utils.instantiate(cfg.models.model, _recursive_=False)
+            input = (torch.randn([2, 5, 3, 67, 90]), torch.randn([2, 1, 40000]),)
+            out = mdl(*input)
+            self.assertEqual(torch.Size([2, 10]), out[0].shape, )
+
+
+
 class TestVisionAudioFusion_seehearfeel(unittest.TestCase):
     def test_vision_audio_fusion(self):
         with initialize(version_base='1.2', config_path="../../../../configs/"):

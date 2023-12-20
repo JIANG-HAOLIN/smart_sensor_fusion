@@ -409,7 +409,7 @@ def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
     )
 
     train_loader = DataLoader(
-        train_set, batch_size, num_workers=8,
+        train_set, batch_size, num_workers=8, shuffle=True,
     )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False)
     return train_loader, val_loader, None

@@ -116,6 +116,238 @@ class VisionAudioFusion(torch.nn.Module):
         return self.transformer_classifier(x)
 
 
+class VisionAudioFusion_Extractor(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
+
+    def __init__(self,
+                 preprocess_audio_args: DictConfig,
+                 tokenization_audio: DictConfig,
+                 pe_audio: DictConfig,
+                 encoder_audio_args: DictConfig,
+                 preprocess_vision_args: DictConfig,
+                 tokenization_vision: DictConfig,
+                 pe_vision: DictConfig,
+                 encoder_vision_args: DictConfig,
+                 last_pos_emb_args: DictConfig,
+                 transformer_classifier_args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.preprocess_audio = hydra.utils.instantiate(preprocess_audio_args)
+        self.tokenization_audio = hydra.utils.instantiate(tokenization_audio)
+        self.positional_encoding_audio = hydra.utils.instantiate(pe_audio)
+        self.encoder_audio = hydra.utils.instantiate(encoder_audio_args)
+
+        self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
+        self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+        self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
+
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, last_pos_emb_args.emb_dim))
+        self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
+        self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+        audio_signal = self.preprocess_audio(audio_signal)
+        audio_signal = self.tokenization_audio(audio_signal)
+        audio_signal = self.positional_encoding_audio(audio_signal)
+        audio_signal = self.encoder_audio(audio_signal)
+
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
+        vision_signal = self.preprocess_vision(vision_signal)
+        vision_signal = self.tokenization_vision(vision_signal)
+        vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
+        vision_signal = self.positional_encoding_vision(vision_signal)
+        vision_signal = self.encoder_vision(vision_signal)
+
+        if type(audio_signal) == tuple:
+            audio_signal, attn_audio = audio_signal
+        if type(vision_signal) == tuple:
+            vision_signal, attn_vision = vision_signal
+
+        cls = self.cls.expand(audio_signal.shape[0], self.cls.shape[1], self.cls.shape[2])
+        cls = self.last_pos_emb(cls, index=0)
+        audio_signal = self.last_pos_emb(audio_signal, index=1)
+        vision_signal = self.last_pos_emb(vision_signal, index=2)
+
+        x = torch.cat([cls, audio_signal, vision_signal], dim=1)
+        return self.transformer_classifier(x)
+
+class VisionAudioFusion_EarlySum(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation"""
+
+    def __init__(self,
+                 model_dim: int,
+                 preprocess_audio_args: DictConfig,
+                 tokenization_audio: DictConfig,
+                 pe_audio: DictConfig,
+                 encoder_audio_args: DictConfig,
+                 preprocess_vision_args: DictConfig,
+                 tokenization_vision: DictConfig,
+                 pe_vision: DictConfig,
+                 encoder_vision_args: DictConfig,
+                 pos_emb_args: DictConfig,
+                 transformer_classifier_args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.preprocess_audio = hydra.utils.instantiate(preprocess_audio_args)
+        self.tokenization_audio = hydra.utils.instantiate(tokenization_audio)
+        self.positional_encoding_audio = hydra.utils.instantiate(pe_audio)
+        self.encoder_audio = hydra.utils.instantiate(encoder_audio_args)
+
+        self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
+        self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+        self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
+
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, transformer_classifier_args.model_dim))
+        self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.pos_emb = hydra.utils.instantiate(pos_emb_args)
+        self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+        audio_signal = self.preprocess_audio(audio_signal)
+        audio_signal = self.tokenization_audio(audio_signal)
+        audio_signal = self.positional_encoding_audio(audio_signal)
+        audio_signal = self.encoder_audio(audio_signal)
+
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
+        vision_signal = self.preprocess_vision(vision_signal)
+        vision_signal = self.tokenization_vision(vision_signal)
+        vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
+        vision_signal = self.positional_encoding_vision(vision_signal)
+        vision_signal = self.encoder_vision(vision_signal)
+
+        if type(audio_signal) == tuple:
+            audio_signal, attn_audio = audio_signal
+        if type(vision_signal) == tuple:
+            vision_signal, attn_vision = vision_signal
+
+        audio_signal = self.audio_gamma * audio_signal
+        vision_signal = self.vision_gamma * vision_signal
+        x = torch.cat([audio_signal, vision_signal], dim=2)
+        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
+
+        x = torch.cat([cls, x], dim=1)
+        x = self.pos_emb(x)
+
+        return self.transformer_classifier(x)
+
+
+class VisionAudioFusion_EarlyFuse(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
+
+    def __init__(self,
+                 preprocess_audio_args: DictConfig,
+                 tokenization_audio: DictConfig,
+                 pe_audio: DictConfig,
+                 preprocess_vision_args: DictConfig,
+                 tokenization_vision: DictConfig,
+                 pe_vision: DictConfig,
+                 early_fuse: DictConfig,
+                 mdl_type_emb: DictConfig,
+                 temporal_emb: DictConfig,
+                 transformer_classifier_args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.preprocess_audio = hydra.utils.instantiate(preprocess_audio_args)
+        self.tokenization_audio = hydra.utils.instantiate(tokenization_audio)
+        self.positional_encoding_audio = hydra.utils.instantiate(pe_audio)
+
+        self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
+        self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+
+        self.cls1 = torch.nn.Parameter(torch.randn(1, 1, mdl_type_emb.emb_dim))
+        self.mdl_type_emb = hydra.utils.instantiate(mdl_type_emb)
+        self.early_fuse = hydra.utils.instantiate(early_fuse)
+
+        self.cls2 = torch.nn.Parameter(torch.randn(1, 1, mdl_type_emb.emb_dim))
+        self.temporal_emb = hydra.utils.instantiate(temporal_emb)
+        self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
+        vision_signal = self.preprocess_vision(vision_signal)
+        vision_signal = self.tokenization_vision(vision_signal)
+        vision_signal = self.positional_encoding_vision(vision_signal)
+
+        audio_signal = self.preprocess_audio(audio_signal)
+        audio_signal = self.tokenization_audio(audio_signal)
+        audio_signal = audio_signal.view(batch_size * num_stack, -1, audio_signal.shape[-1])
+        audio_signal = self.positional_encoding_audio(audio_signal)
+
+        if type(audio_signal) == tuple:
+            audio_signal, attn_audio = audio_signal
+        if type(vision_signal) == tuple:
+            vision_signal, attn_vision = vision_signal
+
+
+        audio_signal = self.mdl_type_emb(audio_signal, index=1)
+        vision_signal = self.mdl_type_emb(vision_signal, index=2)
+
+        x = torch.cat([audio_signal, vision_signal], dim=1)
+        x = self.early_fuse(x)
+        if type(x) == tuple:
+            x, attn = x
+        x = x.view(batch_size, num_stack, x.shape[-1])
+        x = self.temporal_emb(x)
+
+        cls2 = self.cls2.expand(batch_size, self.cls2.shape[1], self.cls2.shape[2])
+        x = torch.cat([cls2, x], dim=1)
+
+        return self.transformer_classifier(x)
+
+
 class VisionAudioFusionTimeEmb(torch.nn.Module):
     """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
 
@@ -293,129 +525,129 @@ class VisionAudioFusion_seehearfeel(torch.nn.Module):
         return [action_logits, xyzrpy]
 
 
-class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
-    """Model for short term drilling progress prediction(Y_corr) using acc cage(ac), acc PTU(ap), Force(F), Current(I)"""
-
-    def __init__(self,
-                 preprocess_acc_cage_args: DictConfig,
-                 tokenization_acc_cage: DictConfig,
-                 pe_acc_cage_temporal: DictConfig,
-                 pe_acc_cage_spatial: DictConfig,
-                 preprocess_acc_ptu_args: DictConfig,
-                 tokenization_acc_ptu: DictConfig,
-                 pe_acc_ptu_temporal: DictConfig,
-                 pe_acc_ptu_spatial: DictConfig,
-                 preprocess_force_args: DictConfig,
-                 tokenization_force: DictConfig,
-                 pe_force_temporal: DictConfig,
-                 pe_force_spatial: DictConfig,
-                 preprocess_current_args: DictConfig,
-                 tokenization_current: DictConfig,
-                 pe_current_temporal: DictConfig,
-                 pe_current_spatial: DictConfig,
-                 last_pos_emb_args: DictConfig,
-                 transformer_classifier_args: DictConfig,
-                 **kwargs
-                 ):
-        """
-
-        Args:
-             preprocess_audio_args: arguments for audio prepressing
-             tokenization_audio: arguments for audio tokenization
-             pe_audio: arguments for positional encoding for audio tokens
-             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
-             preprocess_vision_args: arguments for vision prepressing
-             tokenization_vision: arguments for vision tokenization
-             pe_vision: arguments for positional encoding for vision tokens
-             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
-             transformer_classifier_args: arguments for transformer classifier
-             **kwargs:
-        """
-        super().__init__()
-        self.preprocess_acc_cage = hydra.utils.instantiate(preprocess_acc_cage_args)
-        self.tokenization_acc_cage = hydra.utils.instantiate(tokenization_acc_cage)
-        self.positional_encoding_acc_cage_temporal = hydra.utils.instantiate(pe_acc_cage_temporal)
-        self.positional_encoding_acc_cage_spatial = hydra.utils.instantiate(pe_acc_cage_spatial)
-
-        self.preprocess_acc_ptu = hydra.utils.instantiate(preprocess_acc_ptu_args)
-        self.tokenization_acc_ptu = hydra.utils.instantiate(tokenization_acc_ptu)
-        self.positional_encoding_acc_ptu_temporal = hydra.utils.instantiate(pe_acc_ptu_temporal)
-        self.positional_encoding_acc_ptu_spatial = hydra.utils.instantiate(pe_acc_ptu_spatial)
-
-        self.preprocess_force = hydra.utils.instantiate(preprocess_force_args)
-        self.tokenization_force = hydra.utils.instantiate(tokenization_force)
-        self.positional_encoding_force_temporal = hydra.utils.instantiate(pe_force_temporal)
-        self.positional_encoding_force_spatial = hydra.utils.instantiate(pe_force_spatial)
-
-        self.preprocess_current = hydra.utils.instantiate(preprocess_current_args)
-        self.tokenization_current = hydra.utils.instantiate(tokenization_current)
-        self.positional_encoding_current_temporal = hydra.utils.instantiate(pe_current_temporal)
-        self.positional_encoding_current_spatial = hydra.utils.instantiate(pe_current_spatial)
-
-        self.cls = torch.nn.Parameter(torch.randn(1, 1, last_pos_emb_args.emb_dim))
-        self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
-        self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
-
-    def forward(self,
-                acc_cage_x: torch.Tensor,
-                acc_cage_y: torch.Tensor,
-                acc_cage_z: torch.Tensor,
-                acc_ptu_x: torch.Tensor,
-                acc_ptu_y: torch.Tensor,
-                acc_ptu_z: torch.Tensor,
-                f_x: torch.Tensor,
-                f_y: torch.Tensor,
-                f_z: torch.Tensor,
-                i_s: torch.Tensor,
-                i_z: torch.Tensor,
-                ):
-        batch_size = acc_ptu_x.shape[0]
-
-        acc_cage = torch.cat([acc_cage_x, acc_cage_y, acc_cage_z], dim=0)
-        acc_cage = self.preprocess_acc_cage(acc_cage.unsqueeze(1))
-        _, c_v, h_v, w_v = acc_cage.shape
-        acc_cage = self.tokenization_acc_cage(acc_cage)
-        acc_cage = acc_cage.view(batch_size, 3, acc_cage.shape[-2], acc_cage.shape[-1])
-        acc_cage = self.positional_encoding_acc_cage_temporal(acc_cage, which_dim=1)
-        acc_cage = self.positional_encoding_acc_cage_spatial(acc_cage, which_dim=2)
-        acc_cage = acc_cage.view(batch_size, 3 * acc_cage.shape[-2], acc_cage.shape[-1])
-
-        acc_ptu = torch.cat([acc_ptu_x, acc_ptu_y, acc_ptu_z], dim=0)
-        acc_ptu = self.preprocess_acc_ptu(acc_ptu.unsqueeze(1))
-        _, c_v, h_v, w_v = acc_ptu.shape
-        acc_ptu = self.tokenization_acc_ptu(acc_ptu)
-        acc_ptu = acc_ptu.view(batch_size, 3, acc_ptu.shape[-2], acc_ptu.shape[-1])
-        acc_ptu = self.positional_encoding_acc_ptu_temporal(acc_ptu, which_dim=1)
-        acc_ptu = self.positional_encoding_acc_ptu_spatial(acc_ptu, which_dim=2)
-        acc_ptu = acc_ptu.view(batch_size, 3 * acc_ptu.shape[-2], acc_ptu.shape[-1])
-
-        force = torch.cat([f_x, f_y, f_z], dim=0)
-        force = self.preprocess_force(force.unsqueeze(1))
-        _, c_v, h_v, w_v = force.shape
-        force = self.tokenization_force(force)
-        force = force.view(batch_size, 3, force.shape[-2], force.shape[-1])
-        force = self.positional_encoding_force_temporal(force, which_dim=1)
-        force = self.positional_encoding_force_spatial(force, which_dim=2)
-        force = force.view(batch_size, 3 * force.shape[-2], force.shape[-1])
-
-        current = torch.cat([i_s, i_z], dim=0)
-        current = self.preprocess_current(current.unsqueeze(1))
-        _, c_v, h_v, w_v = current.shape
-        current = self.tokenization_current(current)
-        current = current.view(batch_size, 2, current.shape[-2], current.shape[-1])
-        current = self.positional_encoding_current_temporal(current, which_dim=1)
-        current = self.positional_encoding_current_spatial(current, which_dim=2)
-        current = current.view(batch_size, 2 * current.shape[-2], current.shape[-1])
-
-        cls = self.cls.expand(batch_size, self.cls.shape[1], self.cls.shape[2])
-        cls = self.last_pos_emb(cls, index=0)
-        acc_cage = self.last_pos_emb(acc_cage, index=1)
-        acc_ptu = self.last_pos_emb(acc_ptu, index=2)
-        force = self.last_pos_emb(force, index=3)
-        current = self.last_pos_emb(current, index=4)
-
-        x = torch.cat([cls, acc_cage, acc_ptu, force, current], dim=1)
-        return self.transformer_classifier(x)
+# class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
+#     """Model for short term drilling progress prediction(Y_corr) using acc cage(ac), acc PTU(ap), Force(F), Current(I)"""
+#
+#     def __init__(self,
+#                  preprocess_acc_cage_args: DictConfig,
+#                  tokenization_acc_cage: DictConfig,
+#                  pe_acc_cage_temporal: DictConfig,
+#                  pe_acc_cage_spatial: DictConfig,
+#                  preprocess_acc_ptu_args: DictConfig,
+#                  tokenization_acc_ptu: DictConfig,
+#                  pe_acc_ptu_temporal: DictConfig,
+#                  pe_acc_ptu_spatial: DictConfig,
+#                  preprocess_force_args: DictConfig,
+#                  tokenization_force: DictConfig,
+#                  pe_force_temporal: DictConfig,
+#                  pe_force_spatial: DictConfig,
+#                  preprocess_current_args: DictConfig,
+#                  tokenization_current: DictConfig,
+#                  pe_current_temporal: DictConfig,
+#                  pe_current_spatial: DictConfig,
+#                  last_pos_emb_args: DictConfig,
+#                  transformer_classifier_args: DictConfig,
+#                  **kwargs
+#                  ):
+#         """
+#
+#         Args:
+#              preprocess_audio_args: arguments for audio prepressing
+#              tokenization_audio: arguments for audio tokenization
+#              pe_audio: arguments for positional encoding for audio tokens
+#              encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+#              preprocess_vision_args: arguments for vision prepressing
+#              tokenization_vision: arguments for vision tokenization
+#              pe_vision: arguments for positional encoding for vision tokens
+#              encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+#              transformer_classifier_args: arguments for transformer classifier
+#              **kwargs:
+#         """
+#         super().__init__()
+#         self.preprocess_acc_cage = hydra.utils.instantiate(preprocess_acc_cage_args)
+#         self.tokenization_acc_cage = hydra.utils.instantiate(tokenization_acc_cage)
+#         self.positional_encoding_acc_cage_temporal = hydra.utils.instantiate(pe_acc_cage_temporal)
+#         self.positional_encoding_acc_cage_spatial = hydra.utils.instantiate(pe_acc_cage_spatial)
+#
+#         self.preprocess_acc_ptu = hydra.utils.instantiate(preprocess_acc_ptu_args)
+#         self.tokenization_acc_ptu = hydra.utils.instantiate(tokenization_acc_ptu)
+#         self.positional_encoding_acc_ptu_temporal = hydra.utils.instantiate(pe_acc_ptu_temporal)
+#         self.positional_encoding_acc_ptu_spatial = hydra.utils.instantiate(pe_acc_ptu_spatial)
+#
+#         self.preprocess_force = hydra.utils.instantiate(preprocess_force_args)
+#         self.tokenization_force = hydra.utils.instantiate(tokenization_force)
+#         self.positional_encoding_force_temporal = hydra.utils.instantiate(pe_force_temporal)
+#         self.positional_encoding_force_spatial = hydra.utils.instantiate(pe_force_spatial)
+#
+#         self.preprocess_current = hydra.utils.instantiate(preprocess_current_args)
+#         self.tokenization_current = hydra.utils.instantiate(tokenization_current)
+#         self.positional_encoding_current_temporal = hydra.utils.instantiate(pe_current_temporal)
+#         self.positional_encoding_current_spatial = hydra.utils.instantiate(pe_current_spatial)
+#
+#         self.cls = torch.nn.Parameter(torch.randn(1, 1, last_pos_emb_args.emb_dim))
+#         self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
+#         self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
+#
+#     def forward(self,
+#                 acc_cage_x: torch.Tensor,
+#                 acc_cage_y: torch.Tensor,
+#                 acc_cage_z: torch.Tensor,
+#                 acc_ptu_x: torch.Tensor,
+#                 acc_ptu_y: torch.Tensor,
+#                 acc_ptu_z: torch.Tensor,
+#                 f_x: torch.Tensor,
+#                 f_y: torch.Tensor,
+#                 f_z: torch.Tensor,
+#                 i_s: torch.Tensor,
+#                 i_z: torch.Tensor,
+#                 ):
+#         batch_size = acc_ptu_x.shape[0]
+#
+#         acc_cage = torch.cat([acc_cage_x, acc_cage_y, acc_cage_z], dim=0)
+#         acc_cage = self.preprocess_acc_cage(acc_cage.unsqueeze(1))
+#         _, c_v, h_v, w_v = acc_cage.shape
+#         acc_cage = self.tokenization_acc_cage(acc_cage)
+#         acc_cage = acc_cage.view(batch_size, 3, acc_cage.shape[-2], acc_cage.shape[-1])
+#         acc_cage = self.positional_encoding_acc_cage_temporal(acc_cage, which_dim=1)
+#         acc_cage = self.positional_encoding_acc_cage_spatial(acc_cage, which_dim=2)
+#         acc_cage = acc_cage.view(batch_size, 3 * acc_cage.shape[-2], acc_cage.shape[-1])
+#
+#         acc_ptu = torch.cat([acc_ptu_x, acc_ptu_y, acc_ptu_z], dim=0)
+#         acc_ptu = self.preprocess_acc_ptu(acc_ptu.unsqueeze(1))
+#         _, c_v, h_v, w_v = acc_ptu.shape
+#         acc_ptu = self.tokenization_acc_ptu(acc_ptu)
+#         acc_ptu = acc_ptu.view(batch_size, 3, acc_ptu.shape[-2], acc_ptu.shape[-1])
+#         acc_ptu = self.positional_encoding_acc_ptu_temporal(acc_ptu, which_dim=1)
+#         acc_ptu = self.positional_encoding_acc_ptu_spatial(acc_ptu, which_dim=2)
+#         acc_ptu = acc_ptu.view(batch_size, 3 * acc_ptu.shape[-2], acc_ptu.shape[-1])
+#
+#         force = torch.cat([f_x, f_y, f_z], dim=0)
+#         force = self.preprocess_force(force.unsqueeze(1))
+#         _, c_v, h_v, w_v = force.shape
+#         force = self.tokenization_force(force)
+#         force = force.view(batch_size, 3, force.shape[-2], force.shape[-1])
+#         force = self.positional_encoding_force_temporal(force, which_dim=1)
+#         force = self.positional_encoding_force_spatial(force, which_dim=2)
+#         force = force.view(batch_size, 3 * force.shape[-2], force.shape[-1])
+#
+#         current = torch.cat([i_s, i_z], dim=0)
+#         current = self.preprocess_current(current.unsqueeze(1))
+#         _, c_v, h_v, w_v = current.shape
+#         current = self.tokenization_current(current)
+#         current = current.view(batch_size, 2, current.shape[-2], current.shape[-1])
+#         current = self.positional_encoding_current_temporal(current, which_dim=1)
+#         current = self.positional_encoding_current_spatial(current, which_dim=2)
+#         current = current.view(batch_size, 2 * current.shape[-2], current.shape[-1])
+#
+#         cls = self.cls.expand(batch_size, self.cls.shape[1], self.cls.shape[2])
+#         cls = self.last_pos_emb(cls, index=0)
+#         acc_cage = self.last_pos_emb(acc_cage, index=1)
+#         acc_ptu = self.last_pos_emb(acc_ptu, index=2)
+#         force = self.last_pos_emb(force, index=3)
+#         current = self.last_pos_emb(current, index=4)
+#
+#         x = torch.cat([cls, acc_cage, acc_ptu, force, current], dim=1)
+#         return self.transformer_classifier(x)
 
 
 class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
@@ -483,7 +715,7 @@ class ShortDrillingProgressPredictionVanilla(torch.nn.Module):
                                               torch.nn.Conv1d(kernel_size=2, stride=2,
                                                               in_channels=1024, out_channels=2048),
                                               torch.nn.Flatten(),
-                                              torch.nn.Linear(in_features=2048, out_features=1),)
+                                              torch.nn.Linear(in_features=2048, out_features=1), )
 
     def forward(self,
                 acc_cage_x: torch.Tensor,

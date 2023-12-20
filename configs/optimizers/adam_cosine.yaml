@@ -1,4 +1,4 @@
-name: '_cos'
+name: '_coswarmup'
 optimizer:
   _target_: torch.optim.Adam
   lr: 1e-4
@@ -6,6 +6,6 @@ optimizer:
 scheduler:
   _target_: src.optims.schedulers.CosineWarmupScheduler
   warmup: 500
-  max_iters: 6000
+  max_iters: 20000
 
 

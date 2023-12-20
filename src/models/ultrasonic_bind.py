@@ -13,6 +13,32 @@ class SeparateEncoder(torch.nn.Module):
     Current(I)"""
 
     def __init__(self,
+
+                 acc_in_feature: int = 240*6,
+                 acc_out_feature: int = 512,
+                 acc_vit_dim: int = 512,
+                 acc_num_pos_emb: int = 151,
+                 acc_patch_size: int = 240,
+
+                 f_in_feature: int = 20*3,
+                 f_out_feature: int = 512,
+                 f_vit_dim: int = 512,
+                 f_num_pos_emb: int = 151,
+                 f_patch_size: int = 20,
+
+                 i_in_feature: int = 20*2,
+                 i_out_feature: int = 512,
+                 i_vit_dim: int = 512,
+                 i_num_pos_emb: int = 151,
+                 i_patch_size: int = 20,
+
+                 s_in_feature: int = 20*2,
+                 s_out_feature: int = 512,
+                 s_vit_dim: int = 512,
+                 s_num_pos_emb: int = 151,
+                 s_patch_size: int = 20,
+
+
                  ):
         """
 
@@ -20,72 +46,73 @@ class SeparateEncoder(torch.nn.Module):
 
         """
         super().__init__()
+        self.acc_patch_size =
         self.stem_ac = nn.Sequential(
             nn.Linear(
-                in_features=240 * 6,
-                out_features=512,
+                in_features=acc_in_feature,
+                out_features=acc_out_feature,
                 bias=False,
             ),
-            nn.LayerNorm(normalized_shape=512),
+            nn.LayerNorm(normalized_shape=acc_out_feature),
         )
         self.vit_ac = VitImageBind(
-            model_dim=512,
+            model_dim=acc_vit_dim,
             num_heads=8,
             dropout=0.0,
             input_dropout=0.0,
             num_layers=4,
-            num_pos_emb=151,
+            num_pos_emb=acc_num_pos_emb,
         )
 
         self.stem_f = nn.Sequential(
             nn.Linear(
-                in_features=20 * 3,
-                out_features=512,
+                in_features=f_in_feature,
+                out_features=f_out_feature,
                 bias=False,
             ),
-            nn.LayerNorm(normalized_shape=512),
+            nn.LayerNorm(normalized_shape=f_out_feature),
         )
         self.vit_f = VitImageBind(
-            model_dim=512,
+            model_dim=f_vit_dim,
             num_heads=8,
             dropout=0.0,
             input_dropout=0.0,
             num_layers=4,
-            num_pos_emb=151,
+            num_pos_emb=f_num_pos_emb,
         )
 
         self.stem_i = nn.Sequential(
             nn.Linear(
-                in_features=20 * 2,
-                out_features=512,
+                in_features=i_in_feature,
+                out_features=i_out_feature,
                 bias=False,
             ),
-            nn.LayerNorm(normalized_shape=512),
+            nn.LayerNorm(normalized_shape=i_out_feature),
         )
         self.vit_i = VitImageBind(
-            model_dim=512,
+            model_dim=i_vit_dim,
             num_heads=8,
             dropout=0.0,
             input_dropout=0.0,
             num_layers=4,
-            num_pos_emb=151,
+            num_pos_emb=i_num_pos_emb,
         )
 
         self.stem_s = nn.Sequential(
             nn.Linear(
-                in_features=20 * 2,
-                out_features=512,
+                in_features=s_in_feature,
+                out_features=s_out_feature,
                 bias=False,
             ),
-            nn.LayerNorm(normalized_shape=512),
+            nn.LayerNorm(normalized_shape=s_out_feature),
         )
         self.vit_s = VitImageBind(
-            model_dim=512,
+            model_dim=s_vit_dim,
             num_heads=8,
             dropout=0.0,
             input_dropout=0.0,
             num_layers=4,
-            num_pos_emb=151,
+            num_pos_emb=s_num_pos_emb,
         )
 
     def forward(self,
