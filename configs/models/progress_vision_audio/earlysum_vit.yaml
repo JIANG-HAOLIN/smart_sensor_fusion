@@ -1,4 +1,4 @@
-name: 'earlysum_vit_vgah_notimeemb'
+name: 'EarlySum_vit'
 
 model:
   _target_: src.models.progress_prediction.VisionAudioFusion_EarlySum
@@ -36,12 +36,12 @@ model:
 
   pos_emb_args:
     _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
-    d_model: 512
+    d_model: ${models.model.model_dim}
 
 
   transformer_classifier_args:
     _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
-    model_dim: 512
+    model_dim: ${models.model.model_dim}
     num_classes: 10
     num_heads: 8
     dropout: 0.0

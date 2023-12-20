@@ -188,6 +188,7 @@ class VisionAudioFusion_Extractor(torch.nn.Module):
         x = torch.cat([cls, audio_signal, vision_signal], dim=1)
         return self.transformer_classifier(x)
 
+
 class VisionAudioFusion_EarlySum(torch.nn.Module):
     """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation"""
 
@@ -257,7 +258,7 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
 
         audio_signal = self.audio_gamma * audio_signal
         vision_signal = self.vision_gamma * vision_signal
-        x = torch.cat([audio_signal, vision_signal], dim=2)
+        x = audio_signal + vision_signal
         cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
 
         x = torch.cat([cls, x], dim=1)
@@ -330,7 +331,6 @@ class VisionAudioFusion_EarlyFuse(torch.nn.Module):
             audio_signal, attn_audio = audio_signal
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
-
 
         audio_signal = self.mdl_type_emb(audio_signal, index=1)
         vision_signal = self.mdl_type_emb(vision_signal, index=2)
