@@ -1,9 +1,9 @@
 import torch
 from typing import Optional
-
+import numpy as np
 
 class ModalTypeEmbedding(torch.nn.Module):
-    """Embedding for different model types"""
+    """Embedding for different model types by adding the modality emb vector"""
 
     def __init__(self, num_type: int = 2, emb_dim: int = 256, **kwargs):
         super().__init__()
@@ -15,6 +15,47 @@ class ModalTypeEmbedding(torch.nn.Module):
             x - input sequence of type [batch size, sequence len, token dim]
         """
         return x + self.type_emb(torch.full(x.shape[:-1], index, device=x.device))
+
+
+class MdlLbCat(torch.nn.Module):
+    """Embedding for different model types using concatenation of modality label (one-hot)"""
+
+    def __init__(self, num_type: int = 2, emb_dim: int = 256, **kwargs):
+        super().__init__()
+        input_label = torch.zeros((num_type, num_type), device='cuda', requires_grad=False)
+        type_emb = input_label.scatter_(1, torch.from_numpy(np.arange(num_type)).unsqueeze(1).to('cuda'), 1.0)
+        self.register_buffer('type_emb', type_emb)
+        print(self.type_emb)
+
+    def forward(self, x: torch.Tensor, index: int) -> torch.Tensor:
+        """
+        args:
+            x - input sequence of type [batch size, sequence len, token dim]
+            index - which dim to be embedded
+        """
+
+        embs = self.type_emb[index].view(1, 1, -1)
+        embs = embs.expand(x.shape[0], x.shape[1], -1)
+        return torch.cat((x, embs.to(x.device)), dim=-1)
+
+
+class MdlEmbCat(torch.nn.Module):
+    """Embedding for different model types by concatenating the modality emb vector"""
+
+    def __init__(self, num_type: int = 2, emb_dim: int = 256, **kwargs):
+        super().__init__()
+        self.type_emb = torch.nn.Embedding(num_type, emb_dim)
+
+    def forward(self, x: torch.Tensor, index: int) -> torch.Tensor:
+        """
+        args:
+            x - input sequence of type [batch size, sequence len, token dim]
+            index - which dim to be embedded
+        """
+
+        return torch.cat((x, self.type_emb(torch.full(x.shape[:-1], index, device=x.device))), dim=-1)
+
+
 
 
 class VitPatchEmbedding(torch.nn.Module):

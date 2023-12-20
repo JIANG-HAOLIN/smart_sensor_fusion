@@ -12,8 +12,8 @@ defaults:
 
 # General settings
 task_name: "progress_prediction"
-variable_name: models.model.model_dim
-output_name: test_shuffle
+variable_name: models.name
+output_name: test_MdlLbCat
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'

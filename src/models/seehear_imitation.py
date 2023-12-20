@@ -59,10 +59,9 @@ class VisionAudioFusion_Supervised(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(model_dim, model_dim),
             torch.nn.ReLU(),
-            torch.nn.Linear(model_dim, 3**3),
+            torch.nn.Linear(model_dim, 3 ** 3),
         )
         self.aux_mlp = torch.nn.Linear(model_dim, 6)
-
 
     def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
         audio_signal = self.preprocess_audio(audio_signal)
@@ -144,7 +143,7 @@ class Seehearfeel_Vanilla(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(1024, 1024),
             torch.nn.ReLU(),
-            torch.nn.Linear(1024, 3**args.action_dim),
+            torch.nn.Linear(1024, 3 ** args.action_dim),
         )
         self.aux_mlp = torch.nn.Linear(self.layernorm_embed_shape, 6)
 
@@ -196,3 +195,89 @@ class Seehearfeel_Vanilla(torch.nn.Module):
         xyzrpy = self.aux_mlp(mlp_inp)
         return action_logits, xyzrpy, weights
 
+
+class EarlyCat_Extractor(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
+
+    def __init__(self,
+                 preprocess_audio_args: DictConfig,
+                 tokenization_audio: DictConfig,
+                 pe_audio: DictConfig,
+                 encoder_audio_args: DictConfig,
+                 preprocess_vision_args: DictConfig,
+                 tokenization_vision: DictConfig,
+                 pe_vision: DictConfig,
+                 encoder_vision_args: DictConfig,
+                 last_pos_emb_args: DictConfig,
+                 transformer_args: DictConfig,
+                 model_dim: int,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.preprocess_audio = hydra.utils.instantiate(preprocess_audio_args)
+        self.tokenization_audio = hydra.utils.instantiate(tokenization_audio)
+        self.positional_encoding_audio = hydra.utils.instantiate(pe_audio)
+        self.encoder_audio = hydra.utils.instantiate(encoder_audio_args)
+
+        self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
+        self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+        self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
+
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
+        self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
+        self.transformer = hydra.utils.instantiate(transformer_args)
+
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(model_dim, 1024),  ## 256x6->1024
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, 1024),
+            torch.nn.ReLU(),
+            torch.nn.Linear(1024, 3 ** 3),
+        )
+        self.aux_mlp = torch.nn.Linear(self.layernorm_embed_shape, 6)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+        audio_signal = self.preprocess_audio(audio_signal)
+        audio_signal = self.tokenization_audio(audio_signal)
+        audio_signal = self.positional_encoding_audio(audio_signal)
+        audio_signal = self.encoder_audio(audio_signal)
+
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
+        vision_signal = self.preprocess_vision(vision_signal)
+        vision_signal = self.tokenization_vision(vision_signal)
+        vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
+        vision_signal = self.positional_encoding_vision(vision_signal)
+        vision_signal = self.encoder_vision(vision_signal)
+
+        if type(audio_signal) == tuple:
+            audio_signal, attn_audio = audio_signal
+        if type(vision_signal) == tuple:
+            vision_signal, attn_vision = vision_signal
+
+        cls = self.cls.expand(audio_signal.shape[0], self.cls.shape[1], self.cls.shape[2])
+        cls = self.last_pos_emb(cls, index=0)
+        audio_signal = self.last_pos_emb(audio_signal, index=1)
+        vision_signal = self.last_pos_emb(vision_signal, index=2)
+
+        x = torch.cat([cls, audio_signal, vision_signal], dim=1)
+        x, attn_maps = self.transformer(x)
+        x = x[:, 0]
+        action_logits = self.mlp(x)
+        xyzrpy = self.aux_mlp(x)
+        return action_logits, xyzrpy, attn_maps

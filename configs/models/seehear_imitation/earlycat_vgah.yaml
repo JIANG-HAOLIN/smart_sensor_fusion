@@ -2,7 +2,7 @@ name: 'earlycat_vit_vgah_notimeemb'
 
 model:
   _target_: src.models.seehear_imitation.VisionAudioFusion_Supervised
-  model_dim: 256
+  model_dim: 512
   preprocess_audio_args:
     _target_: src.models.utils.mel_spec.MelSpec
     length: 40000
