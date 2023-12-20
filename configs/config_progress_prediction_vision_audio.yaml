@@ -3,8 +3,8 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/earlysum_vit
-- optimizers: adam_cosine
+- models: progress_vision_audio/earlycat_vit_vgah_timeemb
+- optimizers: adam_steplr
 - pl_modules: progress_predictor_vision_audio
 - trainers: progress_predictor
 - _self_
@@ -13,7 +13,7 @@ defaults:
 # General settings
 task_name: "progress_prediction"
 variable_name: models.model.model_dim
-output_name: earlysum_dim
+output_name: earlycat_time_dim
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -38,7 +38,7 @@ hydra:
     # only controls where config.yaml is saved
     subdir: ./
   run: # control where multirun.yaml is saved
-    dir: ${hydra.sweep.dir}/.hydra
+    dir: ${hydra.sweep.sub}/.hydra
 
 
 
