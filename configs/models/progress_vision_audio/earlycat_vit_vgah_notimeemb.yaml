@@ -50,13 +50,13 @@ model:
     norm_first: True
 
   last_pos_emb_args:
-    _target_: src.models.utils.embeddings.ModalTypeEmbedding
+    _target_: src.models.utils.embeddings.MdlEmbCat
     num_type: 3
     emb_dim: ${models.model.model_dim}
 
   transformer_classifier_args:
     _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
-    model_dim: ${models.model.model_dim}
+    model_dim: 512
     num_classes: 10
     num_heads: 8
     dropout: 0.0
