@@ -1,10 +1,10 @@
 import torch
-from src.models.utils.to_patches import Img2Patches, img_2_patches, seq_2_patches
+from src.models.utils.to_patches import Img2Patches, Video2Patches, img_2_patches, seq_2_patches
 import unittest
 
 
-class Test1(unittest.TestCase):
-    def test_to_patches(self):
+class TestToPatches(unittest.TestCase):
+    def test_img_2_patches(self):
         in_h = 7
         in_w = 7
         patch_size = (2, 2)
@@ -15,6 +15,21 @@ class Test1(unittest.TestCase):
         self.assertEqual(out.shape, torch.Size([1,
                                                 int(in_h/patch_size[0])*int(in_w/patch_size[1]),
                                                 patch_size[0]*patch_size[1]]))
+
+    def test_video_2_patches(self):
+        in_n = 4
+        in_h = 3
+        in_w = 4
+        patch_size = (2, 2, 2)
+        v2p = Video2Patches(input_size=(in_n, in_h, in_w), patch_size=patch_size)
+        input = torch.arange(1, in_n*in_h*in_w+1).reshape(1, in_n, 1, in_h, in_w)
+        out = v2p(input)
+        print(input)
+        print(out)
+        self.assertEqual(out.shape, torch.Size([1,
+                                                int(in_n / patch_size[0]),
+                                                int(in_h/patch_size[1])*int(in_w/patch_size[2]),
+                                                patch_size[0]*patch_size[1]*patch_size[2]]))
 
 
 class Test2(unittest.TestCase):

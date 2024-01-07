@@ -1,13 +1,13 @@
 import unittest
 import torch
 from src.models.trafo_predictor import TransformerPredictor as NewTransformerPredictor
-from src.models.trafo_classifier_vit import TransformerClassifierVit, VitImageBind
+from src.models.vit_implementations import Vit_Classifier, VitImageBind
 
 
-class TestTransformerClassifierVit(unittest.TestCase):
+class TestVit_Classifier(unittest.TestCase):
 
     def test_transformer_classifier_vit(self):
-        tf = TransformerClassifierVit(channel_size=2,
+        tf = Vit_Classifier(channel_size=2,
                                       model_dim=32,
                                       num_heads=4,
                                       num_classes=2,

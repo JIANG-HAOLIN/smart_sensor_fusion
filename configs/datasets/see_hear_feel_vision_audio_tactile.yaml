@@ -1,0 +1,23 @@
+name: 'vision_audio_tactile'
+
+dataloader:
+  # norm_audio: True
+  _target_: src.datasets.vision_audio.get_loaders
+  batch_size: 128
+  data_folder: ''
+  args:
+    ablation: 'vg_ah_t'
+    train_csv: 'train.csv'
+    val_csv: 'val.csv'
+    task: 'insertion'
+    num_stack: 5
+    frameskip: 5
+    no_crop: False
+    crop_percent: 0.1
+    resized_height_v: 75
+    resized_width_v: 100
+    resized_height_t: 60 #75 #150
+    resized_width_t: 80 #100 #200
+    action_dim: 3
+    use_flow: False
+    shuffle: True

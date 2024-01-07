@@ -12,7 +12,7 @@ model:
   encoder_args:
     _target_: src.models.encoders.identity.get_identity_encoder
   transformer_args:
-    _target_: src.models.trafo_classifier_vit.TransformerClassifierVit
+    _target_: src.models.vit_implementations.Vit_Classifier
     channel_size: 1
     model_dim: 64
     patch_size: [16, 4]

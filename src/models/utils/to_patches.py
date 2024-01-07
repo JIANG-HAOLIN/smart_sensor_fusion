@@ -10,7 +10,7 @@ class Img2Patches(torch.nn.Module):
     """Convert an image tensor to patches"""
 
     def __init__(self, input_size: Optional[tuple] = None,
-                 patch_size: tuple = (4, 4),):
+                 patch_size: tuple = (4, 4), ):
         """
         Args:
             patch_size: should have shape [patch_h, patch_w]
@@ -24,9 +24,10 @@ class Img2Patches(torch.nn.Module):
             if not (input_size[0] % self.patch_h == 0 and input_size[1] % self.patch_w == 0):
                 crop_h = int(input_size[0] / self.patch_h) * self.patch_h
                 crop_w = int(input_size[1] / self.patch_w) * self.patch_w
-                print(f"input can not be exactly divided! input has to be cropped to size ({crop_h, crop_w})")
+                print(f"input can not be exactly patchified! input {input_size} "
+                      f"has to be cropped to size ({crop_h, crop_w})")
                 self.rand_crop = torchvision.transforms.RandomCrop(size=[crop_h, crop_w])
-                self.num_patches = (crop_h // self.patch_h)*(crop_w // self.patch_w)
+                self.num_patches = (crop_h // self.patch_h) * (crop_w // self.patch_w)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -39,6 +40,69 @@ class Img2Patches(torch.nn.Module):
         if self.rand_crop is not None:
             x = self.rand_crop(x)
         return self.to_patches(x)
+
+
+class Video2Patches(torch.nn.Module):
+    """Convert a video tensor with shape [B, N, C, H, W] to patches"""
+
+    def __init__(self, input_size: Optional[tuple] = None,
+                 patch_size: tuple = (1, 4, 4), ):
+        """
+        Args:
+            patch_size: should have shape [patch_h, patch_w]
+        """
+        super().__init__()
+        n, h, w = input_size
+        patch_n, patch_h, patch_w = patch_size
+        self.to_patches = Rearrange('b (n p3) c (h p1) (w p2) -> b n (h w) (p1 p2 p3 c)',
+                                    p1=patch_h,
+                                    p2=patch_w,
+                                    p3=patch_n,
+                                    )
+        self.rand_crop = None
+        self.num_patches = None
+        if input_size is not None:
+            assert n % patch_n == 0, "make sure the video can be exactly divided along time axis"
+            if not (h % patch_h == 0 and w % patch_w == 0):
+                crop_h = int(h / patch_h) * patch_h
+                crop_w = int(w / patch_w) * patch_w
+                print(f"input can not be exactly patchified! input {input_size}"
+                      f" has to be cropped to size ({n, crop_h, crop_w})")
+                self.rand_crop = torchvision.transforms.RandomCrop(size=[crop_h, crop_w])
+                self.num_patches = (crop_h // patch_h) * (crop_w // patch_w) * (n // patch_n)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: input img tensor of shape [batch size, channel size, height, width]
+
+        Returns: patches of shape [batch size, num of patches, patch dim]
+
+        """
+        if self.rand_crop is not None:
+            x = self.rand_crop(x)
+        return self.to_patches(x)
+
+
+def seq_2_patches(x: torch.Tensor, patch_size: int = 4, step_size: Optional[int] = None) -> torch.Tensor:
+    """
+    Args:
+        x: input tensor of shape [batch size, channel size, length]
+        patch_size: window size
+        step_size: step size of moving window
+
+    Returns:patches of shape [batch size, num of patches, patch_h, patch_w]
+
+    """
+    l = x.shape[2]
+    if not ((l % patch_size) == 0):
+        crop_l = (l // patch_size) * patch_size
+        # print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
+        x = torch.nn.functional.interpolate(x, crop_l, mode='linear')
+    assert x.shape[2] % patch_size == 0
+    x = x.unfold(2, patch_size, patch_size if step_size is None else step_size).permute(0, 2, 1, 3)
+    x = x.reshape(x.shape[0], x.shape[1], -1)
+    return x
 
 
 def img_2_patches(x: torch.Tensor, patch_size: tuple = (4, 4)) -> torch.Tensor:
@@ -99,26 +163,3 @@ class Mel2Patches_Time_Axis(torch.nn.Module):
 
         """
         return self.to_patches(x)
-
-
-def seq_2_patches(x: torch.Tensor, patch_size: int = 4, step_size: Optional[int] = None) -> torch.Tensor:
-    """
-    Args:
-        x: input tensor of shape [batch size, channel size, length]
-        patch_size: window size
-        step_size: step size of moving window
-
-    Returns:patches of shape [batch size, num of patches, patch_h, patch_w]
-
-    """
-    l = x.shape[2]
-    if not ((l % patch_size) == 0):
-        crop_l = (l // patch_size) * patch_size
-        # print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
-        x = torch.nn.functional.interpolate(x, crop_l, mode='linear')
-    assert x.shape[2] % patch_size == 0
-    x = x.unfold(2, patch_size, patch_size if step_size is None else step_size).permute(0, 2, 1, 3)
-    x = x.reshape(x.shape[0], x.shape[1], -1)
-    return x
-
-

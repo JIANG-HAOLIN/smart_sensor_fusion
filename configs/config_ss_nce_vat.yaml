@@ -2,18 +2,18 @@
 
 
 defaults:
-- datasets: see_hear_feel_vision_audio
-- models: seehear_imitation/earlycat_vgah
+- datasets: see_hear_feel_vision_audio_tactile
+- models: ss_nce_vat/earlysum_vit_nores
 - optimizers: adam_steplr
-- pl_modules: seehear_imitation
-- trainers: seehear_imitation
+- pl_modules: ss_nce_vat
+- trainers: progress_predictor
 - _self_
 
 
 # General settings
-task_name: "seehear_imitation"
-variable_name: models.name
-output_name: debug_imitation_earlycat_vgah
+task_name: "ss_nce"
+variable_name: models.model.model_dim
+output_name: earlysum_nores_dim_vanilla
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -22,10 +22,9 @@ data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
 hydra:
   sweeper:
     params:
+      trainers.launch_trainer.max_epochs: 25
       datasets.dataloader.data_folder: ${data_folder_path}
-      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
-#      models.model.model_dim: 256
+      models.model.model_dim: 256,512
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5
@@ -37,7 +36,7 @@ hydra:
     # only controls where config.yaml is saved
     subdir: ./
   run: # control where multirun.yaml is saved
-    dir: ${hydra.sweep.dir}/.hydra
+    dir: ${hydra.sweep.sub}/.hydra
 
 
 

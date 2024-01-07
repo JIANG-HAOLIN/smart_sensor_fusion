@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.modules.activation import MultiheadAttention
-from src.models.trafo_classifier_vit import VitImageBind
+from src.models.vit_implementations import VitImageBind
 from src.models.utils.mel_spec import MelSpec
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -46,7 +46,6 @@ class SeparateEncoder(torch.nn.Module):
 
         """
         super().__init__()
-        self.acc_patch_size =
         self.stem_ac = nn.Sequential(
             nn.Linear(
                 in_features=acc_in_feature,

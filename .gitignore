@@ -38,7 +38,7 @@ src/__pycache__/
 **/*.out
 
 *.log
-**/miscellaneous.py
+tests/miscellaneous.py
 
 **/*.stderr
 **/*.stdout

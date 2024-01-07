@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: progress_vision_audio/earlysum_vit_nomel
+- models: progress_vision_audio/earlysum_vit_nores
 - optimizers: adam_steplr
 - pl_modules: progress_predictor_vision_audio
 - trainers: progress_predictor
@@ -13,7 +13,7 @@ defaults:
 # General settings
 task_name: "progress_prediction"
 variable_name: models.model.model_dim
-output_name: earlysum_nomel_dim
+output_name: earlysum_nores_dim_vanilla
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -24,13 +24,11 @@ hydra:
     params:
       trainers.launch_trainer.max_epochs: 25
       datasets.dataloader.data_folder: ${data_folder_path}
-      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
       models.model.model_dim: 256,512
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5
-#      models.model.transformer_classifier_args._target_: src.models.trafo_classifier_vit.TransformerClassifierVitVanillaNoPatch
+#      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
   sweep:
     # control where output saved
 #    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/${variable_name}/${${variable_name}}_${now:%m-%d-%H:%M:%S}

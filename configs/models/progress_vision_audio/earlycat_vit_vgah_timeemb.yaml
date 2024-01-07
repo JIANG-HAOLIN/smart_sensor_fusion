@@ -59,7 +59,7 @@ model:
     emb_dim: ${models.model.model_dim}
 
   transformer_classifier_args:
-    _target_: src.models.trafo_classifier_vit.TransformerClassifierVitNoPatch
+    _target_: src.models.vit_implementations.Transformer_Classifier_NoTokenNoEmb
     model_dim: ${models.model.model_dim}
     num_classes: 10
     num_heads: 8

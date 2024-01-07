@@ -87,3 +87,5 @@ def make_tactile_encoder(out_dim=None,  out_layer="layer4.1.relu_1", **kwargs):
     }
     return Encoder(tactile_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
 
+
+

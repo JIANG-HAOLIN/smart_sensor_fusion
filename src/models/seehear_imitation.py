@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.modules.activation import MultiheadAttention
-from src.models.trafo_classifier_vit import TransformerClassifierVit, TransformerClassifierVit_Mel
+from src.models.vit_implementations import Vit_Classifier, TransformerClassifierVit_Mel
 from src.models.encoders.res_net_18 import make_tactile_encoder
 from src.models.utils.mel_spec import MelSpec
 from omegaconf import DictConfig, OmegaConf

@@ -2,6 +2,7 @@ import torch
 from typing import Optional
 import numpy as np
 
+
 class ModalTypeEmbedding(torch.nn.Module):
     """Embedding for different model types by adding the modality emb vector"""
 
@@ -54,8 +55,6 @@ class MdlEmbCat(torch.nn.Module):
         """
 
         return torch.cat((x, self.type_emb(torch.full(x.shape[:-1], index, device=x.device))), dim=-1)
-
-
 
 
 class VitPatchEmbedding(torch.nn.Module):

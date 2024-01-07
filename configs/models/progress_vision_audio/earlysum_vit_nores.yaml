@@ -1,4 +1,4 @@
-name: 'EarlySum_vit'
+name: 'EarlySum_vit_nores'
 
 model:
   _target_: src.models.progress_prediction.VisionAudioFusion_EarlySum
@@ -23,11 +23,17 @@ model:
 
 
   preprocess_vision_args:
-    _target_: src.models.encoders.res_net_18.make_vision_encoder
-    out_dim: ${models.model.model_dim}
-    out_layer: "layer4.1.relu_1"
-  tokenization_vision:
     _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_vision:
+    _target_: src.models.vit_implementations.Vit
+    channel_size: 3
+    model_dim: ${models.model.model_dim}
+    num_heads: 8
+    num_layers: 4
+    patch_size: [8, 8]
+    input_size: [67, 90]
+    num_emb: 100
+
   pe_vision:
     _target_: src.models.encoders.identity.get_identity_encoder
   encoder_vision_args:
