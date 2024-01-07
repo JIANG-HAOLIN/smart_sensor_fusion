@@ -231,10 +231,10 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
 
-        self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        # self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
-        # self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+        # self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        # self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+        self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
 
         self.cls = torch.nn.Parameter(torch.randn(1, 1, transformer_classifier_args.model_dim))
         self.pos_emb = hydra.utils.instantiate(pos_emb_args)
@@ -264,10 +264,10 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
 
-        audio_signal = self.audio_gamma * audio_signal
-        vision_signal = self.vision_gamma * vision_signal
-        # audio_signal = self.audio_gamma(audio_signal)
-        # vision_signal = self.vision_gamma(vision_signal)
+        # audio_signal = self.audio_gamma * audio_signal
+        # vision_signal = self.vision_gamma * vision_signal
+        audio_signal = self.audio_gamma(audio_signal)
+        vision_signal = self.vision_gamma(vision_signal)
         x = audio_signal + vision_signal
 
         cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])

@@ -28,7 +28,8 @@ def train(cfg: DictConfig) -> None:
     for p in sys.path:
         log.info(p)
 
-    log.info(f"if Cuda available:{torch.cuda.is_available()}")
+    log.info(f"if Cuda available:{torch.cuda.is_available()}")rameter(torch.randn((1, 1, model_dim))))
+        self.register_parameter('audio_gamma', torch.nn.Pa
     if torch.cuda.is_available():
         log.info(f"Cuda info:\n{torch.cuda.get_device_properties('cuda')}")
         log.info(f"Cuda version:{torch.version.cuda}")
