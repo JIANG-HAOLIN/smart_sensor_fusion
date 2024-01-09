@@ -52,16 +52,12 @@ class TransformerPredictorPl(pl.LightningModule):
                             "audio": audio_h
                             }
         # Perform prediction and calculate loss and accuracy
-        out = self.mdl.forward(multimod_inputs)
-        preds = out[0]
-        loss = F.cross_entropy(preds.view(-1, preds.size(-1)), labels.view(-1))
-        acc = (preds.argmax(dim=-1) == labels).float().mean()
+        loss = self.mdl.forward(multimod_inputs)
+
         # Logging
         self.log(f"{mode}_loss", loss)
-        self.log(f"{mode}_acc", acc)
-        if mode == 'val' or mode == 'test':
-            return loss, acc, preds.argmax(dim=-1)
-        return loss, acc
+
+        return loss
 
     def train_dataloader(self):
         """Training dataloader"""
@@ -73,16 +69,15 @@ class TransformerPredictorPl(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """ Calculate training loss and accuracy after each batch """
-        loss, acc = self._calculate_loss(batch, mode="train")
+        loss = self._calculate_loss(batch, mode="train")
         return loss
 
     def validation_step(self, batch, batch_idx):
         """ Calculate validation loss and accuracy after each batch
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
-        val_loss, val_output, preds = self._calculate_loss(batch, mode="val")
-        self.validation_preds.append([batch[1][0], preds[0]])
-        self.validation_epoch_outputs.append(val_output)
+        loss = self._calculate_loss(batch, mode="val")
+        self.validation_epoch_outputs.append(loss)
 
     def on_validation_epoch_end(self) -> None:
         """ Calculate the validation accuracy after an entire epoch.
@@ -90,11 +85,11 @@ class TransformerPredictorPl(pl.LightningModule):
         Returns: validation accuracy of an entire epoch
 
         """
-        val_acc = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
+        val_loss = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.validation_preds.clear()
-        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val_loss", val_loss, on_step=False, on_epoch=True, prog_bar=True)
 
-        logger.info(f'val_acc at epoch {self.current_epoch}:, {float(val_acc.item())}')
+        logger.info(f'val_loss at epoch {self.current_epoch}:, {float(val_loss.item())}')
 
-        return val_acc
+        return val_loss

@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio_tactile
-- models: ss_nce_vat/earlysum_vit_nores
+- models: ss_nce_vat/earlysum
 - optimizers: adam_steplr
 - pl_modules: ss_nce_vat
 - trainers: progress_predictor
