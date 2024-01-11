@@ -32,7 +32,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.num_classes = kwargs['num_classes']
-        self.num_images = kwargs['num_images']
+        self.num_stack = kwargs['num_stack']
         self.validation_epoch_outputs = []
         self.validation_preds = []
 

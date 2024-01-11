@@ -1,13 +1,13 @@
 import unittest
 import torch
-from src.models.utils.helpers import shuffle_sequence, get_mask_sequence1d
+from src.models.utils.helpers import get_scatter_idx_target, get_mask_sequence1d
 
 
 class Test(unittest.TestCase):
 
-    def test_shuffle_sequence(self):
-        sequence = ['0bear', '1tiger', '2riven', 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
-        seq, target = shuffle_sequence(sequence, 0.3)
+    def test_get_scatter_idx_target(self):
+        sequence = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+        seq, target = get_scatter_idx_target(sequence, 0.3, fix=True)
         print(seq, target)
 
     def test_get_mask_sequence1d(self):

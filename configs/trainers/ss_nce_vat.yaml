@@ -1,0 +1,4 @@
+launch_trainer:
+  max_epochs: 50
+  monitor:  "val_loss"
+  save_top_k: 1

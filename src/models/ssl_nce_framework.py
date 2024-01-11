@@ -9,18 +9,19 @@ from torch.nn.modules.activation import MultiheadAttention
 from src.models.vit_implementations import Vit_Classifier, Vit_Classifier_Mel, LrnEmb_Agg_Trf
 from src.models.utils.mel_spec import MelSpec
 from src.models.utils.header import ClassificationHead
-from src.models.utils.helpers import shuffle_sequence, get_mask_sequence1d
+from src.models.utils.helpers import get_scatter_idx_target, get_mask_sequence1d
 from omegaconf import DictConfig, OmegaConf
 import hydra
 from typing import Optional, Dict, List
 from types import SimpleNamespace
 
 
-class VisionAudioFusion_EarlySum(torch.nn.Module):
-    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation"""
+class SslNceFramework_EarlySum(torch.nn.Module):
+    """Framework for multi-model self-supervised pretraining"""
 
     def __init__(self,
                  mod_names: List,
+                 main_mod: str,
                  model_dim: int,
                  num_stack: int,
 
@@ -31,25 +32,17 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
                  audio_args: Optional[DictConfig] = None,
                  vision_args: Optional[DictConfig] = None,
                  tactile_args: Optional[DictConfig] = None,
+                 ultrasonic_args: Optional[DictConfig] = None,
+                 imu_args: Optional[DictConfig] = None,
+                 force_args: Optional[DictConfig] = None,
+                 current_args: Optional[DictConfig] = None,
+                 thermal_args: Optional[DictConfig] = None,
+                 depth_args: Optional[DictConfig] = None,
+                 text_args: Optional[DictConfig] = None,
 
                  fusion_args: Optional[DictConfig] = None,
                  pos_emb_args: Optional[DictConfig] = None,
                  cross_time_trf_args: Optional[DictConfig] = None,
-
-                 # preprocess_audio_args: DictConfig,
-                 # tokenization_audio: DictConfig,
-                 # pe_audio: DictConfig,
-                 # encoder_audio_args: DictConfig,
-                 #
-                 # preprocess_vision_args: DictConfig,
-                 # tokenization_vision: DictConfig,
-                 # pe_vision: DictConfig,
-                 # encoder_vision_args: DictConfig,
-                 #
-                 # preprocess_tactile_args: DictConfig,
-                 # tokenization_tactile: DictConfig,
-                 # pe_tactile: DictConfig,
-                 # encoder_tactile_args: DictConfig,
 
                  **kwargs
                  ):
@@ -69,21 +62,22 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         """
         super().__init__()
 
-        self.ModalityType = [
-            "vision",
-            "tactile",
-            "audio",
+        self.mod_args = {
+            "vision": vision_args,
+            "tactile": tactile_args,
+            "audio": audio_args,
 
-            "ultrasonic",
-            "imu",
-            "force",
-            "current",
+            "ultrasonic": ultrasonic_args,
+            "imu": imu_args,
+            "force": force_args,
+            "current": current_args,
 
-            "thermal",
-            "depth",
-            "text",
-        ]
+            "thermal": thermal_args,
+            "depth": depth_args,
+            "text": text_args,
+        }
         self.mod_names = mod_names
+        self.main_mod = main_mod
 
         self.fom_args = fom_args
         self.mask_args = mask_args
@@ -99,31 +93,20 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.mask_latent_predictor = hydra.utils.instantiate(mask_args.mask_latent_prediction.predictor) if \
             mask_args.mask_latent_prediction is not None else None
 
-        if audio_args is not None:
-            self.preprocess_audio = hydra.utils.instantiate(audio_args.preprocess_audio_args)
-            self.tokenization_audio = hydra.utils.instantiate(audio_args.tokenization_audio)
-            self.positional_encoding_audio = hydra.utils.instantiate(audio_args.pe_audio)
-            self.encoder_audio = hydra.utils.instantiate(audio_args.encoder_audio_args)
-
-        if vision_args is not None:
-            self.preprocess_vision = hydra.utils.instantiate(vision_args.preprocess_vision_args)
-            self.tokenization_vision = hydra.utils.instantiate(vision_args.tokenization_vision)
-            self.positional_encoding_vision = hydra.utils.instantiate(vision_args.pe_vision)
-            self.encoder_vision = hydra.utils.instantiate(vision_args.encoder_vision_args)
-
-        if tactile_args is not None:
-            self.preprocess_tactile = hydra.utils.instantiate(tactile_args.preprocess_tactile_args)
-            self.tokenization_tactile = hydra.utils.instantiate(tactile_args.tokenization_tactile)
-            self.positional_encoding_tactile = hydra.utils.instantiate(tactile_args.pe_tactile)
-            self.encoder_tactile = hydra.utils.instantiate(tactile_args.encoder_tactile_args)
-
-        self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
+        for mod_name, mod_args in self.mod_args.items():
+            if mod_args is not None:
+                self.__setattr__(f"preprocess_{mod_name}",
+                                 hydra.utils.instantiate(mod_args[f"preprocess_{mod_name}_args"]))
+                self.__setattr__(f"tokenization_{mod_name}",
+                                 hydra.utils.instantiate(mod_args[f"tokenization_{mod_name}"]))
+                self.__setattr__(f"positional_encoding_{mod_name}",
+                                 hydra.utils.instantiate(mod_args[f"pe_{mod_name}"]))
+                self.__setattr__(f"encoder_{mod_name}",
+                                 hydra.utils.instantiate(mod_args[f"encoder_{mod_name}_args"]))
 
         self.fusion = hydra.utils.instantiate(fusion_args)
-        # self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        # self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        # self.register_parameter('tactile_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
 
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
         self.pos_emb = hydra.utils.instantiate(pos_emb_args)
         self.cross_time_trf = hydra.utils.instantiate(cross_time_trf_args)
 
@@ -132,8 +115,9 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
     def forward(self, multimod_inputs: Dict,
                 mask: bool = True,
                 task: tuple = ("repr", 'order', 'fuse_nce', 'cross_time_nce', 'predict'),
-                main_mod: Optional[str] = "vision",
+                mode: str = "train",
                 ):
+        assert mode in ["train", "val", "inference"]
 
         encoded_inputs = self.forward_modality_specific_encoding(multimod_inputs)
         nce_loss_dict = self.forward_nce(encoded_inputs)
@@ -159,7 +143,7 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
             mask_pred_target = fused_t_feats.detach()
             fused_t_masked_feats = self.fusion(encoded_masked_inputs)
 
-            if task == 'order':
+            if 'order' in task:
                 fom_loss = self.forward_order_prediction(fused_t_masked_feats)
                 mask_loss += fom_loss
 
@@ -199,7 +183,10 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
 
         bs, num_stack, dim = fused_t_feats.shape
 
-        target, shuffled_fused_t_feats = self.ranom_shuffle(fused_t_feats, reorder_prob=self.fom_args.reorder_prob)
+        target, shuffled_fused_t_feats = self.random_shuffle(fused_t_feats, reorder_prob=self.fom_args.reorder_prob)
+
+        if all(element == -1 for element in target.reshape(bs*num_stack, )):
+            return torch.zeros([])
 
         x, attn_maps = self.forward_cross_time(shuffled_fused_t_feats)
         x = x[:, 1:, :]
@@ -215,14 +202,25 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         return x
 
     @staticmethod
-    def ranom_shuffle(fused_t_feats: torch.Tensor, reorder_prob: float):
+    def random_shuffle(fused_t_feats: torch.Tensor, reorder_prob: float):
         bs, num_stack, dim = fused_t_feats.shape
-        order = list(range(num_stack))
-        shuffled_order, target = shuffle_sequence(order, reorder_prob=reorder_prob)
-        shuffled_order = torch.tensor(shuffled_order, device=fused_t_feats.device)
-        target = torch.tensor(target, device=fused_t_feats.device)
-        shuffled_fused_t_feats = fused_t_feats.index_select(1, shuffled_order)
-        return target, shuffled_fused_t_feats
+        shuffled_orders = []
+        targets = []
+        for i in range(bs):
+            shuffled_order, target = get_scatter_idx_target(list(range(num_stack)), reorder_prob=reorder_prob)
+            shuffled_order = torch.tensor(shuffled_order, device=fused_t_feats.device)
+            target = torch.tensor(target, device=fused_t_feats.device)
+            shuffled_orders.append(shuffled_order)
+            targets.append(target)
+        targets = torch.stack(targets, dim=0)
+        shuffled_orders = torch.stack(shuffled_orders, dim=0).unsqueeze(-1)  # [b, num_stack, 1]
+        shuffled_orders = shuffled_orders.expand(-1, -1, dim)
+        shuffled_fused_t_feats = torch.zeros_like(fused_t_feats,
+                                                  dtype=fused_t_feats.dtype, device=fused_t_feats.device)
+        shuffled_fused_t_feats = shuffled_fused_t_feats.scatter_(1, shuffled_orders, fused_t_feats)
+        # a = fused_t_feats[:, :, 10]
+        # b = shuffled_fused_t_feats[:, :, 10]
+        return targets, shuffled_fused_t_feats
 
     def forward_nce(self, encoded_inputs, compute_loss=True):
         main_feats = self.nce_head(encoded_inputs[self.nce_args.main_mod])

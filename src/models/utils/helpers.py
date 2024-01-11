@@ -71,15 +71,15 @@ class ImageBindNceHeader(nn.Module):
         return self.proj_net(x)
 
 
-def shuffle_sequence(sequence: List, reorder_prob: float = 0.15):
+def get_scatter_idx_target(sequence: List, reorder_prob: float = 0.15, fix: bool = False):
     """
-    function to reorder the elements of a sequence with
+    function to generator reorder index and target for scatter specifically
     Args:
         sequence: input list to be shuffled(with arbitrary type of elements)
         reorder_prob: the chance of each element to be picked to be shuffled
+        fix: whether do we fix the random seed for evaluation or inference
 
-    Returns: the shuffled sequence and target(shuffled position annotated with where the original elements is after the
-             shuffle, while the unshuffled annotated as -1
+    Returns: the shuffled sequence and target, while the unshuffled annotated as -1
 
     """
     import random
@@ -94,17 +94,16 @@ def shuffle_sequence(sequence: List, reorder_prob: float = 0.15):
         if prob < reorder_prob:
             selected_pos.append(i)
             to_be_shuffled_index.append(pos_id)
+    if not selected_pos:
+        return sequence, target
 
     c = copy.deepcopy(list(zip(selected_pos, to_be_shuffled_index)))
     random.shuffle(c)
     shuffled_selected_pos, shuffled_index = zip(*c)
-    # print(selected_pos, to_be_shuffled_index)
-    # print(shuffled_selected_pos, shuffled_index)
     for i, (og_pos, cur_pos, element) in enumerate(zip(selected_pos, shuffled_selected_pos, shuffled_index)):
         sequence[og_pos] = element
-        target[cur_pos] = og_pos
-    # print(sequence)
-    # print(target)
+        target[element] = og_pos
+
     return sequence, target
 
 

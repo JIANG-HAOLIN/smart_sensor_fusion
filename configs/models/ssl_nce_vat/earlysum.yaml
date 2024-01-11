@@ -1,13 +1,15 @@
-name: 'EarlySum'
+name: 'ssnce_earlysum'
 
 model:
-  _target_: src.models.ss_nce_framework.VisionAudioFusion_EarlySum
+  #---------------------------------------------------------------------------------------------------------#
+  _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum
   mod_names: ["vision","audio","tactile"]
+  main_mod: "vision"
   model_dim: 256
   num_stack: 5
 
   nce_args:
-    main_mod: vision
+    main_mod: ${models.model.main_mod}
     temp: 1.0
     nce_proj_head:
       _target_: src.models.utils.helpers.ImageBindNceHeader
@@ -43,10 +45,9 @@ model:
         out_dim: ${models.model.model_dim}
         dropout: 0.
 
-
   fom_args:
     reorder_prob: 0.2
-
+  #---------------------------------------------------------------------------------------------------------#
   audio_args:
     preprocess_audio_args:
       _target_: src.models.utils.mel_spec.MelSpec
@@ -99,6 +100,7 @@ model:
       _target_: src.models.encoders.identity.get_identity_encoder
     encoder_tactile_args:
       _target_: src.models.encoders.identity.get_identity_encoder
+  #---------------------------------------------------------------------------------------------------------#
 
   fusion_args:
     _target_: src.models.utils.fusion.EarlySum
