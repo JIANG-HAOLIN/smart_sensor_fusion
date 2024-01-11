@@ -18,7 +18,7 @@ def train(cfg: DictConfig) -> None:
     os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')
     project_path = os.path.abspath(os.path.join(__file__, '..'))
-    multirun_dir_path = HydraConfig.ge\t().sweep.dir
+    multirun_dir_path = HydraConfig.get().sweep.dir
 
     log.info('*-------- train func starts --------*')
     log.info('output folder:' + multirun_dir_path + '\n')
