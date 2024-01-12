@@ -241,10 +241,22 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.transformer_classifier = hydra.utils.instantiate(transformer_classifier_args)
 
     def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
-        audio_signal = self.preprocess_audio(audio_signal)
+        # audio_signal = self.preprocess_audio(audio_signal)
+        # audio_signal = self.tokenization_audio(audio_signal)
+        # audio_signal = self.positional_encoding_audio(audio_signal)
+        # audio_signal = self.encoder_audio(audio_signal)
+
+        bs, _, audio_len = audio_signal.shape
+        num_frame = vision_signal.shape[1]
+        audio_signal = audio_signal.reshape(bs * num_frame, 1, -1)
         audio_signal = self.tokenization_audio(audio_signal)
         audio_signal = self.positional_encoding_audio(audio_signal)
         audio_signal = self.encoder_audio(audio_signal)
+        if type(audio_signal) == tuple:
+            audio_signal, attn_map = audio_signal
+        if len(audio_signal.shape) == 3:
+            audio_signal = audio_signal[:, 0]
+        audio_signal = audio_signal.reshape(bs, num_frame, audio_signal.shape[-1])
 
         batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
         vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
@@ -352,8 +364,8 @@ class VisionAudioFusion_EarlySum2Fuse(torch.nn.Module):
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
 
-        vision_signal = vision_signal.reshape(batch_size*num_stack, 1, vision_signal.shape[-1])
-        audio_signal = audio_signal.reshape(batch_size*num_stack, 1, audio_signal.shape[-1])
+        vision_signal = vision_signal.reshape(batch_size * num_stack, 1, vision_signal.shape[-1])
+        audio_signal = audio_signal.reshape(batch_size * num_stack, 1, audio_signal.shape[-1])
 
         x = torch.cat([vision_signal, audio_signal], dim=1)
         x, attn_map = self.fuse(x)  # [B, 256] not [B, 1, 256]
@@ -364,7 +376,6 @@ class VisionAudioFusion_EarlySum2Fuse(torch.nn.Module):
         x = self.pos_emb(x)
 
         return self.transformer_classifier(x)
-
 
 
 class VisionAudioFusion_EarlyFuse(torch.nn.Module):

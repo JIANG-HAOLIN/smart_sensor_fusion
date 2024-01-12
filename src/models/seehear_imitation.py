@@ -1,11 +1,121 @@
 import torch
 import torch.nn as nn
 from torch.nn.modules.activation import MultiheadAttention
-from src.models.vit_implementations import Vit_Classifier, TransformerClassifierVit_Mel
 from src.models.encoders.res_net_18 import make_tactile_encoder
-from src.models.utils.mel_spec import MelSpec
 from omegaconf import DictConfig, OmegaConf
 import hydra
+
+
+class VisionAudioFusion_EarlySum(torch.nn.Module):
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation"""
+
+    def __init__(self,
+                 model_dim: int,
+                 preprocess_audio_args: DictConfig,
+                 tokenization_audio: DictConfig,
+                 pe_audio: DictConfig,
+                 encoder_audio_args: DictConfig,
+                 preprocess_vision_args: DictConfig,
+                 tokenization_vision: DictConfig,
+                 pe_vision: DictConfig,
+                 encoder_vision_args: DictConfig,
+                 pos_emb_args: DictConfig,
+                 transformer_args: DictConfig,
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             transformer_classifier_args: arguments for transformer classifier
+             **kwargs:
+        """
+        super().__init__()
+        self.preprocess_audio = hydra.utils.instantiate(preprocess_audio_args)
+        self.tokenization_audio = hydra.utils.instantiate(tokenization_audio)
+        self.positional_encoding_audio = hydra.utils.instantiate(pe_audio)
+        self.encoder_audio = hydra.utils.instantiate(encoder_audio_args)
+
+        self.preprocess_vision = hydra.utils.instantiate(preprocess_vision_args)
+        self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
+        self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
+        self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
+
+        # self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        # self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+        self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, transformer_args.model_dim))
+        self.pos_emb = hydra.utils.instantiate(pos_emb_args)
+        self.transformer = hydra.utils.instantiate(transformer_args)
+
+        self.mlp = torch.nn.Sequential(
+            torch.nn.Linear(model_dim, model_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(model_dim, model_dim),
+            torch.nn.ReLU(),
+            torch.nn.Linear(model_dim, 3 ** 3),
+        )
+        self.aux_mlp = torch.nn.Linear(model_dim, 6)
+
+    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+        # audio_signal = self.preprocess_audio(audio_signal)
+        # audio_signal = self.tokenization_audio(audio_signal)
+        # audio_signal = self.positional_encoding_audio(audio_signal)
+        # audio_signal = self.encoder_audio(audio_signal)
+
+        bs, _, audio_len = audio_signal.shape
+        num_frame = vision_signal.shape[1]
+        audio_signal = audio_signal.reshape(bs * num_frame, 1, -1)
+        audio_signal = self.tokenization_audio(audio_signal)
+        audio_signal = self.positional_encoding_audio(audio_signal)
+        audio_signal = self.encoder_audio(audio_signal)
+        if type(audio_signal) == tuple:
+            audio_signal, attn_map = audio_signal
+        if len(audio_signal.shape) == 3:
+            audio_signal = audio_signal[:, 0]
+        audio_signal = audio_signal.reshape(bs, num_frame, audio_signal.shape[-1])
+
+        batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+        vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
+        vision_signal = self.preprocess_vision(vision_signal)
+        vision_signal = self.tokenization_vision(vision_signal)
+        if type(vision_signal) == tuple:
+            vision_signal, attn_map = vision_signal
+        if len(vision_signal.shape) == 2:
+            vision_signal = vision_signal.reshape(vision_signal.shape[0], 1, vision_signal.shape[1])
+            # [B*N, 256] -> [B*N, 1, 256]
+        vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
+        vision_signal = self.positional_encoding_vision(vision_signal)
+        vision_signal = self.encoder_vision(vision_signal)
+
+        if type(audio_signal) == tuple:
+            audio_signal, attn_audio = audio_signal
+        if type(vision_signal) == tuple:
+            vision_signal, attn_vision = vision_signal
+
+        # audio_signal = self.audio_gamma * audio_signal
+        # vision_signal = self.vision_gamma * vision_signal
+        audio_signal = self.audio_gamma(audio_signal)
+        vision_signal = self.vision_gamma(vision_signal)
+        x = audio_signal + vision_signal
+
+        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
+        x = torch.cat([cls, x], dim=1)
+        x = self.pos_emb(x)
+        x, attn_maps = self.transformer(x)
+        x = x[:, 0]
+        action_logits = self.mlp(x)
+        xyzrpy = self.aux_mlp(x)
+        return action_logits, xyzrpy, attn_maps
 
 
 class VisionAudioFusion_Supervised(torch.nn.Module):

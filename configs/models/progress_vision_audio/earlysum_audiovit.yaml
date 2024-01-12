@@ -1,0 +1,60 @@
+name: 'EarlySum_audiovit'
+
+model:
+  _target_: src.models.progress_prediction.VisionAudioFusion_EarlySum
+  model_dim: 256
+  preprocess_audio_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_audio:
+    _target_: src.models.utils.tokenization.Vanilla1dTokenization
+    patch_size: 400
+    input_size: 8000
+    channel_size: 1
+    out_dim: 256
+  pe_audio:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  encoder_audio_args:
+    _target_: src.models.vit_implementations.LrnEmb_Agg_Trf
+    model_dim: 256
+    num_heads: 4
+    num_layers: 4
+    num_emb: 100
+
+  preprocess_vision_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_vision:
+    _target_: src.models.vit_implementations.Vit
+    channel_size: 3
+    model_dim: ${models.model.model_dim}
+    num_heads: 8
+    num_layers: 4
+    patch_size: [8, 8]
+    input_size: [67, 90]
+    num_emb: 100
+
+  pe_vision:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  encoder_vision_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+
+
+  pos_emb_args:
+    _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+    d_model: ${models.model.model_dim}
+
+
+  transformer_classifier_args:
+    _target_: src.models.vit_implementations.Transformer_Classifier_NoTokenNoEmb
+    model_dim: ${models.model.model_dim}
+    num_classes: 10
+    num_heads: 8
+    dropout: 0.0
+    input_dropout: 0.0
+    num_layers: 4
+    add_positional_encoding: False
+
+
+
+inference:
+  ckpt_path: ' '
+

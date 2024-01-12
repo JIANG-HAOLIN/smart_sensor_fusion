@@ -6,6 +6,25 @@ from typing import Optional
 import logging
 
 
+class Seq2Patches(torch.nn.Module):
+    """convert an 1d sequence to patches"""
+    def __init__(self, patch_size: int = 4, step_size: Optional[int] = None):
+        super().__init__()
+        self.patch_size = patch_size
+        self.step_size = step_size
+
+    def forward(self, x: torch.Tensor):
+        l = x.shape[2]
+        if not ((l % self.patch_size) == 0):
+            crop_l = (l // self.patch_size) * self.patch_size
+            # print(f"input can not be exactly divided! inputs are linearly resized to length {crop_l}")
+            x = torch.nn.functional.interpolate(x, crop_l, mode='linear')
+        assert x.shape[2] % self.patch_size == 0
+        x = x.unfold(2, self.patch_size, self.patch_size if self.step_size is None else self.step_size).permute(0, 2, 1, 3)
+        x = x.reshape(x.shape[0], x.shape[1], -1)
+        return x
+
+
 class Img2Patches(torch.nn.Module):
     """Convert an image tensor to patches"""
 

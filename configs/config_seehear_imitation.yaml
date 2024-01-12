@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: seehear_imitation/earlycat_vgah
+- models: seehear_imitation/shf_vanilla
 - optimizers: adam_steplr
 - pl_modules: seehear_imitation
 - trainers: seehear_imitation
@@ -13,7 +13,7 @@ defaults:
 # General settings
 task_name: "seehear_imitation"
 variable_name: models.name
-output_name: debug_imitation_earlycat_vgah
+output_name: debug_imitation_earlysum
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -23,10 +23,10 @@ hydra:
   sweeper:
     params:
       datasets.dataloader.data_folder: ${data_folder_path}
-      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
-      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
+#      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
+#      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
 #      models.model.model_dim: 256
-      optimizers: adam_steplr
+#      optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
