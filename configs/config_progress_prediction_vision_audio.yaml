@@ -13,7 +13,7 @@ defaults:
 # General settings
 task_name: "progress_prediction"
 variable_name: models.model.model_dim
-output_name: earlysum_nores_dim_vanilla_linear
+output_name: earlysum_vit_nores
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -22,10 +22,10 @@ data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
 hydra:
   sweeper:
     params:
-      models: progress_vision_audio/earlysum_audiovit
+#      models: progress_vision_audio/earlysum_audiovit
       trainers.launch_trainer.max_epochs: 25
       datasets.dataloader.data_folder: ${data_folder_path}
-      models.model.model_dim: 256,512
+      models.model.model_dim: 256
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5

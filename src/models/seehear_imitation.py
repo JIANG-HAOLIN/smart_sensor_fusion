@@ -48,12 +48,12 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
 
-        # self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        # self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
-        self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
-        self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+        self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        # self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
+        # self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
 
-        self.cls = torch.nn.Parameter(torch.randn(1, 1, transformer_args.model_dim))
+        self.cls = torch.nn.Parameter(torch.randn(1, 1, transformer_args.token_dim))
         self.pos_emb = hydra.utils.instantiate(pos_emb_args)
         self.transformer = hydra.utils.instantiate(transformer_args)
 
@@ -67,22 +67,22 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.aux_mlp = torch.nn.Linear(model_dim, 6)
 
     def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
-        # audio_signal = self.preprocess_audio(audio_signal)
-        # audio_signal = self.tokenization_audio(audio_signal)
-        # audio_signal = self.positional_encoding_audio(audio_signal)
-        # audio_signal = self.encoder_audio(audio_signal)
-
-        bs, _, audio_len = audio_signal.shape
-        num_frame = vision_signal.shape[1]
-        audio_signal = audio_signal.reshape(bs * num_frame, 1, -1)
+        audio_signal = self.preprocess_audio(audio_signal)
         audio_signal = self.tokenization_audio(audio_signal)
         audio_signal = self.positional_encoding_audio(audio_signal)
         audio_signal = self.encoder_audio(audio_signal)
-        if type(audio_signal) == tuple:
-            audio_signal, attn_map = audio_signal
-        if len(audio_signal.shape) == 3:
-            audio_signal = audio_signal[:, 0]
-        audio_signal = audio_signal.reshape(bs, num_frame, audio_signal.shape[-1])
+
+        # bs, _, audio_len = audio_signal.shape
+        # num_frame = vision_signal.shape[1]
+        # audio_signal = audio_signal.reshape(bs * num_frame, 1, -1)
+        # audio_signal = self.tokenization_audio(audio_signal)
+        # audio_signal = self.positional_encoding_audio(audio_signal)
+        # audio_signal = self.encoder_audio(audio_signal)
+        # if type(audio_signal) == tuple:
+        #     audio_signal, attn_map = audio_signal
+        # if len(audio_signal.shape) == 3:
+        #     audio_signal = audio_signal[:, 0]
+        # audio_signal = audio_signal.reshape(bs, num_frame, audio_signal.shape[-1])
 
         batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
         vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
@@ -102,10 +102,10 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
 
-        # audio_signal = self.audio_gamma * audio_signal
-        # vision_signal = self.vision_gamma * vision_signal
-        audio_signal = self.audio_gamma(audio_signal)
-        vision_signal = self.vision_gamma(vision_signal)
+        audio_signal = self.audio_gamma * audio_signal
+        vision_signal = self.vision_gamma * vision_signal
+        # audio_signal = self.audio_gamma(audio_signal)
+        # vision_signal = self.vision_gamma(vision_signal)
         x = audio_signal + vision_signal
 
         cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
@@ -119,7 +119,7 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
 
 
 class VisionAudioFusion_Supervised(torch.nn.Module):
-    """Vision audio fusion model for vision and audio signal from see_hear_feel using Early Summation/multiple to one"""
+    """Vision audio fusion model for vision and audio signal from see_hear_feel using Earlycat /multiple to one"""
 
     def __init__(self,
                  preprocess_audio_args: DictConfig,

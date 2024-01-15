@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio
-- models: seehear_imitation/shf_vanilla
+- models: seehear_imitation/shf_earlysum
 - optimizers: adam_steplr
 - pl_modules: seehear_imitation
 - trainers: seehear_imitation
@@ -25,7 +25,7 @@ hydra:
       datasets.dataloader.data_folder: ${data_folder_path}
 #      models.model.encoder_vision_args._target_: src.models.encoders.identity.get_identity_encoder
 #      models.model.encoder_audio_args._target_: src.models.encoders.identity.get_identity_encoder
-#      models.model.model_dim: 256
+      models.model.model_dim: 256,512
 #      optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_images: 5
