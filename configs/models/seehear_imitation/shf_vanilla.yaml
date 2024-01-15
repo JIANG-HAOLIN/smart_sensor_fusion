@@ -2,6 +2,7 @@ name: 'vanilla_shf'
 
 model:
   _target_: src.models.seehear_imitation.Seehearfeel_Vanilla
+  model_dim: 256
   preprocess_audio_args:
     _target_: src.models.utils.mel_spec.MelSpec
     length: 40000
