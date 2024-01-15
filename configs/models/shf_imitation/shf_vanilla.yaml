@@ -1,7 +1,7 @@
 name: 'vanilla_shf'
 
 model:
-  _target_: src.models.seehear_imitation.Seehearfeel_Vanilla
+  _target_: src.models.shf_imitation.Seehearfeel_Vanilla
   model_dim: 256
   preprocess_audio_args:
     _target_: src.models.utils.mel_spec.MelSpec
@@ -24,7 +24,7 @@ model:
     frameskip: 5
     crop_percent: 0.1
     conv_bottleneck: 128
-    ablation: vg_ah
+    ablation: vg_ah_t
     gamma: 0.9
     num_heads: 8
     action_dim: 3

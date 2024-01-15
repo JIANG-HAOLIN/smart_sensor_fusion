@@ -1,7 +1,7 @@
 name: 'earlycat_vit_vgah_notimeemb'
 
 model:
-  _target_: src.models.seehear_imitation.VisionAudioFusion_Supervised
+  _target_: src.models.shf_imitation.VisionAudioFusion_Supervised
   model_dim: 256
   preprocess_audio_args:
     _target_: src.models.utils.mel_spec.MelSpec
@@ -20,13 +20,14 @@ model:
     _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
     d_model: ${models.model.model_dim}
   encoder_audio_args:
-    _target_: src.models.transformer_implementations.TransformerEncoder
+    _target_: src.models.encoders.identity.get_identity_encoder
     token_dim: ${models.model.model_dim}
     num_blocks: 4
     num_heads: 8
     dropout: 0.0
     batch_first: True
     norm_first: True
+
 
   preprocess_vision_args:
     _target_: src.models.encoders.identity.get_identity_encoder
@@ -41,17 +42,40 @@ model:
     emb_dim: ${models.model.model_dim}
     num_patches: 100
   encoder_vision_args:
-    _target_: src.models.transformer_implementations.TransformerEncoder
+    _target_: src.models.encoders.identity.get_identity_encoder
     token_dim: ${models.model.model_dim}
     num_blocks: 4
     num_heads: 8
     dropout: 0.0
     batch_first: True
     norm_first: True
+    
+  
+  preprocess_tactile_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+  tokenization_tactile:
+    _target_: src.models.utils.tokenization.Vanilla2dTokenization
+    channel_size: 3
+    patch_size: [ 8, 8 ]
+    input_size: [ 54, 72 ]
+    model_dim: ${models.model.model_dim}
+  pe_tactile:
+    _target_: src.models.utils.embeddings.VitPatchEmbedding
+    emb_dim: ${models.model.model_dim}
+    num_patches: 270  # 5 * 54
+  encoder_tactile_args:
+    _target_: src.models.encoders.identity.get_identity_encoder
+    token_dim: ${models.model.model_dim}
+    num_blocks: 4
+    num_heads: 8
+    dropout: 0.0
+    batch_first: True
+    norm_first: True
+    
 
   last_pos_emb_args:
     _target_: src.models.utils.embeddings.ModalTypeEmbedding
-    num_type: 3
+    num_type: 4
     emb_dim: ${models.model.model_dim}
 
   transformer_args:

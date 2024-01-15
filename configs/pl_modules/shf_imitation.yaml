@@ -1,0 +1,4 @@
+pl_module:
+  _target_: src.pl_modules.supervised_shf_vat.TransformerPredictorPl
+  num_images: 5
+

@@ -2,16 +2,16 @@
 
 
 defaults:
-- datasets: see_hear_feel_vision_audio
-- models: seehear_imitation/shf_earlysum
+- datasets: see_hear_feel_vision_audio_tactile
+- models: shf_imitation/shf_earlycat
 - optimizers: adam_steplr
-- pl_modules: seehear_imitation
-- trainers: seehear_imitation
+- pl_modules: shf_imitation
+- trainers: shf_imitation
 - _self_
 
 
 # General settings
-task_name: "seehear_imitation"
+task_name: "shf_imitation"
 variable_name: models.model.model_dim
 output_name: dim
 seed: 42

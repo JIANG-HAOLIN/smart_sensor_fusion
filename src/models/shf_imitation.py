@@ -15,10 +15,17 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
                  tokenization_audio: DictConfig,
                  pe_audio: DictConfig,
                  encoder_audio_args: DictConfig,
+                 
                  preprocess_vision_args: DictConfig,
                  tokenization_vision: DictConfig,
                  pe_vision: DictConfig,
                  encoder_vision_args: DictConfig,
+
+                 preprocess_tactile_args: DictConfig,
+                 tokenization_tactile: DictConfig,
+                 pe_tactile: DictConfig,
+                 encoder_tactile_args: DictConfig,
+                 
                  pos_emb_args: DictConfig,
                  transformer_args: DictConfig,
                  **kwargs
@@ -47,9 +54,16 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         self.tokenization_vision = hydra.utils.instantiate(tokenization_vision)
         self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
+        
+        self.preprocess_tactile = hydra.utils.instantiate(preprocess_tactile_args)
+        self.tokenization_tactile = hydra.utils.instantiate(tokenization_tactile)
+        self.positional_encoding_tactile = hydra.utils.instantiate(pe_tactile)
+        self.encoder_tactile = hydra.utils.instantiate(encoder_tactile_args)
 
         self.register_parameter('vision_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
         self.register_parameter('audio_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+        self.register_parameter('tactile_gamma', torch.nn.Parameter(torch.randn((1, 1, model_dim))))
+
         # self.vision_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
         # self.audio_gamma = torch.nn.Linear(model_dim, model_dim, bias=False)
 
@@ -66,7 +80,9 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         )
         self.aux_mlp = torch.nn.Linear(model_dim, 6)
 
-    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+    def forward(self, vision_signal: torch.Tensor,
+                audio_signal: torch.Tensor,
+                tactile_signal: torch.Tensor):
         audio_signal = self.preprocess_audio(audio_signal)
         audio_signal = self.tokenization_audio(audio_signal)
         audio_signal = self.positional_encoding_audio(audio_signal)
@@ -96,17 +112,35 @@ class VisionAudioFusion_EarlySum(torch.nn.Module):
         vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
         vision_signal = self.positional_encoding_vision(vision_signal)
         vision_signal = self.encoder_vision(vision_signal)
+        
+        batch_size, num_stack, c_v, h_v, w_v = tactile_signal.shape
+        tactile_signal = torch.reshape(tactile_signal, (-1, c_v, h_v, w_v))
+        tactile_signal = self.preprocess_tactile(tactile_signal)
+        tactile_signal = self.tokenization_tactile(tactile_signal)
+        if type(tactile_signal) == tuple:
+            tactile_signal, attn_map = tactile_signal
+        if len(tactile_signal.shape) == 2:
+            tactile_signal = tactile_signal.reshape(tactile_signal.shape[0], 1, tactile_signal.shape[1])
+            # [B*N, 256] -> [B*N, 1, 256]
+        tactile_signal = tactile_signal.view(batch_size, num_stack * tactile_signal.shape[-2], tactile_signal.shape[-1])
+        tactile_signal = self.positional_encoding_tactile(tactile_signal)
+        tactile_signal = self.encoder_tactile(tactile_signal)
+        
 
         if type(audio_signal) == tuple:
             audio_signal, attn_audio = audio_signal
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
+        if type(tactile_signal) == tuple:
+            tactile_signal, attn_tactile = tactile_signal
 
         audio_signal = self.audio_gamma * audio_signal
         vision_signal = self.vision_gamma * vision_signal
+        tactile_signal = self.tactile_gamma * tactile_signal
+
         # audio_signal = self.audio_gamma(audio_signal)
         # vision_signal = self.vision_gamma(vision_signal)
-        x = audio_signal + vision_signal
+        x = audio_signal + vision_signal + tactile_signal
 
         cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
         x = torch.cat([cls, x], dim=1)
@@ -126,10 +160,17 @@ class VisionAudioFusion_Supervised(torch.nn.Module):
                  tokenization_audio: DictConfig,
                  pe_audio: DictConfig,
                  encoder_audio_args: DictConfig,
+                 
                  preprocess_vision_args: DictConfig,
                  tokenization_vision: DictConfig,
                  pe_vision: DictConfig,
                  encoder_vision_args: DictConfig,
+
+                 preprocess_tactile_args: DictConfig,
+                 tokenization_tactile: DictConfig,
+                 pe_tactile: DictConfig,
+                 encoder_tactile_args: DictConfig,
+                 
                  last_pos_emb_args: DictConfig,
                  transformer_args: DictConfig,
                  model_dim: int,
@@ -160,6 +201,11 @@ class VisionAudioFusion_Supervised(torch.nn.Module):
         self.positional_encoding_vision = hydra.utils.instantiate(pe_vision)
         self.encoder_vision = hydra.utils.instantiate(encoder_vision_args)
 
+        self.preprocess_tactile = hydra.utils.instantiate(preprocess_tactile_args)
+        self.tokenization_tactile = hydra.utils.instantiate(tokenization_tactile)
+        self.positional_encoding_tactile = hydra.utils.instantiate(pe_tactile)
+        self.encoder_tactile = hydra.utils.instantiate(encoder_tactile_args)
+        
         self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
         self.last_pos_emb = hydra.utils.instantiate(last_pos_emb_args)
         self.transformer = hydra.utils.instantiate(transformer_args)
@@ -173,7 +219,9 @@ class VisionAudioFusion_Supervised(torch.nn.Module):
         )
         self.aux_mlp = torch.nn.Linear(model_dim, 6)
 
-    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+    def forward(self, vision_signal: torch.Tensor, 
+                audio_signal: torch.Tensor,
+                tactile_signal: torch.Tensor,):
         audio_signal = self.preprocess_audio(audio_signal)
         audio_signal = self.tokenization_audio(audio_signal)
         audio_signal = self.positional_encoding_audio(audio_signal)
@@ -187,17 +235,28 @@ class VisionAudioFusion_Supervised(torch.nn.Module):
         vision_signal = self.positional_encoding_vision(vision_signal)
         vision_signal = self.encoder_vision(vision_signal)
 
+        batch_size, num_stack, c_v, h_v, w_v = tactile_signal.shape
+        tactile_signal = torch.reshape(tactile_signal, (-1, c_v, h_v, w_v))
+        tactile_signal = self.preprocess_tactile(tactile_signal)
+        tactile_signal = self.tokenization_tactile(tactile_signal)
+        tactile_signal = tactile_signal.view(batch_size, num_stack * tactile_signal.shape[-2], tactile_signal.shape[-1])
+        tactile_signal = self.positional_encoding_tactile(tactile_signal)
+        tactile_signal = self.encoder_tactile(tactile_signal)
+        
         if type(audio_signal) == tuple:
             audio_signal, attn_audio = audio_signal
         if type(vision_signal) == tuple:
             vision_signal, attn_vision = vision_signal
+        if type(tactile_signal) == tuple:
+            tactile_signal, attn_tactile = tactile_signal
 
         cls = self.cls.expand(audio_signal.shape[0], self.cls.shape[1], self.cls.shape[2])
         cls = self.last_pos_emb(cls, index=0)
         audio_signal = self.last_pos_emb(audio_signal, index=1)
         vision_signal = self.last_pos_emb(vision_signal, index=2)
+        tactile_signal = self.last_pos_emb(tactile_signal, index=3)
 
-        x = torch.cat([cls, audio_signal, vision_signal], dim=1)
+        x = torch.cat([cls, audio_signal, vision_signal, tactile_signal], dim=1)
         x, attn_maps = self.transformer(x)
         x = x[:, 0]
         action_logits = self.mlp(x)
@@ -257,7 +316,9 @@ class Seehearfeel_Vanilla(torch.nn.Module):
         )
         self.aux_mlp = torch.nn.Linear(self.layernorm_embed_shape, 6)
 
-    def forward(self, vision_signal: torch.Tensor, audio_signal: torch.Tensor):
+    def forward(self, vision_signal: torch.Tensor,
+                        audio_signal: torch.Tensor,
+                            tactile_signal: torch.Tensor):
         """
                 Args:
                     cam_fixed_framestack, cam_gripper_framestack, tactile_framestack, audio_clip_g, audio_clip_h
@@ -268,7 +329,7 @@ class Seehearfeel_Vanilla(torch.nn.Module):
 
                 """
 
-        vg_inp, audio_h = vision_signal, audio_signal
+        vg_inp, audio_h, t_inp = vision_signal, audio_signal, tactile_signal
         embeds = []
 
         if "vg" in self.modalities:
@@ -285,6 +346,13 @@ class Seehearfeel_Vanilla(torch.nn.Module):
             ah_embeds = self.a_encoder(ah_mel)
             ah_embeds = ah_embeds.view(-1, self.layernorm_embed_shape)
             embeds.append(ah_embeds)
+
+        if "t" in self.modalities:
+            batch, num_stack, Ct, Ht, Wt = t_inp.shape
+            t_inp = t_inp.view(batch * num_stack, Ct, Ht, Wt) ## Ct should be 3 ?
+            t_embeds = self.t_encoder(t_inp)
+            t_embeds = t_embeds.view(-1, self.layernorm_embed_shape)
+            embeds.append(t_embeds)
 
         if self.use_mha:  ## stack or concate
             mlp_inp = torch.stack(embeds, dim=0)  # create a new dimension !!! [3, batch, D]

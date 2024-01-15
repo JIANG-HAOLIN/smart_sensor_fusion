@@ -56,7 +56,9 @@ class TransformerPredictorPl(pl.LightningModule):
         # Fetch data and transform categories to one-hot vectors
         inp_data, demo, xyzrpy_gt, optical_flow, start, labels = batch
         # Perform prediction and calculate loss and accuracy
-        action_logits, xyzrpy_pred, weights = self.mdl.forward(inp_data[1][:, -1 * self.num_images:, :, :, :], inp_data[4])
+        vf_inp, vg_inp, t_inp, audio_g, audio_h = inp_data
+
+        action_logits, xyzrpy_pred, weights = self.mdl.forward(vg_inp, audio_h, t_inp)
 
         loss, immi_loss, aux_loss = self.compute_loss(
             demo, action_logits, xyzrpy_gt, xyzrpy_pred
