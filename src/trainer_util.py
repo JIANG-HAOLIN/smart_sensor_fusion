@@ -2,8 +2,8 @@ import os
 import lightning as pl
 import numpy as np
 from lightning.pytorch.loggers import TensorBoardLogger, CSVLogger
-from lightning.pytorch.callbacks import ModelCheckpoint, Timer
-from utils.my_callbacks import MyProgressBar, MyEpochTimer, SaveBestTxt
+from lightning.pytorch.callbacks import ModelCheckpoint, Timer, DeviceStatsMonitor
+from utils.my_callbacks import MyProgressBar, MyEpochTimer, SaveBestTxt, PlotMetric
 from datetime import datetime
 from typing import Optional
 from omegaconf import DictConfig
@@ -59,7 +59,12 @@ def launch_trainer(pl_module: pl.LightningModule,
 
     trainer = pl.Trainer(
         max_epochs=max_epochs,
-        callbacks=[checkpoint, MyProgressBar(), MyEpochTimer(), SaveBestTxt(checkpoints_out_path, label),
+        callbacks=[checkpoint,
+                   MyProgressBar(),
+                   MyEpochTimer(),
+                   SaveBestTxt(out_dir_path, label),
+                   # DeviceStatsMonitor(),
+                   PlotMetric(out_dir_path,)
                    ],
         default_root_dir=model_name,
         accelerator='gpu',

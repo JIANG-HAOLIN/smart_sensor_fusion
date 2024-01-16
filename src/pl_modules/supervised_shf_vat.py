@@ -66,9 +66,14 @@ class TransformerPredictorPl(pl.LightningModule):
 
         action_pred = torch.argmax(action_logits, dim=1)
         acc = (action_pred == demo).sum() / action_pred.numel()
-        self.log(f"{mode}_immi_loss:", immi_loss)
-        self.log(f"{mode}_aux_loss:", aux_loss)
-        self.log(f"{mode}_acc:", acc)
+        # self.log(f"{mode}_immi_loss:", immi_loss)
+        # self.log(f"{mode}_aux_loss:", aux_loss)
+        # self.log(f"{mode}_acc:", acc)
+        self.log_dict({
+            f"{mode}_immi_loss": immi_loss,
+            f"{mode}_aux_loss": aux_loss,
+            f"{mode}_acc": acc,
+        })
         return loss, immi_loss, aux_loss, acc, action_pred
 
     def train_dataloader(self):
@@ -102,8 +107,8 @@ class TransformerPredictorPl(pl.LightningModule):
         val_acc = sum(self.validation_epoch_accs) / len(self.validation_epoch_accs)
         self.validation_epoch_accs.clear()
         self.validation_preds.clear()
-        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        logger.info(f'val_acc at epoch {self.current_epoch}:, {float(val_acc.item())}')
+        for name, value in self.trainer.callback_metrics.items():
+            logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
 
         return val_acc

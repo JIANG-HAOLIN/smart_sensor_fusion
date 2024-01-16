@@ -3,9 +3,10 @@ import torch.nn as nn
 from src.models.utils.positional_encoding import StandardPositionalEncoding, TemporalPositionalEncoding
 from src.models.utils.embeddings import VitPatchEmbedding
 from src.models.transformer_implementations import TransformerEncoder, TransformerEncoderVanilla
-from src.models.utils.to_patches import Img2Patches, Mel2Patches_Time_Axis
+from src.models.utils.to_patches import Img2Patches, Mel2Patches_Time_Axis, Video2Patches
 from typing import Optional
 from src.models.utils.helpers import SelectToken, Normalize1Dim, LearnableLogitScaling
+import math
 
 
 class Vit(nn.Module):
@@ -120,6 +121,73 @@ class LrnEmb_Agg_Trf(nn.Module):
         x = torch.cat([cls, x], dim=1)
         x = self.positional_encoding(x)
         x, attn_maps = self.transformer_encoder(x)
+        return x, attn_maps
+
+
+class VitVATT3D(nn.Module):
+    """A complete ViT for 3d video w/ tokenization, learnable positional embedding from VATT but with traditional
+    vit emb."""
+
+    def __init__(self, channel_size: int = 3, model_dim: int = 32, num_heads: int = 2,
+                 dropout: float = 0.0, input_dropout: float = 0.0,
+                 num_layers: int = 2, patch_size: tuple = (4, 4), input_size: Optional[tuple] = None,
+                 num_emb: Optional[int] = 100,
+                 **kwargs):
+        """
+        Inputs:
+            channel_size - Hidden dimensionality of the input
+            model_dim - Hidden dimensionality to use inside the Transformer
+            num_classes - Number of classes to predict per sequence element
+            num_heads - Number of heads to use in the Multi-Head Attention blocks
+            dropout - Dropout to apply inside the model
+            input_dropout - Dropout to apply on the input features
+            add_positional_encoding - if positional encoding added
+            num_layers - number of attention layers
+        """
+        super().__init__()
+        self.channel_size = channel_size
+        self.model_dim = model_dim
+        self.num_heads = num_heads
+        self.dropout = dropout
+        self.input_dropout = input_dropout
+        self.num_layers = num_layers
+        self.cls = nn.Parameter(torch.randn(1, 1, model_dim))
+
+        # convert the input image tensor to patches
+        self.to_patches = Video2Patches(input_size, patch_size)
+        # Input dim -> Model dim
+        patch_dim = math.prod(patch_size) * channel_size
+        self.input_emb = nn.Sequential(
+            nn.LayerNorm(patch_dim),
+            nn.Linear(patch_dim, model_dim),
+            nn.LayerNorm(model_dim),
+        )
+
+        self.positional_encoding = VitPatchEmbedding(num_patches=num_emb, emb_dim=model_dim)
+        self.transformer_encoder = TransformerEncoderVanilla(token_dim=self.model_dim,
+                                                             num_blocks=self.num_layers,
+                                                             num_heads=self.num_heads,
+                                                             dropout=self.dropout,
+                                                             batch_first=True,
+                                                             norm_first=True)
+
+    def forward(self, x: torch.Tensor) -> [torch.Tensor, list]:
+        """
+        Inputs:
+            x - Input img tensor of shape [batch size, channel size, height, width]
+        Returns:
+            x - Aggregation token of shape [Batch, model_dim]
+            attn_map - list of attention maps of different with shape
+                        [ num_layers x tensor(batch_size, num_heads, seq_len, seq_len) ]
+        """
+        x = self.to_patches(x)
+        x = x.reshape(x.shape[0], -1, x.shape[-1])
+        x = self.input_emb(x)
+        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
+        x = torch.cat([cls, x], dim=1)
+        x = self.positional_encoding(x)
+        x, attn_maps = self.transformer_encoder(x)
+        x = x[:, 0]
         return x, attn_maps
 
 

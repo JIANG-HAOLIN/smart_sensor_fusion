@@ -288,8 +288,11 @@ class SslNceFramework_EarlySum(torch.nn.Module):
         if "vision" in multimod_inputs.keys():
             vision_signal = multimod_inputs["vision"]
             batch_size, num_stack, c_v, h_v, w_v = vision_signal.shape
+            short_window_len = self.mod_args["vision"].short_window_len
+            assert num_stack % short_window_len == 0
             vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
             vision_signal = self.preprocess_vision(vision_signal)
+            vision_signal = torch.reshape(vision_signal, (-1, short_window_len, c_v, h_v, w_v))
             vision_signal = self.tokenization_vision(vision_signal)  # vit
             if type(vision_signal) == tuple:
                 vision_signal, attn_map = vision_signal

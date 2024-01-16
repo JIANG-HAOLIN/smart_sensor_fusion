@@ -68,7 +68,7 @@ class Video2Patches(torch.nn.Module):
                  patch_size: tuple = (1, 4, 4), ):
         """
         Args:
-            patch_size: should have shape [patch_h, patch_w]
+            patch_size: should have shape [num_frames, patch_h, patch_w]
         """
         super().__init__()
         n, h, w = input_size

@@ -68,6 +68,7 @@ model:
       _target_: src.models.encoders.identity.get_identity_encoder
 
   vision_args:
+    short_window_len: 1
     preprocess_vision_args:
       _target_: src.models.encoders.identity.get_identity_encoder
     tokenization_vision:

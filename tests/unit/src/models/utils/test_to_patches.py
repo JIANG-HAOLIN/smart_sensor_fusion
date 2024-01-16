@@ -26,6 +26,7 @@ class TestToPatches(unittest.TestCase):
         out = v2p(input)
         print(input)
         print(out)
+        print(out.shape)
         self.assertEqual(out.shape, torch.Size([1,
                                                 int(in_n / patch_size[0]),
                                                 int(in_h/patch_size[1])*int(in_w/patch_size[2]),
