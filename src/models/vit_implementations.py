@@ -46,7 +46,12 @@ class Vit(nn.Module):
             nn.Linear(patch_dim, model_dim),
             nn.LayerNorm(model_dim),
         )
-
+        min_emb = math.prod(input_size) // math.prod(patch_size)
+        if min_emb > num_emb:
+            print(f"at least {min_emb} embedding vectors needed for Vit model")
+            num_emb = min_emb
+        else:
+            print(f"{num_emb} of embedding vectors initialized")
         self.positional_encoding = VitPatchEmbedding(num_patches=num_emb, emb_dim=model_dim)
         self.transformer_encoder = TransformerEncoderVanilla(token_dim=self.model_dim,
                                                              num_blocks=self.num_layers,
@@ -130,7 +135,7 @@ class VitVATT3D(nn.Module):
 
     def __init__(self, channel_size: int = 3, model_dim: int = 32, num_heads: int = 2,
                  dropout: float = 0.0, input_dropout: float = 0.0,
-                 num_layers: int = 2, patch_size: tuple = (4, 4), input_size: Optional[tuple] = None,
+                 num_layers: int = 2, patch_size: tuple = (1, 4, 4), input_size: Optional[tuple] = None,
                  num_emb: Optional[int] = 100,
                  **kwargs):
         """
@@ -162,7 +167,12 @@ class VitVATT3D(nn.Module):
             nn.Linear(patch_dim, model_dim),
             nn.LayerNorm(model_dim),
         )
-
+        min_emb = math.prod(input_size) // math.prod(patch_size)
+        if min_emb > num_emb:
+            print(f"at least {min_emb} embedding vector needed for VitVATT3D model")
+            num_emb = min_emb
+        else:
+            print(f"{num_emb} of embedding vectors initialized")
         self.positional_encoding = VitPatchEmbedding(num_patches=num_emb, emb_dim=model_dim)
         self.transformer_encoder = TransformerEncoderVanilla(token_dim=self.model_dim,
                                                              num_blocks=self.num_layers,

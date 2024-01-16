@@ -72,7 +72,7 @@ model:
     preprocess_vision_args:
       _target_: src.models.encoders.identity.get_identity_encoder
     tokenization_vision:
-      _target_: src.models.vit_implementations.Vit
+      _target_: src.models.vit_implementations.VitVATT3D
       channel_size: 3
       model_dim: ${models.model.model_dim}
       num_heads: 8
