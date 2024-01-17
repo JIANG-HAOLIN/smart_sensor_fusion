@@ -123,25 +123,27 @@ class SslNceFramework_EarlySum(torch.nn.Module):
 
     def forward(self, multimod_inputs: Dict,
                 mask: bool = True,
-                task: tuple = ("repr", 'order', 'fuse_nce', 'cross_time_nce', 'recover', 'imitation'),
+                task: tuple = ("bind", 'order', 'fuse_nce', 'cross_time_nce', 'recover', 'imitation'),
                 mode: str = "train",
                 ):
         assert mode in ["train", "val", "inference"]
 
-        output = {"predict": {}, "ssl_losses": {}}
+        output = {"predict": {}, "ssl_losses": {}, "repr": {}}
 
         encoded_inputs = self.forward_modality_specific_encoding(multimod_inputs)
-        nce_loss_dict = self.forward_nce(encoded_inputs)
-        loss = nce_loss_dict['_loss']
-        output["ssl_losses"]["cr_m_nce_loss"] = loss
 
-        if task == "repr":
-            repr = {'encoded_inputs': encoded_inputs}
+        if task == ("repr",):
+            output["repr"]["encoded_inputs"] = encoded_inputs
             encoded_inputs = self.fusion(encoded_inputs)
-            repr['fused_encoded_inputs'] = encoded_inputs
+            output["repr"]['fused_encoded_inputs'] = encoded_inputs
             x, attn_maps = self.forward_cross_time(encoded_inputs)
-            repr['cross_time_repr'] = x
-            return repr
+            output["repr"]['cross_time_repr'] = x
+            return output
+
+        if "bind" in task:
+            nce_loss_dict = self.forward_nce(encoded_inputs)
+            loss = nce_loss_dict['_loss']
+            output["ssl_losses"]["cr_m_nce_loss"] = loss
 
         if mask:
             masked_multimod_inputs = self.random_masking(multimod_inputs=multimod_inputs,
@@ -185,13 +187,13 @@ class SslNceFramework_EarlySum(torch.nn.Module):
                 xyzrpy = self.aux_mlp(agg_feat)
                 output["predict"]["action_logits"] = action_logits
                 output["predict"]["xyzrpy"] = xyzrpy
-            return output
-                
+
         else:
             fused_t_feats = self.fusion(encoded_inputs)
             fom_loss = self.forward_order_prediction(fused_t_feats)
             output["ssl_losses"]["fom_loss"] = fom_loss
 
+        return output
 
 
     def forward_cross_time(self, x):

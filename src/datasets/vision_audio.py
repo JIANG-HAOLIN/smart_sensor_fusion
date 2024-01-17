@@ -209,10 +209,11 @@ class VisionAudioTactile(Dataset):
             x_space = {-0.0005: 0, 0: 1, 0.0005: 2}
             y_space = {-0.0005: 0, 0: 1, 0.0005: 2}
             z_space = {-0.0005: 0, 0: 1, 0.0005: 2}
-            keyboard = (
-                    x_space[keyboard[0]] * 9
-                    + y_space[keyboard[1]] * 3
-                    + z_space[keyboard[2]]
+
+            keyboard = (  # ternary
+                    x_space[keyboard[0]] * 3**2
+                    + y_space[keyboard[1]] * 3**1
+                    + z_space[keyboard[2]] * 3**0
             )
         return keyboard
 
