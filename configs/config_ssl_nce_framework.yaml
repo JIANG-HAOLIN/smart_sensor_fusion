@@ -1,12 +1,12 @@
-# config_ssl_nce_vat.yaml
+# config_ssl_nce_framework.yaml
 
 
 defaults:
 - datasets: see_hear_feel_vision_audio_tactile
-- models: ssl_nce_vat/earlysum
+- models: ssl_nce_framework/earlysum
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_vat
-- trainers: ss_nce_vat
+- pl_modules: ssl_nce_framework
+- trainers: ss_nce_framework
 - _self_
 
 

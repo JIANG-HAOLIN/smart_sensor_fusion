@@ -6,7 +6,7 @@ model:
   mod_names: ["vision","audio","tactile"]
   main_mod: "vision"
   model_dim: 256
-  num_stack: 5
+  num_stack: 5  # num_frame / short_window_len
 
   nce_args:
     main_mod: ${models.model.main_mod}
@@ -77,8 +77,8 @@ model:
       model_dim: ${models.model.model_dim}
       num_heads: 8
       num_layers: 4
-      patch_size: [8, 8]
-      input_size: [67, 90]
+      patch_size: [1, 8, 8]
+      input_size: [1, 67, 90]  # first dim = short_window_len
       num_emb: 100
     pe_vision:
       _target_: src.models.encoders.identity.get_identity_encoder
@@ -86,16 +86,17 @@ model:
       _target_: src.models.encoders.identity.get_identity_encoder
     
   tactile_args:
+    short_window_len: 1
     preprocess_tactile_args:
       _target_: src.models.encoders.identity.get_identity_encoder
     tokenization_tactile:
-      _target_: src.models.vit_implementations.Vit
+      _target_: src.models.vit_implementations.VitVATT3D
       channel_size: 3
       model_dim: ${models.model.model_dim}
       num_heads: 8
       num_layers: 4
-      patch_size: [6, 6]
-      input_size: [54, 72]
+      patch_size: [1, 6, 6]
+      input_size: [1, 54, 72]  # first dim = short_window_len
       num_emb: 109  # 1 more aggregation token
     pe_tactile:
       _target_: src.models.encoders.identity.get_identity_encoder

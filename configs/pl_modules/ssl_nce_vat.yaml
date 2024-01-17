@@ -1,5 +1,0 @@
-pl_module:
-  _target_: src.pl_modules.ssl_nce_vat.TransformerPredictorPl
-  num_classes: 10
-  num_stack: 5
-
