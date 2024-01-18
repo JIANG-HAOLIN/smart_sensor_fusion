@@ -1,5 +1,6 @@
 pl_module:
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
-  num_classes: 10
   num_stack: 5
+  train_tasks: bind+order+fuse_nce+cross_time_nce+recover+imitation
+  masked_train: True
 

@@ -78,6 +78,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
         }
         self.mod_names = mod_names
         self.main_mod = main_mod
+        self.num_stack = num_stack
 
         self.fom_args = fom_args
         self.mask_args = mask_args
@@ -111,7 +112,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
         self.cross_time_trf = hydra.utils.instantiate(cross_time_trf_args)
 
         self.fom_classifier = ClassificationHead(model_dim=model_dim, num_classes=num_stack)
-        
+
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(model_dim, model_dim),
             torch.nn.ReLU(),
@@ -145,14 +146,15 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             loss = nce_loss_dict['_loss']
             output["ssl_losses"]["cr_m_nce_loss"] = loss
 
+        fused_t_feats = self.fusion(encoded_inputs)
+
         if mask:
             masked_multimod_inputs = self.random_masking(multimod_inputs=multimod_inputs,
                                                          masked_mod=self.mask_args.masked_mod,
                                                          mask_prob_args=self.mask_args.mask_prob_args,
-                                                         mask_length_args=self.mask_args.mask_length_args,)
+                                                         mask_length_args=self.mask_args.mask_length_args, )
             encoded_masked_inputs = self.forward_modality_specific_encoding(masked_multimod_inputs)
 
-            fused_t_feats = self.fusion(encoded_inputs)
             mask_pred_target = fused_t_feats.detach()
             fused_t_masked_feats = self.fusion(encoded_masked_inputs)
 
@@ -160,7 +162,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
                 fom_loss = self.forward_order_prediction(fused_t_masked_feats)
                 output["ssl_losses"]["masked_fom_loss"] = fom_loss
 
-            if self.mask_fusion_nce_proj is not None and 'fuse_nce' in task:
+            if 'fuse_nce' in task and self.mask_fusion_nce_proj is not None:
                 temp = self.mask_args.mask_fusion_nce.temp
                 mask_fusion_nce_loss = self.mask_cross_time_nce(self.mask_fusion_nce_proj,
                                                                 fused_t_feats, fused_t_masked_feats, temp)
@@ -172,16 +174,17 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             fused_t_masked_feats, _ = self.forward_cross_time(fused_t_masked_feats)
             fused_t_masked_feats = fused_t_masked_feats[:, 1:, :]
 
-            if self.mask_cross_time_trf_proj is not None and 'cross_time_nce' in task:
+            if 'cross_time_nce' in task and self.mask_cross_time_trf_proj is not None:
                 temp = self.mask_args.mask_cross_time_trf_nce.temp
                 mask_cross_time_nce_loss = self.mask_cross_time_nce(self.mask_cross_time_trf_proj,
                                                                     fused_t_feats, fused_t_masked_feats, temp)
                 output["ssl_losses"]["mask_cr_t_nce_loss"] = mask_cross_time_nce_loss['_loss']
 
-            if self.mask_latent_predictor is not None and 'recover' in task:
+            if 'recover' in task and self.mask_latent_predictor is not None:
                 recover_loss = self.mask_prediction(self.mask_latent_predictor,
-                                                 mask_pred_target, fused_t_masked_feats)
+                                                    mask_pred_target, fused_t_masked_feats)
                 output["ssl_losses"]["recover_loss"] = recover_loss
+
             if "imitation" in task:
                 action_logits = self.mlp(agg_feat)
                 xyzrpy = self.aux_mlp(agg_feat)
@@ -189,12 +192,18 @@ class SslNceFramework_EarlySum(torch.nn.Module):
                 output["predict"]["xyzrpy"] = xyzrpy
 
         else:
-            fused_t_feats = self.fusion(encoded_inputs)
-            fom_loss = self.forward_order_prediction(fused_t_feats)
-            output["ssl_losses"]["fom_loss"] = fom_loss
+            if "order" in task:
+                fom_loss = self.forward_order_prediction(fused_t_feats)
+                output["ssl_losses"]["fom_loss"] = fom_loss
+            if "imitation" in task:
+                fused_t_feats, _ = self.forward_cross_time(fused_t_feats)
+                agg_feat = fused_t_feats[:, 0, :]
+                action_logits = self.mlp(agg_feat)
+                xyzrpy = self.aux_mlp(agg_feat)
+                output["predict"]["action_logits"] = action_logits
+                output["predict"]["xyzrpy"] = xyzrpy
 
         return output
-
 
     def forward_cross_time(self, x):
         cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
@@ -209,7 +218,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
 
         target, shuffled_fused_t_feats = self.random_shuffle(fused_t_feats, reorder_prob=self.fom_args.reorder_prob)
 
-        if all(element == -1 for element in target.reshape(bs*num_frame, )):
+        if all(element == -1 for element in target.reshape(bs * num_frame, )):
             return torch.zeros([])
 
         x, attn_maps = self.forward_cross_time(shuffled_fused_t_feats)
@@ -314,6 +323,8 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             batch_size, num_frame, c_v, h_v, w_v = vision_signal.shape
             short_window_len = self.mod_args["vision"].short_window_len
             assert num_frame % short_window_len == 0
+            num_stack = num_frame // short_window_len
+            assert num_stack == self.num_stack
             vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
             vision_signal = self.preprocess_vision(vision_signal)
             vision_signal = torch.reshape(vision_signal, (-1, short_window_len, c_v, h_v, w_v))
@@ -323,7 +334,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             if len(vision_signal.shape) == 2:
                 vision_signal = vision_signal.reshape(vision_signal.shape[0], 1, vision_signal.shape[1])
                 # [B*N, 256] -> [B*N, 1, 256]
-            vision_signal = vision_signal.view(batch_size, num_frame * vision_signal.shape[-2], vision_signal.shape[-1])
+            vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
             # [B*N, 1, 256] -> [B, N, 256]
             vision_signal = self.positional_encoding_vision(vision_signal)
             vision_signal = self.encoder_vision(vision_signal)
@@ -350,6 +361,8 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             batch_size, num_frame, c_v, h_v, w_v = tactile_signal.shape
             short_window_len = self.mod_args["tactile"].short_window_len
             assert num_frame % short_window_len == 0
+            num_stack = num_frame // short_window_len
+            assert num_stack == self.num_stack
             tactile_signal = torch.reshape(tactile_signal, (-1, c_v, h_v, w_v))
             tactile_signal = self.preprocess_tactile(tactile_signal)
             tactile_signal = torch.reshape(tactile_signal, (-1, short_window_len, c_v, h_v, w_v))
@@ -359,7 +372,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             if len(tactile_signal.shape) == 2:
                 tactile_signal = tactile_signal.reshape(tactile_signal.shape[0], 1, tactile_signal.shape[1])
                 # [B*N, 256] -> [B*N, 1, 256]
-            tactile_signal = tactile_signal.view(batch_size, num_frame * tactile_signal.shape[-2],
+            tactile_signal = tactile_signal.view(batch_size, num_stack * tactile_signal.shape[-2],
                                                  tactile_signal.shape[-1])
             # [B*N, 1, 256] -> [B, N, 256]
             tactile_signal = self.positional_encoding_tactile(tactile_signal)

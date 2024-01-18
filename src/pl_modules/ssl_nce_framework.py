@@ -13,7 +13,9 @@ logger = logging.getLogger(__name__)
 class TransformerPredictorPl(pl.LightningModule):
 
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
-                 train_loader, val_loader, test_loader, **kwargs):
+                 train_loader, val_loader, test_loader,
+                 train_tasks,
+                 **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
         Inputs:
@@ -31,11 +33,11 @@ class TransformerPredictorPl(pl.LightningModule):
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
-        self.num_classes = kwargs['num_classes']
         self.num_stack = kwargs['num_stack']
         self.validation_epoch_outputs = []
         self.validation_preds = []
         self.loss_cce = torch.nn.CrossEntropyLoss()
+        self.train_tasks = train_tasks
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -57,7 +59,7 @@ class TransformerPredictorPl(pl.LightningModule):
             "tactile": t_inp,
             "audio": audio_h
         }
-        task = ("bind", 'order', 'fuse_nce', 'cross_time_nce', 'recover', 'imitation')
+        task = self.train_tasks.split("+")
         # Perform prediction and calculate loss and accuracy
         output = self.mdl.forward(multimod_inputs,
                                   mask=True,
