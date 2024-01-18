@@ -73,10 +73,11 @@ class TransformerPredictorPl(pl.LightningModule):
             loss, immi_loss, aux_loss = self.compute_loss(
                 demo, output["predict"]["action_logits"], xyzrpy_gt, output["predict"]["xyzrpy"]
             )
-            total_loss = immi_loss + aux_loss
+            total_loss += loss
             action_pred = torch.argmax(output["predict"]["action_logits"], dim=1)
             acc = (action_pred == demo).sum() / action_pred.numel()
             self.log_dict({
+                f"{mode}_sup_loss": loss,
                 f"{mode}_immi_loss": immi_loss,
                 f"{mode}_aux_loss": aux_loss,
                 f"{mode}_acc": acc,

@@ -1,5 +1,5 @@
 launch_trainer:
-  max_epochs: 50
-  monitor:  "val_loss"
-  mode: "min"
+  max_epochs: 20
+  monitor:  "val_acc"
+  mode: "max"
   save_top_k: 1
