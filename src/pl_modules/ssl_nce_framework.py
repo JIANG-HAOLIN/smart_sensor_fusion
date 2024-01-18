@@ -14,7 +14,7 @@ class TransformerPredictorPl(pl.LightningModule):
 
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
-                 train_tasks,
+                 train_tasks, masked_train,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
@@ -38,6 +38,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.validation_preds = []
         self.loss_cce = torch.nn.CrossEntropyLoss()
         self.train_tasks = train_tasks
+        self.masked_train = masked_train
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -62,7 +63,7 @@ class TransformerPredictorPl(pl.LightningModule):
         task = self.train_tasks.split("+")
         # Perform prediction and calculate loss and accuracy
         output = self.mdl.forward(multimod_inputs,
-                                  mask=True,
+                                  mask=self.masked_train,
                                   task=task,
                                   mode=mode,
                                   )
