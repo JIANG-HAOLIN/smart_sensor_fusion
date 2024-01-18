@@ -6,7 +6,7 @@ defaults:
 - models: ssl_nce_framework/earlysum
 - optimizers: adam_steplr
 - pl_modules: ssl_nce_framework/nomask_bind_fom_imi
-- trainers: ss_nce_framework
+- trainers: ssl_nce_framework
 - _self_
 
 

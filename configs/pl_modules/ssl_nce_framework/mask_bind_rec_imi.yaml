@@ -1,4 +1,5 @@
 pl_module:
+  name: mask_bind_rec_imi
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
   num_stack: 5
   train_tasks: bind_recover_imitation

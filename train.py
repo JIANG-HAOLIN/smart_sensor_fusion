@@ -18,7 +18,8 @@ def train(cfg: DictConfig) -> None:
     os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')
     project_path = os.path.abspath(os.path.join(__file__, '..'))
-    multirun_dir_path = HydraConfig.get().sweep.dir
+    hydra_cfg_og = HydraConfig.get()
+    multirun_dir_path = hydra_cfg_og.sweep.dir
 
     log.info('*-------- train func starts --------*')
     log.info('output folder:' + multirun_dir_path + '\n')
@@ -41,7 +42,7 @@ def train(cfg: DictConfig) -> None:
     log.info(f"current multi-run outp1ut path: {multirun_dir_path}")
 
     from utils.hydra_utils import extract_sweeper_output_label
-    label = extract_sweeper_output_label(cfg)
+    label = extract_sweeper_output_label(cfg, hydra_cfg_og.runtime.choices)
     log.info(f"current running output label: {label}")
     out_dir_path = os.path.join(multirun_dir_path, label)
     if not os.path.exists(out_dir_path):
