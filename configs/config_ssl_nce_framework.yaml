@@ -5,7 +5,7 @@ defaults:
 - datasets: see_hear_feel_vision_audio_tactile
 - models: ssl_nce_framework/earlysum
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_framework/nomask_bind_fom_imi
+- pl_modules: ssl_nce_framework/nomask_imi
 - trainers: ssl_nce_framework
 - _self_
 
