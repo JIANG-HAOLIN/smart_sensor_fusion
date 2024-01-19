@@ -1,6 +1,6 @@
 pl_module:
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
   num_stack: 5
-  train_tasks: recover_imitation
+  train_tasks: recover+imitation
   masked_train: True
 
