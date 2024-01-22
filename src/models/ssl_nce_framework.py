@@ -124,7 +124,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
 
     def forward(self, multimod_inputs: Dict,
                 mask: bool = True,
-                task: tuple = ("bind", 'order', 'fuse_nce', 'cross_time_nce', 'recover', 'imitation'),
+                task: Optional[str] = "imitation",
                 mode: str = "train",
                 ):
         assert mode in ["train", "val", "inference"]
@@ -133,7 +133,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
 
         encoded_inputs = self.forward_modality_specific_encoding(multimod_inputs)
 
-        if task == ("repr",):
+        if task == "repr":
             output["repr"]["encoded_inputs"] = encoded_inputs
             encoded_inputs = self.fusion(encoded_inputs)
             output["repr"]['fused_encoded_inputs'] = encoded_inputs

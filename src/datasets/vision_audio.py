@@ -24,7 +24,7 @@ class VisionAudioTactile(Dataset):
         neg_ratio: ratio of silence audio clips to sample
         """
         self.logs = pd.read_csv(log_file)
-        self.data_folder = os.path.join(data_folder, 'test_recordings',)
+        self.data_folder = os.path.join(data_folder, 'test_recordings', )
         self.sr = 44100
         self.streams = [
             "cam_gripper_color",
@@ -37,7 +37,6 @@ class VisionAudioTactile(Dataset):
         self.frameskip = args.frameskip
         self.max_len = (self.num_stack - 1) * self.frameskip
         self.fps = 10
-        self.sr = 44100
         self.resolution = (
                 self.sr // self.fps
         )
@@ -211,9 +210,9 @@ class VisionAudioTactile(Dataset):
             z_space = {-0.0005: 0, 0: 1, 0.0005: 2}
 
             keyboard = (  # ternary
-                    x_space[keyboard[0]] * 3**2
-                    + y_space[keyboard[1]] * 3**1
-                    + z_space[keyboard[2]] * 3**0
+                    x_space[keyboard[0]] * 3 ** 2
+                    + y_space[keyboard[1]] * 3 ** 1
+                    + z_space[keyboard[2]] * 3 ** 0
             )
         return keyboard
 
@@ -299,7 +298,7 @@ class VisionAudioTactile(Dataset):
                         tactile_framestack[i] = torch.zeros_like(tactile_framestack[i])
 
         # random cropping
-        if self.train:
+        if self.train:  # get random crop params (previously resize and color jitter)
             img = self.transform_cam(
                 self.load_image(self.trial, "cam_fixed_color", idx)
             )
@@ -414,3 +413,32 @@ def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
     )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False)
     return train_loader, val_loader, None
+
+
+def get_inference_loaders(batch_size: int, args, data_folder: str, **kwargs):
+    """
+
+    Args:
+        batch_size: batch size
+        args: arguments for dataloader
+        data_folder: absolute path of directory "data"
+        **kwargs: other arguments
+
+    Returns: training loader and validation loader
+
+    """
+    train_csv = os.path.join(data_folder, args.train_csv)
+    val_csv = os.path.join(data_folder, args.val_csv)
+    train_num_episode = len(pd.read_csv(train_csv))
+    val_num_episode = len(pd.read_csv(val_csv))
+    train_loaders = [
+        DataLoader(VisionAudioTactile(train_csv, args, i, data_folder, False), 1, num_workers=8, shuffle=False)
+        for i in range(train_num_episode)
+    ]
+
+    val_loaders = [
+        DataLoader(VisionAudioTactile(val_csv, args, i, data_folder, False), 1, num_workers=8, shuffle=False)
+        for i in range(val_num_episode)
+    ]
+
+    return train_loaders, val_loaders, None

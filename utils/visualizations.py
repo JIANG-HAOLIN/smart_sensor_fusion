@@ -71,7 +71,7 @@ def plot_confusion_matrix(outs: np.ndarray, labels: np.ndarray, save_pth: Option
 
 def scatter_tsne(data: list, mods: list, names: list, out_path: Optional[str] = None):
     """
-
+    plot 2d tsne scatter figure (warning: has to be more than 1 trajectory or 'axes' object is not subscriptable)
     Args:
         data: list of numpy array [traj 1 (e.g. if s steps x m mods:(s, m, D)), traj 2, ... , traj N]
         mods: list of modalities [name of mod1, name of mod2, ..., name of mod m]
@@ -88,7 +88,7 @@ def scatter_tsne(data: list, mods: list, names: list, out_path: Optional[str] = 
     from matplotlib.colors import Normalize
     tsne = TSNE(n_components=2, random_state=42, perplexity=5)
     num_traj = len(names)
-    fig, ax = plt.subplots(num_traj, 1, figsize=(1 * 10, num_traj * 5))
+    fig, ax = plt.subplots(num_traj, 1, figsize=(1 * 20, num_traj * 10))
     for traj_idx, (x, name) in enumerate(zip(data, names)):
         # color = np.arange(x.shape[1])
         # norm = Normalize(vmin=0, vmax=1)
@@ -104,11 +104,11 @@ def scatter_tsne(data: list, mods: list, names: list, out_path: Optional[str] = 
         for i, mod in enumerate(mods):
             x_ = x_tsne[i, :]
             scatter = ax[traj_idx].scatter(x_[:, 0], x_[:, 1], marker=mod_shape_dict[mod], label=mod,
-                                           c=np.arange(num_steps), cmap='viridis', edgecolor='k')
+                                           c=np.arange(num_steps), cmap='viridis', edgecolor='k', s=32)
         legend = ax[traj_idx].legend(*scatter.legend_elements(), title='progress', bbox_to_anchor=(1.06, 1.0))
         ax[traj_idx].add_artist(legend)
         ax[traj_idx].legend()
-        ax[traj_idx].set_title(f'Trajectory {int(name.item())}')
+        ax[traj_idx].set_title(f'Trajectory {int(name.item()) if isinstance(name, torch.Tensor) else name}')
         ax[traj_idx].set_xlabel('x')
         ax[traj_idx].set_ylabel('y')
 
