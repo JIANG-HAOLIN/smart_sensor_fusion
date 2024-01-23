@@ -1,0 +1,49 @@
+#!/bin/bash -l
+# Sample script for pytorch job
+
+## Scheduler parameters ##
+
+#BSUB -J ssl_nce_framework                # job name
+#BSUB -o ssl_nce_framework.%J.stdout      # optional: Have output written to specific file
+#BSUB -e ssl_nce_framework.%J.stderr      # optional: Have errors written to specific file
+# #BSUB -q rb_highend               # optional: use highend nodes w/ Volta GPUs (default: Geforce GPUs)
+#BSUB -W 60:00                       # fill in desired wallclock time [hours,]minutes (hours are optional)
+#BSUB -n 8                          # min CPU cores,max CPU cores (max cores is optional)
+#BSUB -M 12800                       # fill in required amount of RAM (in Mbyte)
+# #BSUB -R "span[hosts=1]"          # optional: run on single host (if using more than 1 CPU cores)
+# #BSUB -R "span[ptile=28]"         # optional: fill in to specify cores per node (max 28)
+# #BSUB -P myProject                # optional: fill in cluster project
+#BSUB -gpu "num=1:mode=exclusive_process:mps=no"
+
+## Job parameters ##
+
+# Anaconda virtualenv to be used
+# Create before runnign the job with e.g.
+# conda create -n pytorch-3.5 python=3.5 pytorch torchvision
+vEnv=ssf # (please change)
+
+# Source environment (optional)
+#. /fs/applications/lsf/latest/conf/profile.lsf
+#. /fs/applications/modules/current/init/bash
+
+# Load modules
+module purge
+module load conda/4.3.33-readonly cuda/8.0.0 cudnn/8.0_v7.0
+
+# Activate environment
+source activate ssf
+
+# Run your code here (please change, this is only an example)
+python train.py -cn config_ssl_nce_framework -m \
+output_name=nomask_imi_melspecparam \
+variable_name='models.model.audio_args.preprocess_audio_args.windows_size&models.model.audio_args.preprocess_audio_args.hop' \
+datasets.dataloader.batch_size=32 \
+pl_modules.pl_module.num_stack=5 \
+trainers.launch_trainer.max_epochs=20 \
+pl_modules=ssl_nce_framework/nomask_imi \
+models.model.audio_args.preprocess_audio_args.windows_size=0.05 \
+models.model.audio_args.preprocess_audio_args.length=40000 \
+models.model.audio_args.preprocess_audio_args.hop=0.025 \
+models.model.audio_args.tokenization_audio.patch_size.1=20 \
+models.model.audio_args.tokenization_audio.input_size.1=101 \
+

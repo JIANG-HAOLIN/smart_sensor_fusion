@@ -72,5 +72,5 @@ utils_contrastive/
 
 *.bsub
 **/*.bsub
-!job.busb
+!job.bsub
 
