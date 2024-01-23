@@ -23,7 +23,6 @@ hydra:
     params:
       trainers.launch_trainer.max_epochs: 25
 #      trainers.launch_trainer.monitor: "val_loss"
-
       datasets.dataloader.data_folder: ${data_folder_path}
       models.model.model_dim: 256
       optimizers: adam_steplr

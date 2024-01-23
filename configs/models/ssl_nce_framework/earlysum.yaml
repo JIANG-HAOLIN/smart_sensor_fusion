@@ -51,16 +51,17 @@ model:
   audio_args:
     preprocess_audio_args:
       _target_: src.models.utils.mel_spec.MelSpec
+      windows_size: 0.05
       length: 40000
       sr: 16000
       n_mels: 64
       norm_audio: false
-      hop_ratio: 0.051
+      hop_ratio: 0.025
     tokenization_audio:
       _target_: src.models.utils.tokenization.Vanilla2dTokenization
       channel_size: 1
-      patch_size: [64, 10]
-      input_size: [64, 51]
+      patch_size: [64, 20]
+      input_size: [64, 101]
       model_dim: ${models.model.model_dim}
     pe_audio:
       _target_: src.models.encoders.identity.get_identity_encoder

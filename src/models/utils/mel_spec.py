@@ -4,8 +4,10 @@ import torchaudio
 
 class MelSpec(torch.nn.Module):
     """Compute mel spectrogram for audio signal"""
-    def __init__(self, length: int = 40000,
-                 sr: int = 16000,
+    def __init__(self,
+                 windows_size: float = 0.025,
+                 length: int = 40000,
+                 sr: int = 16000,  # originally 44.1k, resampled to 16k
                  n_mels: int = 64,
                  norm_audio: bool = False,
                  hop_ratio: float = 0.01):
@@ -19,7 +21,7 @@ class MelSpec(torch.nn.Module):
         self.norm_audio = norm_audio
         self.n_mel = n_mels
         hop_length = int(sr * hop_ratio)
-        n_fft = int(sr * 0.025)
+        n_fft = int(sr * windows_size)
         self.mel = torchaudio.transforms.MelSpectrogram(
             sample_rate=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
         )
