@@ -7,7 +7,7 @@ def extract_sweeper_output_label(hydra_conf: DictConfig, choices: DictConfig):
     labels = ''
     for full_var_name in hydra_conf.variable_name:
         conf = hydra_conf
-        for attr in full_var_name.split('.'):
+        for attr in full_var_name.split('___'):
             # hydra_conf = hydra_conf.__getattr__(attr)  # also works
             conf = conf[attr]
         if isinstance(conf, DictConfig):  # only works for trainers, pl_modules, optimizers, models, datasets

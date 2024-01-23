@@ -12,8 +12,7 @@ defaults:
 
 # General settings
 task_name: "ss_nce"
-variable_name: 
-  - models.model.model_dim
+variable_name: models.model.model_dim
 output_name: nomask_imi_melspecparam
 seed: 42
 results_dir: 'results'
