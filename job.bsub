@@ -47,5 +47,5 @@ models.model.num_stack=15 \
 models.model.audio_args.preprocess_audio_args.windows_size=0.05 \
 models.model.audio_args.preprocess_audio_args.length=120000 \
 models.model.audio_args.preprocess_audio_args.hop=0.02 \
-models.model.audio_args.tokenization_audio.patch_size.1=25\
+models.model.audio_args.tokenization_audio.patch_size.1=25 \
 models.model.audio_args.tokenization_audio.input_size.1=376 \
