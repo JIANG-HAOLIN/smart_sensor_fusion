@@ -56,12 +56,16 @@ model:
       sr: 16000
       n_mels: 64
       norm_audio: false
-      hop_ratio: 0.025
+      hop: 0.025
     tokenization_audio:
       _target_: src.models.utils.tokenization.Vanilla2dTokenization
       channel_size: 1
-      patch_size: [64, 20]
-      input_size: [64, 101]
+      input_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 101
+      patch_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 20
       model_dim: ${models.model.model_dim}
     pe_audio:
       _target_: src.models.encoders.identity.get_identity_encoder
@@ -78,8 +82,14 @@ model:
       model_dim: ${models.model.model_dim}
       num_heads: 8
       num_layers: 4
-      patch_size: [1, 8, 8]
-      input_size: [1, 67, 90]  # first dim = short_window_len
+      patch_size:
+        - 1
+        - 8
+        - 8
+      input_size: # first dim = short_window_len
+        - 1
+        - 67
+        - 90
       num_emb: 100
     pe_vision:
       _target_: src.models.encoders.identity.get_identity_encoder
@@ -96,8 +106,14 @@ model:
       model_dim: ${models.model.model_dim}
       num_heads: 8
       num_layers: 4
-      patch_size: [1, 6, 6]
-      input_size: [1, 54, 72]  # first dim = short_window_len
+      patch_size:
+        - 1
+        - 6
+        - 6
+      input_size: # first dim = short_window_len
+        - 1
+        - 54
+        - 72
       num_emb: 109  # 1 more aggregation token
     pe_tactile:
       _target_: src.models.encoders.identity.get_identity_encoder

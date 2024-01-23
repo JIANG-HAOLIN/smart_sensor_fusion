@@ -1,4 +1,4 @@
-name: '_steplr'
+name: 'steplr'
 optimizer:
   _target_: torch.optim.Adam
   lr: 1e-4

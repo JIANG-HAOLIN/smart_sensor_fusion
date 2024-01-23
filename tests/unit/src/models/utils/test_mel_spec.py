@@ -8,16 +8,16 @@ class TestMelSpec(unittest.TestCase):
         windows_size = 0.05
         length = 40000
         sr = 16000
-        hop_ratio = 0.025
+        hop = 0.025
         n_mel = 64
         mel = MelSpec(windows_size=windows_size,
                       length=length,
-                      hop_ratio=hop_ratio,
+                      hop=hop,
                       n_mels=n_mel,
                       sr=sr,)
         input = torch.randn([2, 1, length])
         out = mel(input)
-        self.assertEqual(out.shape, torch.Size([2, 1, n_mel, int(length/(sr*hop_ratio))+1]))
+        self.assertEqual(out.shape, torch.Size([2, 1, n_mel, int(length/(sr*hop))+1]))
         self.assertEqual(out.shape[2:], mel.out_size)
         print(out.shape)
 

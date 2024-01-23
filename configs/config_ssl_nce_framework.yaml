@@ -13,7 +13,7 @@ defaults:
 # General settings
 task_name: "ss_nce"
 variable_name: models.model.model_dim
-output_name: earlysum_ssnce_vanilla
+output_name: nomask_imi_melspecparam
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -29,8 +29,8 @@ hydra:
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.num_stack: 5
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
-  sweep:
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${models.name}${optimizers.name}/${output_name}_${now:%m-%d-%H:%M:%S}
+  sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/"
+    dir: ./${results_dir}/${task_name}/${datasets.name}/${pl_modules.name}_${models.name}_${optimizers.name}/${output_name}_${now:%m-%d-%H:%M:%S}
     # only controls where config.yaml is saved
     subdir: ./
   run: # control where multirun.yaml is saved
