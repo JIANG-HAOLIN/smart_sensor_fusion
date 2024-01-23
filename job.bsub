@@ -3,9 +3,9 @@
 
 ## Scheduler parameters ##
 
-#BSUB -J ssl_nce_framework                # job name
-#BSUB -o ssl_nce_framework.%J.stdout      # optional: Have output written to specific file
-#BSUB -e ssl_nce_framework.%J.stderr      # optional: Have errors written to specific file
+#BSUB -J test_mel                # job name
+#BSUB -o test_mel.%J.stdout      # optional: Have output written to specific file
+#BSUB -e test_mel.%J.stderr      # optional: Have errors written to specific file
 # #BSUB -q rb_highend               # optional: use highend nodes w/ Volta GPUs (default: Geforce GPUs)
 #BSUB -W 60:00                       # fill in desired wallclock time [hours,]minutes (hours are optional)
 #BSUB -n 8                          # min CPU cores,max CPU cores (max cores is optional)
@@ -34,16 +34,23 @@ module load conda/4.3.33-readonly cuda/8.0.0 cudnn/8.0_v7.0
 source activate ssf
 
 # Run your code here (please change, this is only an example)
-python train.py -cn config_ssl_nce_framework -m \
-output_name=nomask_imi_melspecparam \
-variable_name='models.model.audio_args.preprocess_audio_args.windows_size&models.model.audio_args.preprocess_audio_args.hop' \
-datasets.dataloader.batch_size=32 \
-pl_modules.pl_module.num_stack=5 \
-trainers.launch_trainer.max_epochs=20 \
-pl_modules=ssl_nce_framework/nomask_imi \
-models.model.audio_args.preprocess_audio_args.windows_size=0.05 \
-models.model.audio_args.preprocess_audio_args.length=40000 \
-models.model.audio_args.preprocess_audio_args.hop=0.025 \
-models.model.audio_args.tokenization_audio.patch_size.1=20 \
-models.model.audio_args.tokenization_audio.input_size.1=101 \
+python train.py \
+-cn config_ssl_nce_framework -m \
 
+trainers.launch_trainer.repeat_trial=1,2,3,4,5 \
+output_name=len120k_test_n_fft \
+variable_name=models.model.audio_args.preprocess_audio_args.windows_size&models.model.audio_args.preprocess_audio_args.hop \
+
+datasets.dataloader.batch_size=32 \
+datasets.dataloader.args.num_stack=15 \
+
+trainers.launch_trainer.max_epochs=20 \
+
+pl_modules=ssl_nce_framework/nomask_imi \
+
+models.model.num_stack=15 \
+models.model.audio_args.preprocess_audio_args.windows_size=0.05 \
+models.model.audio_args.preprocess_audio_args.length=120000 \
+models.model.audio_args.preprocess_audio_args.hop=0.02 \
+models.model.audio_args.tokenization_audio.patch_size.1=25\
+models.model.audio_args.tokenization_audio.input_size.1=376 \

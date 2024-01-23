@@ -6,9 +6,9 @@ import unittest
 class TestMelSpec(unittest.TestCase):
     def test_mel_spec(self):
         windows_size = 0.05
-        length = 40000
+        length = 120000
         sr = 16000
-        hop = 0.025
+        hop = 0.02
         n_mel = 64
         mel = MelSpec(windows_size=windows_size,
                       length=length,
