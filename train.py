@@ -7,6 +7,7 @@ import sys
 import torch.nn as nn
 import torch
 from src.trainer_util import launch_trainer
+from datetime import datetime
 
 log = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def train(cfg: DictConfig) -> None:
     from utils.hydra_utils import extract_sweeper_output_label
     label = extract_sweeper_output_label(cfg, hydra_cfg_og.runtime.choices)
     log.info(f"current running output label: {label}")
-    out_dir_path = os.path.join(multirun_dir_path, label)
+    out_dir_path = os.path.join(multirun_dir_path, label + '_' + datetime.now().strftime("%m-%d-%H:%M:%S"))
     if not os.path.exists(out_dir_path):
         os.makedirs(out_dir_path)
     log.info(f"current experiment output path: {out_dir_path}")
