@@ -21,7 +21,7 @@ data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
 hydra:
   sweeper:
     params:
-      repeat_trial: 1,2,3,4,5
+      trainers.launch_trainer.repeat_trial: 1,2,3,4,5
       trainers.launch_trainer.max_epochs: 25
 #      trainers.launch_trainer.monitor: "val_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
