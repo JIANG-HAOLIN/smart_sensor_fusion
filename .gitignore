@@ -74,3 +74,8 @@ utils_contrastive/
 **/*.bsub
 !job.bsub
 
+*.mp4
+**/*.mp4
+*.wav
+**/*.wav
+
