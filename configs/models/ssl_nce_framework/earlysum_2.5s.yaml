@@ -1,0 +1,145 @@
+name: 'ssnce_earlysum_2.5s'
+
+model:
+  #---------------------------------------------------------------------------------------------------------#
+  _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum
+  mod_names: ["vision","audio","tactile"]
+  main_mod: "vision"
+  model_dim: 256
+  num_stack: 5  # num_frame / short_window_len
+
+  nce_args:
+    main_mod: ${models.model.main_mod}
+    temp: 1.0
+    nce_proj_head:
+      _target_: src.models.utils.helpers.ImageBindNceHeader
+      model_dim: ${models.model.model_dim}
+      dropout: 0.
+
+  mask_args:
+    masked_mod: ["vision", "audio", "tactile"]
+    mask_prob_args:
+      vision: 0.2
+      audio: 0.1
+      tactile: 0.2
+    mask_length_args:
+      vision: 1
+      audio: 10
+      tactile: 1
+    mask_fusion_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.
+    mask_cross_time_trf_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.
+    mask_latent_prediction:
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.model_dim}
+        out_dim: ${models.model.model_dim}
+        dropout: 0.
+
+  fom_args:
+    reorder_prob: 0.2
+  #---------------------------------------------------------------------------------------------------------#
+  audio_args:
+    preprocess_audio_args:
+      _target_: src.models.utils.mel_spec.MelSpec
+      windows_size: 0.05
+      length: 40000
+      sr: 16000
+      n_mels: 64
+      norm_audio: false
+      hop: 0.025
+    tokenization_audio:
+      _target_: src.models.utils.tokenization.Vanilla2dTokenization
+      channel_size: 1
+      input_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 101
+      patch_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 20
+      model_dim: ${models.model.model_dim}
+    pe_audio:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    encoder_audio_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
+
+  vision_args:
+    short_window_len: 1
+    preprocess_vision_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    tokenization_vision:
+      _target_: src.models.vit_implementations.VitVATT3D
+      channel_size: 3
+      model_dim: ${models.model.model_dim}
+      num_heads: 8
+      num_layers: 4
+      patch_size:
+        - 1
+        - 8
+        - 8
+      input_size: # first dim = short_window_len
+        - 1
+        - 67
+        - 90
+      num_emb: 100
+    pe_vision:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    encoder_vision_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    
+  tactile_args:
+    short_window_len: 1
+    preprocess_tactile_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    tokenization_tactile:
+      _target_: src.models.vit_implementations.VitVATT3D
+      channel_size: 3
+      model_dim: ${models.model.model_dim}
+      num_heads: 8
+      num_layers: 4
+      patch_size:
+        - 1
+        - 6
+        - 6
+      input_size: # first dim = short_window_len
+        - 1
+        - 54
+        - 72
+      num_emb: 109  # 1 more aggregation token
+    pe_tactile:
+      _target_: src.models.encoders.identity.get_identity_encoder
+    encoder_tactile_args:
+      _target_: src.models.encoders.identity.get_identity_encoder
+  #---------------------------------------------------------------------------------------------------------#
+
+  fusion_args:
+    _target_: src.models.utils.fusion.EarlySum
+    mod_names: ${models.model.mod_names}
+    dim: ${models.model.model_dim}
+
+
+  pos_emb_args:
+    _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+    d_model: ${models.model.model_dim}
+
+
+  cross_time_trf_args:
+    _target_: src.models.transformer_implementations.TransformerEncoderVanilla
+    token_dim: ${models.model.model_dim}
+    num_heads: 8
+    num_blocks: 4
+
+
+
+inference:
+  ckpt_path: ' '
+

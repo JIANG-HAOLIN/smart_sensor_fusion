@@ -87,7 +87,7 @@ class PlotMetric(Callback):
                     if metric not in self.metrics.keys():
                         self.metrics[metric] = []
                     self.metrics[metric].append(value)
-            fig, ax = plt.subplots(num_metric, 1, figsize = (5, 2.5*num_metric))
+            fig, ax = plt.subplots(num_metric, 1, figsize = (5, 3*num_metric))
             for idx, (metric, values) in enumerate(self.metrics.items()):
                 x = np.arange(len(values))
                 y = np.asarray(values)

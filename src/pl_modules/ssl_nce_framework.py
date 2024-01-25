@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import lightning as pl
 import logging
+from utils.metrics import top_k_accuracy
 
 import logging
 
@@ -74,13 +75,21 @@ class TransformerPredictorPl(pl.LightningModule):
                 demo, output["predict"]["action_logits"], xyzrpy_gt, output["predict"]["xyzrpy"]
             )
             total_loss += loss
+            action_logits = output["predict"]["action_logits"]
             action_pred = torch.argmax(output["predict"]["action_logits"], dim=1)
             acc = (action_pred == demo).sum() / action_pred.numel()
+            top_1_accu = top_k_accuracy(action_logits, demo, 1)
+            top_3_accu = top_k_accuracy(action_logits, demo, 3)
+            top_5_accu = top_k_accuracy(action_logits, demo, 5)
             self.log_dict({
                 f"{mode}_sup_loss": loss,
                 f"{mode}_immi_loss": immi_loss,
                 f"{mode}_aux_loss": aux_loss,
                 f"{mode}_acc": acc,
+                f"{mode}_top_1_acc": top_1_accu,
+                f"{mode}_top_3_acc": top_3_accu,
+                f"{mode}_top_5_acc": top_5_accu,
+
             })
             step_output["imitation_acc"] = acc
 
@@ -119,7 +128,7 @@ class TransformerPredictorPl(pl.LightningModule):
         Returns: validation accuracy of an entire epoch
 
         """
-        val_loss = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
+        val_acc = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.validation_preds.clear()
 

@@ -49,7 +49,7 @@ class TestVisionAudioFusion(unittest.TestCase):
             self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
     def test_vision_audio_fusion_earlysum(self):
-        """Test class VisionAudioFusion_EarlySum with config earlysum.yaml"""
+        """Test class VisionAudioFusion_EarlySum with config earlysum_2.5s.yaml"""
         with initialize(version_base='1.2', config_path="../../../../configs/"):
             # config is relative to a module
             cfg = compose(config_name="config_progress_prediction_vision_audio",
@@ -60,7 +60,7 @@ class TestVisionAudioFusion(unittest.TestCase):
             self.assertEqual(torch.Size([2, 10]), out[0].shape, )
 
     def test_vision_audio_fusion_earlysum2fuse(self):
-        """Test class VisionAudioFusion_EarlySum2Fuse with config earlysum.yaml"""
+        """Test class VisionAudioFusion_EarlySum2Fuse with config earlysum_2.5s.yaml"""
         with initialize(version_base='1.2', config_path="../../../../configs/"):
             # config is relative to a module
             cfg = compose(config_name="config_progress_prediction_vision_audio",

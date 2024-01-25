@@ -98,7 +98,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/ss_nce/vision_audio_tactile/ssnce_mask')
+                        default='../results/ss_nce/vision_audio_tactile/len120k_test_n_fft_01-24-00:58:01')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
 

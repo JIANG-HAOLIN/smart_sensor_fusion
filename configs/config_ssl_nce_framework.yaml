@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: see_hear_feel_vision_audio_tactile
-- models: ssl_nce_framework/earlysum
+- models: ssl_nce_framework/earlysum_5s
 - optimizers: adam_steplr
 - pl_modules: ssl_nce_framework/nomask_imi
 - trainers: ssl_nce_framework
@@ -12,8 +12,8 @@ defaults:
 
 # General settings
 task_name: "ss_nce"
-variable_name: models.model.model_dim
-output_name: nomask_imi_melspecparam
+variable_name: trainers.launch_trainer.repeat_trial
+output_name: debug
 seed: 42
 results_dir: 'results'
 data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
@@ -22,14 +22,16 @@ hydra:
   sweeper:
     params:
       trainers.launch_trainer.repeat_trial: 1
-      trainers.launch_trainer.max_epochs: 25
+      trainers.launch_trainer.max_epochs: 2
 #      trainers.launch_trainer.monitor: "val_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
+      datasets.dataloader.args.num_stack: 10
       models.model.model_dim: 256
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 32
-      pl_modules.pl_module.num_stack: 5
+      pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
+
   sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/"
     dir: ./${results_dir}/${task_name}/${datasets.name}/${pl_modules.name}_${models.name}_${optimizers.name}/${output_name}_${now:%m-%d-%H:%M:%S}
     # only controls where config.yaml is saved
