@@ -4,6 +4,16 @@ import numpy as np
 from typing import List
 
 
+class MyPermute(nn.Module):
+    """My class for permutation"""
+    def __init__(self, index: List):
+        super().__init__()
+        self.index = index
+
+    def forward(self, x: torch.Tensor):
+        return torch.permute(x, dims=self.index)
+
+
 class SelectToken(nn.Module):
     """from ImageBind helpers"""
 

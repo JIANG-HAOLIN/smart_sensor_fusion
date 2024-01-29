@@ -88,7 +88,7 @@ def scatter_tsne(data: list, mods: list, names: list, out_path: Optional[str] = 
     from matplotlib.colors import Normalize
     tsne = TSNE(n_components=2, random_state=42, perplexity=5)
     num_traj = len(names)
-    fig, ax = plt.subplots(num_traj, 1, figsize=(1 * 20, num_traj * 10))
+    fig, ax = plt.subplots(num_traj, 1, figsize=(1 * 15, num_traj * 15))
     for traj_idx, (x, name) in enumerate(zip(data, names)):
         # color = np.arange(x.shape[1])
         # norm = Normalize(vmin=0, vmax=1)

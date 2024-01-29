@@ -46,37 +46,39 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 trial_outs = []
                 inference_time = []
                 for idx2, batch in enumerate(loader):
-                    inp_data, demo, xyzrpy_gt, optical_flow, start, labels = batch
-                    vf_inp, vg_inp, t_inp, audio_g, audio_h = inp_data
-                    multimod_inputs = {
-                        "vision": vg_inp.to(args.device),
-                        "tactile": t_inp.to(args.device),
-                        "audio": audio_h.to(args.device),
-                    }
-                    task = cfg.pl_modules.pl_module.train_tasks.split("+")
-                    # Perform prediction and calculate loss and accuracy
-                    output = model.forward(multimod_inputs,
-                                           mask=cfg.pl_modules.pl_module.masked_train,
-                                           task="repr",
-                                           mode="inference",
-                                           )
+                    if idx2 % (cfg.datasets.dataloader.args.num_stack//2) == 0:
+                        # print(idx2)
+                        inp_data, demo, xyzrpy_gt, optical_flow, start, labels = batch
+                        vf_inp, vg_inp, t_inp, audio_g, audio_h = inp_data
+                        multimod_inputs = {
+                            "vision": vg_inp.to(args.device),
+                            "tactile": t_inp.to(args.device),
+                            "audio": audio_h.to(args.device),
+                        }
+                        task = cfg.pl_modules.pl_module.train_tasks.split("+")
+                        # Perform prediction and calculate loss and accuracy
+                        output = model.forward(multimod_inputs,
+                                               mask=cfg.pl_modules.pl_module.masked_train,
+                                               task="repr",
+                                               mode="inference",
+                                               )
 
-                    out = torch.cat([
-                        output["repr"]["encoded_inputs"]["vision"],
-                        output["repr"]["encoded_inputs"]["audio"],
-                        output["repr"]["encoded_inputs"]["tactile"],
-                        output["repr"]['fused_encoded_inputs'],
-                        output["repr"]['cross_time_repr'][:, 1:, :],
-                    ], dim=0).permute(1, 0, 2)
-                    out = out.detach().cpu().numpy()
-                    trial_outs.append(out)
-                    inference_time.append(output["time"])
+                        out = torch.cat([
+                            output["repr"]["encoded_inputs"]["vision"],
+                            output["repr"]["encoded_inputs"]["audio"],
+                            output["repr"]["encoded_inputs"]["tactile"],
+                            output["repr"]['fused_encoded_inputs'],
+                            output["repr"]['cross_time_repr'][:, 1:, :],
+                        ], dim=0).permute(1, 0, 2)
+                        out = out.detach().cpu().numpy()
+                        trial_outs.append(out)
+                        inference_time.append(output["time"])
                 trials_outs.append(np.concatenate(trial_outs, axis=0))
                 print(f"trial {name}: total infernce time {round(time.time() - t, 2)},\n"
                       f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
                       f"example inference time:{inference_time[:10]}")
                 t = time.time()
-        output_png_path = os.path.join(checkpoints_folder_path, ckpt_path + '_infer')
+        output_png_path = os.path.join(checkpoints_folder_path, "sparse" + ckpt_path + '_infer')
         scatter_tsne([i[:, :3] for i in trials_outs], ["vision", "audio", "tactile", ],
                      trials_names, output_png_path+"_modalities")
         scatter_tsne([i[:, 3:] for i in trials_outs], ["fused_inputs", "cross_time_output"],
