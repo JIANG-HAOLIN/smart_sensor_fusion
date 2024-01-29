@@ -14,6 +14,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 from typing import Optional, Dict, List
 from types import SimpleNamespace
+import time
 
 
 class SslNceFramework_EarlySum(torch.nn.Module):
@@ -128,7 +129,7 @@ class SslNceFramework_EarlySum(torch.nn.Module):
                 mode: str = "train",
                 ):
         assert mode in ["train", "val", "inference"]
-
+        start_time = time.time()
         output = {"predict": {}, "ssl_losses": {}, "repr": {}}
 
         encoded_inputs = self.forward_modality_specific_encoding(multimod_inputs)
@@ -139,6 +140,12 @@ class SslNceFramework_EarlySum(torch.nn.Module):
             output["repr"]['fused_encoded_inputs'] = encoded_inputs
             x, attn_maps = self.forward_cross_time(encoded_inputs)
             output["repr"]['cross_time_repr'] = x
+            agg_feat = x[:, 0, :]
+            action_logits = self.mlp(agg_feat)
+            xyzrpy = self.aux_mlp(agg_feat)
+            output["predict"]["action_logits"] = action_logits
+            output["predict"]["xyzrpy"] = xyzrpy
+            output["time"] = time.time() - start_time
             return output
 
         if "bind" in task:

@@ -97,7 +97,7 @@ def scatter_tsne(data: list, mods: list, names: list, out_path: Optional[str] = 
         num_steps = x.shape[0]
         num_mod = x.shape[1]
         x_tsne = tsne.fit_transform(x.reshape(-1, x.shape[-1]))
-        print(tsne.kl_divergence_)
+        print(f"t-SNE KL-Divergence of {name}: {tsne.kl_divergence_}")
         x_tsne = x_tsne.reshape(num_steps, num_mod, -1)
         x_tsne = np.transpose(x_tsne, (1, 0, 2))
 

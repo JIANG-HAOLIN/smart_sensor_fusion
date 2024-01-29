@@ -29,15 +29,14 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
         print("Found pretrained model, loading...")
-        model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cpu')
+        model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to(args.device)
         checkpoint_state_dict = torch.load(checkpoints_path)['state_dict']
         clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
         model.load_state_dict(clone_state_dict)
         model.eval()
-        outs = []
         trials_outs = []
         trials_names = []
-        train_loaders, val_loaders, _ = get_inference_loaders(**cfg.datasets.dataloader,)
+        train_loaders, val_loaders, _ = get_inference_loaders(**cfg.datasets.dataloader, )
         l = len(train_loaders)
         t = time.time()
         with torch.no_grad():
@@ -45,37 +44,47 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
+                inference_time = []
                 for idx2, batch in enumerate(loader):
                     inp_data, demo, xyzrpy_gt, optical_flow, start, labels = batch
                     vf_inp, vg_inp, t_inp, audio_g, audio_h = inp_data
                     multimod_inputs = {
-                        "vision": vg_inp,
-                        "tactile": t_inp,
-                        "audio": audio_h
+                        "vision": vg_inp.to(args.device),
+                        "tactile": t_inp.to(args.device),
+                        "audio": audio_h.to(args.device),
                     }
                     task = cfg.pl_modules.pl_module.train_tasks.split("+")
                     # Perform prediction and calculate loss and accuracy
                     output = model.forward(multimod_inputs,
                                            mask=cfg.pl_modules.pl_module.masked_train,
                                            task="repr",
-                                           mode="val",
+                                           mode="inference",
                                            )
 
                     out = torch.cat([
-                                       output["repr"]["encoded_inputs"]["vision"],
-                                       output["repr"]["encoded_inputs"]["audio"],
-                                       output["repr"]["encoded_inputs"]["tactile"],
-                                       output["repr"]['fused_encoded_inputs'],
-                                       output["repr"]['cross_time_repr'][:, 1:, :],
-                                       ], dim=0).permute(1, 0, 2)
+                        output["repr"]["encoded_inputs"]["vision"],
+                        output["repr"]["encoded_inputs"]["audio"],
+                        output["repr"]["encoded_inputs"]["tactile"],
+                        output["repr"]['fused_encoded_inputs'],
+                        output["repr"]['cross_time_repr'][:, 1:, :],
+                    ], dim=0).permute(1, 0, 2)
                     out = out.detach().cpu().numpy()
                     trial_outs.append(out)
+                    inference_time.append(output["time"])
                 trials_outs.append(np.concatenate(trial_outs, axis=0))
-                print(name, round(time.time() - t, 2))
+                print(f"trial {name}: total infernce time {round(time.time() - t, 2)},\n"
+                      f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
+                      f"example inference time:{inference_time[:10]}")
                 t = time.time()
         output_png_path = os.path.join(checkpoints_folder_path, ckpt_path + '_infer')
-        scatter_tsne(trials_outs, ["vision", "audio", "tactile", "fused_inputs", "cross_time_output"],
-                     trials_names, output_png_path)
+        scatter_tsne([i[:, :3] for i in trials_outs], ["vision", "audio", "tactile", ],
+                     trials_names, output_png_path+"_modalities")
+        scatter_tsne([i[:, 3:] for i in trials_outs], ["fused_inputs", "cross_time_output"],
+                     trials_names, output_png_path+"_fused_and_ct")
+        scatter_tsne([i[:, 3:4] for i in trials_outs], ["fused_inputs", ],
+                     trials_names, output_png_path+"_fused_inputs")
+        scatter_tsne([i[:, -1:] for i in trials_outs], ["cross_time_output", ],
+                     trials_names, output_png_path+"_ct_output")
         # scatter_pca(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
         #             traj_name, output_png_path)
         # scatter_tnse_3d(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
@@ -98,9 +107,11 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/ss_nce/vision_audio_tactile/len120k_test_n_fft_01-24-00:58:01')
+                        default='../results/ss_nce/vision_audio_tactile/ssnce_5s_test_ssl')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
+    parser.add_argument('--device', type=str,
+                        default='cuda')
 
     args = parser.parse_args()
 
