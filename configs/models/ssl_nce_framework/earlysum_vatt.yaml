@@ -9,7 +9,7 @@ model:
   num_stack: 10  # num_frame / short_window_len
 
   nce_args:
-    norm: layer
+    norm: batch
     main_mod: ${models.model.main_mod}
     temp: 1.0
     nce_proj_head:
