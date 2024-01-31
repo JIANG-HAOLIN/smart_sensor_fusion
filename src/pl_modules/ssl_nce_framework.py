@@ -16,6 +16,7 @@ class TransformerPredictorPl(pl.LightningModule):
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
                  train_tasks, masked_train,
+                 weight,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
@@ -40,6 +41,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.loss_cce = torch.nn.CrossEntropyLoss()
         self.train_tasks = train_tasks
         self.masked_train = masked_train
+        self.weight = weight
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -93,11 +95,12 @@ class TransformerPredictorPl(pl.LightningModule):
             })
             step_output["imitation_acc"] = acc
 
+        ssl_losses_dict = {}
         for key, value in output["ssl_losses"].items():
-            ssl_losses_dict = {}
-            total_loss += value
+            total_loss += value * self.weight[key]
             ssl_losses_dict[f"{mode}_{key}"] = value
-            self.log_dict(ssl_losses_dict)
+        self.log_dict(ssl_losses_dict)
+
         step_output["total_loss"] = total_loss
 
         return step_output
