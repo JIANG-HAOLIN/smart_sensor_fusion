@@ -1,8 +1,8 @@
-name: "mask_all_task"
+name: "mask_bind_fom_ctnce_imi"
 pl_module:
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
   num_stack: 5
-  train_tasks: bind+order+fuse_nce+cross_time_nce+recover+imitation
+  train_tasks: bind+order+cross_time_nce+imitation
   masked_train: True
   weight:
     cr_m_nce_loss: 1.0
@@ -11,4 +11,3 @@ pl_module:
     mask_cr_t_nce_loss: 1.0
     recover_loss: 1.0
     fom_loss: 1.0
-
