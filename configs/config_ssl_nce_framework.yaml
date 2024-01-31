@@ -5,7 +5,7 @@ defaults:
 - datasets: see_hear_feel_vision_audio_tactile
 - models: ssl_nce_framework/earlysum
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_framework/nomask_bind_imi
+- pl_modules: ssl_nce_framework/mask_bind_fom
 - trainers: ssl_nce_framework
 - _self_
 
@@ -28,7 +28,7 @@ hydra:
       datasets.dataloader.args.num_stack: 10
       models.model.model_dim: 256
       optimizers: adam_steplr
-      datasets.dataloader.batch_size: 32
+      datasets.dataloader.batch_size: 16
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
 

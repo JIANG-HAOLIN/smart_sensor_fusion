@@ -12,8 +12,18 @@ from datetime import datetime
 log = logging.getLogger(__name__)
 
 
+def set_random_seed(seed):
+    import random
+    import numpy as np
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
 @hydra.main(config_path='configs', config_name='config_progress_prediction', version_base='1.2')
 def train(cfg: DictConfig) -> None:
+    set_random_seed(42)
     os.environ['HYDRA_FULL_ERROR'] = '1'
     os.environ['NUMEXPR_MAX_THREADS'] = '16'
     os.environ['NUMEXPR_NUM_THREADS'] = '8'

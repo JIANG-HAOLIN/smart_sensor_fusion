@@ -7,18 +7,30 @@ import sys
 import torch.nn as nn
 import torch
 from src.trainer_util import launch_trainer
+from datetime import datetime
 
 log = logging.getLogger(__name__)
 
 
+def set_random_seed(seed):
+    import random
+    import numpy as np
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+
 @hydra.main(config_path='configs', config_name='config_progress_prediction', version_base='1.2')
 def train(cfg: DictConfig) -> None:
+    set_random_seed(42)
     os.environ['HYDRA_FULL_ERROR'] = '1'
     os.environ['NUMEXPR_MAX_THREADS'] = '16'
     os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')
     project_path = os.path.abspath(os.path.join(__file__, '..'))
-    multirun_dir_path = HydraConfig.get().sweep.dir
+    hydra_cfg_og = HydraConfig.get()
+    multirun_dir_path = hydra_cfg_og.sweep.dir
 
     log.info('*-------- train func starts --------*')
     log.info('output folder:' + multirun_dir_path + '\n')
@@ -38,12 +50,12 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
-    log.info(f"current multi-run output path: {multirun_dir_path}")
+    log.info(f"current multi-run outp1ut path: {multirun_dir_path}")
 
     from utils.hydra_utils import extract_sweeper_output_label
-    label = extract_sweeper_output_label(cfg)
+    label = extract_sweeper_output_label(cfg, hydra_cfg_og.runtime.choices)
     log.info(f"current running output label: {label}")
-    out_dir_path = os.path.join(multirun_dir_path, label)
+    out_dir_path = os.path.join(multirun_dir_path, label + '_' + datetime.now().strftime("%m-%d-%H:%M:%S"))
     if not os.path.exists(out_dir_path):
         os.makedirs(out_dir_path)
     log.info(f"current experiment output path: {out_dir_path}")
