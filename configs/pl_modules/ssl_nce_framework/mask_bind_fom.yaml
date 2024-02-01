@@ -4,4 +4,7 @@ pl_module:
   num_stack: 5
   train_tasks: bind+order+imitation
   masked_train: True
-
+  weight:
+    cr_m_nce_loss: 1.0
+    masked_fom_loss: 1.0
+    fom_loss: 1.0

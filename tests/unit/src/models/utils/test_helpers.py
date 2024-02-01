@@ -11,9 +11,12 @@ class Test(unittest.TestCase):
         print(seq, target)
 
     def test_get_mask_sequence1d(self):
-        seq_len = 100
-        mask = get_mask_sequence1d(seq_len)
-        print(mask)
+        seq_len = 80000
+        mask = get_mask_sequence1d(seq_len,
+                                   mask_prob=0.06,
+                                   mask_length=10, )
+        # print(mask)
+        print(mask.count(0) / len(mask))
 
 
 if __name__ == '__main__':
