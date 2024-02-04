@@ -11,12 +11,14 @@ class Test(unittest.TestCase):
         print(seq, target)
 
     def test_get_mask_sequence1d(self):
-        seq_len = 80000
+        seq_len = 10
         mask = get_mask_sequence1d(seq_len,
-                                   mask_prob=0.06,
-                                   mask_length=10, )
+                                   mask_prob=0.5,
+                                   mask_length=1, )
         # print(mask)
         print(mask.count(0) / len(mask))
+        print(torch.tensor(mask))
+        print(1 - torch.tensor(mask))
 
 
 if __name__ == '__main__':

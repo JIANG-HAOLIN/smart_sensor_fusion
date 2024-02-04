@@ -857,6 +857,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                  nce_args: DictConfig,
                  fom_args: DictConfig,
                  mask_args: DictConfig,
+                 mask_latent_args: DictConfig,
 
                  audio_args: Optional[DictConfig] = None,
                  vision_args: Optional[DictConfig] = None,
@@ -911,20 +912,21 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
 
         self.fom_args = fom_args
         self.mask_args = mask_args
+        self.mask_latent_args = mask_latent_args
         self.nce_args = nce_args
 
         if self.nce_args.norm == "batch":
             from src.models.utils.helpers import MyPermute
             self.nce_head_v_va = nn.Sequential(
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                MyPermute([0, 2, 1]),
-                                                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                                                MyPermute([0, 2, 1]),
-                                                nn.ReLU(),
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                MyPermute([0, 2, 1]),
-                                                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                                                MyPermute([0, 2, 1]),
+                nn.Linear(model_dim, model_dim, bias=False),
+                MyPermute([0, 2, 1]),
+                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
+                MyPermute([0, 2, 1]),
+                nn.ReLU(),
+                nn.Linear(model_dim, model_dim, bias=False),
+                MyPermute([0, 2, 1]),
+                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
+                MyPermute([0, 2, 1]),
             )
             self.nce_head_a_va = nn.Linear(model_dim, model_dim)
             self.nce_head_va_vat = nn.Sequential(nn.ReLU(),
@@ -934,23 +936,23 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                                                  MyPermute([0, 2, 1]),
                                                  )
             self.nce_head_t_vat = nn.Sequential(
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                MyPermute([0, 2, 1]),
-                                                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                                                MyPermute([0, 2, 1]),
-                                                nn.ReLU(),
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                MyPermute([0, 2, 1]),
-                                                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                                                MyPermute([0, 2, 1]),
+                nn.Linear(model_dim, model_dim, bias=False),
+                MyPermute([0, 2, 1]),
+                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
+                MyPermute([0, 2, 1]),
+                nn.ReLU(),
+                nn.Linear(model_dim, model_dim, bias=False),
+                MyPermute([0, 2, 1]),
+                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
+                MyPermute([0, 2, 1]),
             )
         elif self.nce_args.norm == "layer":
             self.nce_head_v_va = nn.Sequential(
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                nn.LayerNorm(model_dim),
-                                                nn.ReLU(),
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                nn.LayerNorm(model_dim),
+                nn.Linear(model_dim, model_dim, bias=False),
+                nn.LayerNorm(model_dim),
+                nn.ReLU(),
+                nn.Linear(model_dim, model_dim, bias=False),
+                nn.LayerNorm(model_dim),
             )
             self.nce_head_a_va = nn.Linear(model_dim, model_dim)
             self.nce_head_va_vat = nn.Sequential(nn.ReLU(),
@@ -958,11 +960,11 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                                                  nn.LayerNorm(model_dim),
                                                  )
             self.nce_head_t_vat = nn.Sequential(
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                nn.LayerNorm(model_dim),
-                                                nn.ReLU(),
-                                                nn.Linear(model_dim, model_dim, bias=False),
-                                                nn.LayerNorm(model_dim),
+                nn.Linear(model_dim, model_dim, bias=False),
+                nn.LayerNorm(model_dim),
+                nn.ReLU(),
+                nn.Linear(model_dim, model_dim, bias=False),
+                nn.LayerNorm(model_dim),
             )
 
         self.mask_fusion_nce_proj = hydra.utils.instantiate(mask_args.mask_fusion_nce.proj_head) if \
@@ -1002,12 +1004,16 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         )
         self.aux_mlp = torch.nn.Linear(model_dim, 6)
 
+        self.latent_mask_token = nn.ParameterDict({mod_name: torch.nn.Parameter(torch.randn([1, 1, model_dim]))
+                                                   for mod_name in self.mod_names})
+
     def forward(self, multimod_inputs: Dict,
-                mask: bool = True,
+                mask: Optional[str] = "input_mask",
                 task: Optional[str] = "imitation",
                 mode: str = "train",
                 ):
         assert mode in ["train", "val", "inference"]
+
         start_time = time.time()
         output = {"predict": {}, "ssl_losses": {}, "repr": {}}
 
@@ -1034,7 +1040,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
 
         fused_t_feats = self.fusion(encoded_inputs)
 
-        if mask:
+        if mask == "input_mask":
             masked_multimod_inputs = self.random_masking(multimod_inputs=multimod_inputs,
                                                          masked_mod=self.mask_args.masked_mod,
                                                          mask_prob_args=self.mask_args.mask_prob_args,
@@ -1077,7 +1083,51 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                 output["predict"]["action_logits"] = action_logits
                 output["predict"]["xyzrpy"] = xyzrpy
 
-        else:
+        elif mask == "latent_mask":
+            encoded_masked_inputs, masked_index = self.random_latent_masking(multimod_inputs=encoded_inputs,
+                                                                             mask_tokens=self.latent_mask_token,
+                                                                             mask_prob=self.mask_latent_args.mask_prob,
+                                                                             mask_length=self.mask_latent_args.mask_length, )
+
+            mask_pred_target = fused_t_feats.detach()
+            fused_t_masked_feats = self.fusion(encoded_masked_inputs)
+
+            if 'order' in task:
+                fom_loss = self.forward_order_prediction(fused_t_masked_feats)
+                output["ssl_losses"]["masked_fom_loss"] = fom_loss
+
+            if 'fuse_nce' in task and self.mask_fusion_nce_proj is not None:
+                temp = self.mask_args.mask_fusion_nce.temp
+                mask_fusion_nce_loss = self.mask_cross_time_nce(self.mask_fusion_nce_proj,
+                                                                fused_t_feats, fused_t_masked_feats, temp)
+                output["ssl_losses"]["mask_fusion_nce_loss"] = mask_fusion_nce_loss['_loss']
+
+            fused_t_feats, _ = self.forward_cross_time(fused_t_feats)
+            agg_feat = fused_t_feats[:, 0, :]
+            fused_t_feats = fused_t_feats[:, 1:, :]
+            fused_t_masked_feats, _ = self.forward_cross_time(fused_t_masked_feats)
+            fused_t_masked_feats = fused_t_masked_feats[:, 1:, :]
+
+            if 'cross_time_nce' in task and self.mask_cross_time_trf_proj is not None:
+                temp = self.mask_args.mask_cross_time_trf_nce.temp
+                mask_cross_time_nce_loss = self.mask_cross_time_nce(self.mask_cross_time_trf_proj,
+                                                                    fused_t_feats, fused_t_masked_feats, temp)
+                output["ssl_losses"]["mask_cr_t_nce_loss"] = mask_cross_time_nce_loss['_loss']
+
+            if 'recover' in task and self.mask_latent_predictor is not None:
+                recover_loss = self.mask_prediction(self.mask_latent_predictor,
+                                                    mask_pred_target,
+                                                    fused_t_masked_feats,
+                                                    masks=masked_index)
+                output["ssl_losses"]["recover_loss"] = recover_loss
+
+            if "imitation" in task:
+                action_logits = self.mlp(agg_feat)
+                xyzrpy = self.aux_mlp(agg_feat)
+                output["predict"]["action_logits"] = action_logits
+                output["predict"]["xyzrpy"] = xyzrpy
+
+        elif mask is None:
             if "order" in task:
                 fom_loss = self.forward_order_prediction(fused_t_feats)
                 output["ssl_losses"]["fom_loss"] = fom_loss
@@ -1317,9 +1367,39 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         return multimod_inputs
 
     @staticmethod
+    def random_latent_masking(multimod_inputs: Dict,
+                              mask_tokens: nn.ParameterDict,
+                              mask_prob: float,
+                              mask_length: int, ):
+        mask_multimod_inputs = {}
+        masked_index = {}
+        for mod_name, mod_feat in multimod_inputs.items():
+            bs, num_frame, dim = mod_feat.shape
+            mask = torch.tensor(get_mask_sequence1d(seq_len=bs * num_frame,
+                                                    mask_prob=mask_prob,
+                                                    mask_length=mask_length,
+                                                    mask_mark=0,
+                                                    unmask_mark=1, ), device=mod_feat.device).reshape(bs, num_frame, 1)
+            mod_feat = mod_feat * mask + mask_tokens[mod_name].reshape(1, 1, -1) * (1 - mask)
+            mask_multimod_inputs[mod_name] = mod_feat
+            masked_index[mod_name] = mask
+        return multimod_inputs, masked_index
+
+    @staticmethod
     def mask_prediction(predictor: nn.Module,
                         target: torch.Tensor,
-                        fused_t_mask_feats: torch.Tensor, ):
+                        fused_t_mask_feats: torch.Tensor,
+                        masks: Optional[dict] = None):
         pred_out = predictor(fused_t_mask_feats)
-        pred_loss = F.mse_loss(pred_out, target)
+
+        if masks is None:
+            pred_loss = F.mse_loss(pred_out, target)
+        else:
+            mask = 1
+            for mod_name, mode_mask in masks.items():
+                mask = mask * mode_mask
+            mask = 1 - mask
+            pred_loss = mask * (pred_out - target) ** 2
+            pred_loss = torch.sum(pred_loss) / torch.sum(mask)
+
         return pred_loss

@@ -20,13 +20,35 @@ model:
   mask_args:
     masked_mod: ["vision", "audio", "tactile"]
     mask_prob_args:
-      vision: 0.2
-      audio: 0.1
-      tactile: 0.2
+      vision: 0.5
+      audio: 0.08
+      tactile: 0.5
     mask_length_args:
       vision: 1
       audio: 10
       tactile: 1
+    mask_fusion_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.
+    mask_cross_time_trf_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.
+    mask_latent_prediction:
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.model_dim}
+        out_dim: ${models.model.model_dim}
+        dropout: 0.
+
+  mask_latent_args:
+    mask_prob: 0.5
+    mask_length: 1
     mask_fusion_nce:
       temp: 1.0
       proj_head:
