@@ -20,7 +20,7 @@ class Test(unittest.TestCase):
         model_dim = 256
         out_dim = 128
         input = torch.randn([batch_size, model_dim])
-        mdl = MLPHead(in_dim=model_dim, out_dim=out_dim)
+        mdl = MLPHead(in_dim=model_dim, hidden_dim=128, out_dim=out_dim, norm="layer")
         out = mdl(input)
         print(out.shape)
         self.assertEqual(out.shape, torch.Size([batch_size, out_dim]))

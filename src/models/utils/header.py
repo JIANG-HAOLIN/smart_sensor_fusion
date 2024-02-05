@@ -56,10 +56,7 @@ class MLPHead(nn.Module):
         if norm == "layer":
             norm = nn.LayerNorm(hidden_dim)
         elif norm == "batch":
-            from src.models.utils.helpers import MyPermute
-            norm = nn.Sequential(MyPermute([0, 2, 1]),
-                                 nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=hidden_dim),
-                                 MyPermute([0, 2, 1]), )
+            norm = nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=hidden_dim)
 
         self.mlp = nn.Sequential(nn.Linear(in_dim, hidden_dim),
                                  nn.GELU(),
