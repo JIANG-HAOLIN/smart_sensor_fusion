@@ -15,6 +15,7 @@ import hydra
 from typing import Optional, Dict, List
 from types import SimpleNamespace
 import time
+from src.models.utils.helpers import cosine_loss_fn, mse_fn
 
 
 class SslNceFramework_EarlySum(torch.nn.Module):
@@ -1118,7 +1119,8 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                 recover_loss = self.mask_prediction(self.mask_latent_predictor,
                                                     mask_pred_target,
                                                     fused_t_masked_feats,
-                                                    masks=masked_index)
+                                                    masks=masked_index,
+                                                    loss=self.mask_latent_args.mask_latent_prediction.loss)
                 output["ssl_losses"]["recover_loss"] = recover_loss
 
             if "imitation" in task:
@@ -1389,17 +1391,34 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
     def mask_prediction(predictor: nn.Module,
                         target: torch.Tensor,
                         fused_t_mask_feats: torch.Tensor,
-                        masks: Optional[dict] = None):
+                        masks: Optional[dict] = None,
+                        loss: str = "mse",):
+        """
+
+        Args:
+            predictor:
+            target:
+            fused_t_mask_feats:
+            masks: shape [B, S ,1]
+            loss:
+
+        Returns:
+
+        """
         pred_out = predictor(fused_t_mask_feats)
+        if loss == "mse":
+            loss_fn = mse_fn
+        elif loss == "cosine":
+            loss_fn = cosine_loss_fn
 
         if masks is None:
-            pred_loss = F.mse_loss(pred_out, target)
+            pred_loss = loss_fn(pred_out, target)
         else:
+            # can not filter the zero value as number of masked ele varies alone dif dim
             mask = 1
             for mod_name, mode_mask in masks.items():
                 mask = mask * mode_mask
             mask = 1 - mask
-            pred_loss = mask * (pred_out - target) ** 2
-            pred_loss = torch.sum(pred_loss) / torch.sum(mask)
+            pred_loss = loss_fn(pred_out, target, mask)
 
         return pred_loss

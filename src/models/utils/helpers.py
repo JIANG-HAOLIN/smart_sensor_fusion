@@ -1,11 +1,13 @@
 import torch.nn as nn
 import torch
+import torch.nn.functional as F
 import numpy as np
-from typing import List
+from typing import List, Optional
 
 
 class MyPermute(nn.Module):
     """My class for permutation"""
+
     def __init__(self, index: List):
         super().__init__()
         self.index = index
@@ -144,3 +146,44 @@ def get_mask_sequence1d(seq_len: int, mask_prob: float = 0.15, mask_length: int 
         for idx in range(init_index, end_index):
             mask[idx] = mask_mark
     return mask
+
+
+def cosine_loss_fn(x, y, mask: Optional[torch.Tensor] = None):
+    """
+    my masked negative cosine similarity loss from BYOL(similar to SimSiam, shown as follows:
+                                                criterion = nn.CosineSimilarity(dim=1).cuda(args.gpu)
+                                                loss = -(criterion(p1, z2).mean() + criterion(p2, z1).mean()) * 0.5)
+    Args:
+        x: input latent with shape [B, D] or [B, S, D]
+        y: target latent with shape [B, D] or [B, S, D]
+        mask: mask with shape [B, 1] or [B, S, 1]
+
+    Returns: similarity loss between x and y
+
+    """
+    x = F.normalize(x, dim=-1, p=2)
+    y = F.normalize(y, dim=-1, p=2)
+    if mask is None:
+        mask = torch.ones(x.shape[:-1]).unsqueeze(-1)
+    mask = mask.squeeze(-1)
+    pred_loss = mask * (2 - 2 * (x * y).sum(dim=-1))
+    pred_loss = torch.sum(pred_loss) / torch.sum(mask)
+    return pred_loss
+
+
+def mse_fn(x, y, mask: Optional[torch.Tensor] = None):
+    """
+    my masked mse loss fn
+    Args:
+        x: input latent with shape [B, D] or [B, S, D]
+        y: target latent with shape [B, D] or [B, S, D]
+        mask: mask with shape [B, 1] or [B, S, 1]
+
+    Returns: similarity loss between x and y
+
+    """
+    if mask is None:
+        mask = torch.ones(x.shape[:-1]).unsqueeze(-1)
+    pred_loss = mask * (x - y) ** 2
+    pred_loss = torch.sum(torch.mean(pred_loss, dim=-1)) / torch.sum(mask)  # mean value
+    return pred_loss
