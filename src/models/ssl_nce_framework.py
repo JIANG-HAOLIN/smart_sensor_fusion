@@ -858,7 +858,9 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                  nce_args: DictConfig,
                  fom_args: DictConfig,
                  mask_args: DictConfig,
-                 mask_latent_args: DictConfig,
+                 mask_fusion_nce: DictConfig,
+                 mask_cross_time_trf_nce: DictConfig,
+                 mask_latent_prediction: DictConfig,
 
                  audio_args: Optional[DictConfig] = None,
                  vision_args: Optional[DictConfig] = None,
@@ -913,7 +915,9 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
 
         self.fom_args = fom_args
         self.mask_args = mask_args
-        self.mask_latent_args = mask_latent_args
+        self.mask_fusion_nce = mask_fusion_nce
+        self.mask_cross_time_trf_nce = mask_cross_time_trf_nce
+        self.mask_latent_prediction = mask_latent_prediction
         self.nce_args = nce_args
 
         if self.nce_args.norm == "batch":
@@ -968,14 +972,14 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                 nn.LayerNorm(model_dim),
             )
 
-        self.mask_fusion_nce_proj = hydra.utils.instantiate(mask_args.mask_fusion_nce.proj_head) if \
-            mask_args.mask_fusion_nce is not None else None
+        self.mask_fusion_nce_proj = hydra.utils.instantiate(mask_fusion_nce.proj_head) if \
+            mask_fusion_nce is not None else None
 
-        self.mask_cross_time_trf_proj = hydra.utils.instantiate(mask_args.mask_cross_time_trf_nce.proj_head) if \
-            mask_args.mask_cross_time_trf_nce is not None else None
+        self.mask_cross_time_trf_proj = hydra.utils.instantiate(mask_cross_time_trf_nce.proj_head) if \
+            mask_cross_time_trf_nce is not None else None
 
-        self.mask_latent_predictor = hydra.utils.instantiate(mask_args.mask_latent_prediction.predictor) if \
-            mask_args.mask_latent_prediction is not None else None
+        self.mask_latent_predictor = hydra.utils.instantiate(mask_latent_prediction.predictor) if \
+            mask_latent_prediction is not None else None
 
         for mod_name, mod_args in self.mod_args.items():
             if mod_args is not None:
@@ -1044,8 +1048,8 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         if mask == "input_mask":
             masked_multimod_inputs = self.random_masking(multimod_inputs=multimod_inputs,
                                                          masked_mod=self.mask_args.masked_mod,
-                                                         mask_prob_args=self.mask_args.mask_prob_args,
-                                                         mask_length_args=self.mask_args.mask_length_args, )
+                                                         mask_prob=self.mask_args.mask_prob,
+                                                         mask_length=self.mask_args.mask_length, )
             encoded_masked_inputs = self.forward_modality_specific_encoding(masked_multimod_inputs)
 
             mask_pred_target = fused_t_feats.detach()
@@ -1056,7 +1060,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                 output["ssl_losses"]["masked_fom_loss"] = fom_loss
 
             if 'fuse_nce' in task and self.mask_fusion_nce_proj is not None:
-                temp = self.mask_args.mask_fusion_nce.temp
+                temp = self.mask_fusion_nce.temp
                 mask_fusion_nce_loss = self.mask_cross_time_nce(self.mask_fusion_nce_proj,
                                                                 fused_t_feats, fused_t_masked_feats, temp)
                 output["ssl_losses"]["mask_fusion_nce_loss"] = mask_fusion_nce_loss['_loss']
@@ -1068,7 +1072,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
             fused_t_masked_feats = fused_t_masked_feats[:, 1:, :]
 
             if 'cross_time_nce' in task and self.mask_cross_time_trf_proj is not None:
-                temp = self.mask_args.mask_cross_time_trf_nce.temp
+                temp = self.mask_cross_time_trf_nce.temp
                 mask_cross_time_nce_loss = self.mask_cross_time_nce(self.mask_cross_time_trf_proj,
                                                                     fused_t_feats, fused_t_masked_feats, temp)
                 output["ssl_losses"]["mask_cr_t_nce_loss"] = mask_cross_time_nce_loss['_loss']
@@ -1087,8 +1091,8 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         elif mask == "latent_mask":
             encoded_masked_inputs, masked_index = self.random_latent_masking(multimod_inputs=encoded_inputs,
                                                                              mask_tokens=self.latent_mask_token,
-                                                                             mask_prob=self.mask_latent_args.mask_prob,
-                                                                             mask_length=self.mask_latent_args.mask_length, )
+                                                                             mask_prob=self.mask_args.mask_prob.latent,
+                                                                             mask_length=self.mask_args.mask_length.latent, )
 
             mask_pred_target = fused_t_feats.detach()
             fused_t_masked_feats = self.fusion(encoded_masked_inputs)
@@ -1098,7 +1102,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                 output["ssl_losses"]["masked_fom_loss"] = fom_loss
 
             if 'fuse_nce' in task and self.mask_fusion_nce_proj is not None:
-                temp = self.mask_args.mask_fusion_nce.temp
+                temp = self.mask_fusion_nce.temp
                 mask_fusion_nce_loss = self.mask_cross_time_nce(self.mask_fusion_nce_proj,
                                                                 fused_t_feats, fused_t_masked_feats, temp)
                 output["ssl_losses"]["mask_fusion_nce_loss"] = mask_fusion_nce_loss['_loss']
@@ -1110,7 +1114,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
             fused_t_masked_feats = fused_t_masked_feats[:, 1:, :]
 
             if 'cross_time_nce' in task and self.mask_cross_time_trf_proj is not None:
-                temp = self.mask_args.mask_cross_time_trf_nce.temp
+                temp = self.mask_cross_time_trf_nce.temp
                 mask_cross_time_nce_loss = self.mask_cross_time_nce(self.mask_cross_time_trf_proj,
                                                                     fused_t_feats, fused_t_masked_feats, temp)
                 output["ssl_losses"]["mask_cr_t_nce_loss"] = mask_cross_time_nce_loss['_loss']
@@ -1120,7 +1124,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                                                     mask_pred_target,
                                                     fused_t_masked_feats,
                                                     masks=masked_index,
-                                                    loss=self.mask_latent_args.mask_latent_prediction.loss)
+                                                    loss=self.mask_latent_prediction.loss)
                 output["ssl_losses"]["recover_loss"] = recover_loss
 
             if "imitation" in task:
@@ -1339,14 +1343,14 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
 
     @staticmethod
     def random_masking(masked_mod: List,
-                       mask_prob_args: DictConfig,
-                       mask_length_args: DictConfig,
+                       mask_prob: DictConfig,
+                       mask_length: DictConfig,
                        multimod_inputs: Dict):
         mask_multimod_inputs = {}
         for mod_name, mod_feat in multimod_inputs.items():
             if mod_name in masked_mod:
-                mask_porb = mask_prob_args[mod_name]
-                mask_length = mask_length_args[mod_name]
+                mask_porb = mask_prob[mod_name]
+                mask_length = mask_length[mod_name]
                 if mod_name in ["vision", "tactile"]:
                     # mask whole image
                     bs, num_frame, c, h, w = mod_feat.shape
