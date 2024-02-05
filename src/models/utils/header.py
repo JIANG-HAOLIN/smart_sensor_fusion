@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Optional
 
 
 class ClassificationHead(nn.Module):
@@ -40,8 +41,10 @@ class MLPHead(nn.Module):
 
     def __init__(self,
                  in_dim: int = 256,
+                 hidden_dim: Optional[int] = None,
                  out_dim: int = 10,
-                 dropout: float = 0.):
+                 dropout: float = 0.,
+                 norm: str = "layer"):
         """
         Args:
             in_dim: the model dim for linear layer
@@ -49,11 +52,20 @@ class MLPHead(nn.Module):
             dropout: dropout rate, normally should be 0
         """
         super().__init__()
-        self.mlp = nn.Sequential(nn.Linear(in_dim, 2 * in_dim),
+        hidden_dim = 2 * in_dim if hidden_dim is None else hidden_dim
+        if norm == "layer":
+            norm = nn.LayerNorm(hidden_dim)
+        elif norm == "batch":
+            from src.models.utils.helpers import MyPermute
+            norm = nn.Sequential(MyPermute([0, 2, 1]),
+                                 nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=hidden_dim),
+                                 MyPermute([0, 2, 1]), )
+
+        self.mlp = nn.Sequential(nn.Linear(in_dim, hidden_dim),
                                  nn.GELU(),
-                                 nn.LayerNorm(2 * in_dim),
+                                 norm,
                                  nn.Dropout(dropout),
-                                 nn.Linear(2 * in_dim, out_dim))
+                                 nn.Linear(hidden_dim, out_dim))
 
     def forward(self, x):
         """

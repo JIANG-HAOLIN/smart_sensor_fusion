@@ -62,6 +62,7 @@ model:
         model_dim: ${models.model.model_dim}
         dropout: 0.
     mask_latent_prediction:
+      momentum: False
       predictor:
         _target_: src.models.utils.header.MLPHead
         in_dim: ${models.model.model_dim}
