@@ -69,6 +69,7 @@ model:
         in_dim: ${models.model.model_dim}
         out_dim: ${models.model.model_dim}
         dropout: 0.
+        norm: batch
 
   fom_args:
     reorder_prob: 0.2
