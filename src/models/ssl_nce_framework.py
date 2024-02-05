@@ -981,6 +981,9 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         self.mask_latent_predictor = hydra.utils.instantiate(mask_latent_prediction.predictor) if \
             mask_latent_prediction is not None else None
 
+        self.fom_classifier = hydra.utils.instantiate(fom_args.predictor) if \
+            fom_args is not None else None
+
         for mod_name, mod_args in self.mod_args.items():
             if mod_args is not None:
                 self.__setattr__(f"preprocess_{mod_name}",
@@ -997,8 +1000,6 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
         self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
         self.cross_time_pos_emb = hydra.utils.instantiate(pos_emb_args)
         self.cross_time_trf = hydra.utils.instantiate(cross_time_trf_args)
-
-        self.fom_classifier = ClassificationHead(model_dim=model_dim, num_classes=num_stack)
 
         self.mlp = torch.nn.Sequential(
             torch.nn.Linear(model_dim, model_dim),
@@ -1396,7 +1397,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                         target: torch.Tensor,
                         fused_t_mask_feats: torch.Tensor,
                         masks: Optional[dict] = None,
-                        loss: str = "mse",):
+                        loss: str = "mse", ):
         """
 
         Args:
