@@ -3,10 +3,10 @@
 
 defaults:
 - datasets: see_hear_feel
-- models: ssl_nce_framework/earlysum
+- models: aloha/vae
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_framework/mask_bind_fom
-- trainers: ssl_nce_framework
+- pl_modules: aloha/aloha
+- trainers: aloha
 - _self_
 
 
@@ -26,7 +26,9 @@ hydra:
 #      trainers.launch_trainer.monitor: "val_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
-      models.model.model_dim: 256
+      datasets.dataloader.args.len_lb: 10
+      models.model.action_decoder.num_queries: 10
+      models.model.obs_encoder.model_dim: 512
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 16
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}

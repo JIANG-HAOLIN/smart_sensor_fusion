@@ -1,0 +1,6 @@
+launch_trainer:
+  repeat_trial: 1
+  max_epochs: 20
+  monitor:  "val_total_loss"
+  mode: "min"
+  save_top_k: 1

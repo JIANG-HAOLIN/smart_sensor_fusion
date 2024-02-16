@@ -13,7 +13,7 @@ import soundfile as sf
 import os
 import torch
 import torchvision.transforms as T
-
+from copy import deepcopy
 from PIL import Image
 
 
@@ -92,6 +92,7 @@ class VisionAudioTactile(Dataset):
                 ]
             )
 
+        self.len_lb = args.len_lb
         pass
 
     def get_episode(self, idx, ablation=""):
@@ -216,11 +217,36 @@ class VisionAudioTactile(Dataset):
             )
         return keyboard
 
+    def get_demo_sequence(self, lb_idx):
+        demo = []
+        x_space = {-0.0005: 0, 0: 1, 0.0005: 2}
+        y_space = {-0.0005: 0, 0: 1, 0.0005: 2}
+        z_space = {-0.0005: 0, 0: 1, 0.0005: 2}
+        for idx in lb_idx:
+            if idx < 0:
+                keyboard = [0, 0, 0]
+            else:
+                keyboard = self.timestamps["action_history"][idx]
+            keyboard = torch.tensor((  # ternary
+                    x_space[keyboard[0]] * 3 ** 2
+                    + y_space[keyboard[1]] * 3 ** 1
+                    + z_space[keyboard[2]] * 3 ** 0
+            ))
+            demo.append(keyboard)
+        return torch.stack(demo, dim=0)
+
+    def get_pose_sequence(self, lb_idx):
+        return torch.stack([torch.Tensor(self.timestamps["pose_history"][i][:6]) for i in lb_idx], dim=0)
+
     def __getitem__(self, idx):
         start = idx - self.max_len
         # compute which frames to use
         frame_idx = np.arange(start, idx + 1, self.frameskip)
         frame_idx[frame_idx < 0] = -1
+
+        lb_end = idx + self.len_lb
+        lb_idx = np.arange(idx, lb_end)
+        lb_idx[lb_idx >= self.num_frames] = -1
         # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0
@@ -363,20 +389,22 @@ class VisionAudioTactile(Dataset):
         xyzrpy = torch.Tensor(self.timestamps["pose_history"][idx][:6])
         optical_flow = 0
 
-        return (
-            (
+        return {
+            "observation": (
                 cam_fixed_framestack,
                 cam_gripper_framestack,
                 tactile_framestack,
                 audio_clip_g,
                 audio_clip_h,
             ),
-            keyboard,
-            xyzrpy,
-            optical_flow,
-            start,
-            label,
-        )
+            "action": keyboard,
+            "pose": xyzrpy,
+            "optical_flow": optical_flow,
+            "start": start,
+            "progress_bin": label,
+            "action_seq": self.get_demo_sequence(lb_idx),
+            "pose_seq": self.get_pose_sequence(lb_idx)
+        }
 
 
 def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
@@ -408,10 +436,8 @@ def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
-    train_loader = DataLoader(
-        train_set, batch_size, num_workers=8, shuffle=True,
-    )
-    val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False)
+    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=True,)
+    val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, None
 
 

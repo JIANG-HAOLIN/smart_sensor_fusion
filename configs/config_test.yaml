@@ -1,0 +1,13 @@
+# for debug purpose
+
+defaults:
+- datasets: see_hear_feel_vision_audio_tactile
+- models: ssl_nce_framework/earlysum
+- optimizers: adam_steplr
+- pl_modules: ssl_nce_framework/mask_bind_fom
+- trainers: ssl_nce_framework
+- _self_
+
+
+
+

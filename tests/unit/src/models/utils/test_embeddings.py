@@ -28,13 +28,13 @@ class TestMdlEmbCat(unittest.TestCase):
         self.assertEqual(pe(input, 0).shape, torch.Size([2, 1000, 512]))
 
 
-
 class TestLearnablePosEmb(unittest.TestCase):
 
     def test_learnable_pos_emb(self):
-        pe = LearnablePosEmb(7, 256)
-        input = torch.randn([4, 20, 7, 8, 256])
-        self.assertEqual(pe(input, 2).shape, torch.Size([4, 20, 7, 8, 256]))
+        pe = LearnablePosEmb(2, 4)
+        input = torch.zeros([4, 2, 3, 4])
+        self.assertEqual(pe(input, 1).shape, torch.Size([4, 2, 3, 4]))
+        print(pe(input, 1))
 
 
 if __name__ == '__main__':

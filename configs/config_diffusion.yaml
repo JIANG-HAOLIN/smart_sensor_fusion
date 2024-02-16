@@ -3,15 +3,15 @@
 
 defaults:
 - datasets: see_hear_feel
-- models: ssl_nce_framework/earlysum
+- models: diffusion/diffusion_encoder_decoder
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_framework/mask_bind_fom
-- trainers: ssl_nce_framework
+- pl_modules: diffusion/diffusion_policy
+- trainers: diffusion
 - _self_
 
 
 # General settings
-task_name: "ss_nce"
+task_name: "diffusion"
 variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
@@ -26,7 +26,8 @@ hydra:
 #      trainers.launch_trainer.monitor: "val_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
-      models.model.model_dim: 256
+      datasets.dataloader.args.len_lb: 100
+      models.model.obs_encoder.model_dim: 256
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 16
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}

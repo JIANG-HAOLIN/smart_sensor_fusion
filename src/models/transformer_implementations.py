@@ -18,6 +18,7 @@ class TransformerEncoder(nn.Module):
             middle_dim_mlp: the intermediate dimension of feedforward network
         """
         super().__init__()
+        self.token_dim = token_dim
         self.norm_first = norm_first
         self.final_norm = nn.LayerNorm(token_dim, eps=1e-5) if norm_first else nn.Identity()
         self.layers = nn.ModuleList([])
@@ -132,6 +133,7 @@ class TransformerEncoderVanilla(nn.Module):
             middle_dim_mlp: the intermediate dimension of feedforward network
         """
         super().__init__()
+        self.output_dim = token_dim
         self.layers = nn.ModuleList([])
         middle_dim_mlp = 2 * token_dim if middle_dim_mlp is None else middle_dim_mlp
         for _ in range(num_blocks):

@@ -13,7 +13,7 @@ import copy
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scatter_tnse_3d, scatter_tsne_selected
-from src.datasets.vision_audio import get_inference_loaders
+from src.datasets.see_hear_feel import get_inference_loaders
 import time
 
 

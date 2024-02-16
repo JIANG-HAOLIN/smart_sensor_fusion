@@ -1,0 +1,16 @@
+name: "aloha"
+
+pl_module:
+  _target_: src.pl_modules.aloha.AlohaPolicy
+  num_stack: 10
+
+  train_tasks: bind+order+recover+imitation
+  mask_type: latent_mask
+  weight:
+    cr_m_nce_loss: 1.0
+    masked_fom_loss: 1.0
+    mask_fusion_nce_loss: 1.0
+    mask_cr_t_nce_loss: 1.0
+    recover_loss: 1.0
+    fom_loss: 1.0
+    kl_divergence: 10

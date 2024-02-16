@@ -1,12 +1,13 @@
-name: 'vision_audio'
+name: 'vision_audio_tactile'
 
 dataloader:
   # norm_audio: True
-  _target_: src.datasets.vision_audio.get_loaders
+  _target_: src.datasets.see_hear_feel.get_loaders
   batch_size: 128
   data_folder: ''
+
   args:
-    ablation: 'vg_ah'
+    ablation: 'vg_ah_t'
     train_csv: 'train.csv'
     val_csv: 'val.csv'
     task: 'insertion'
@@ -21,3 +22,4 @@ dataloader:
     action_dim: 3
     use_flow: False
     shuffle: True
+    len_lb: 1

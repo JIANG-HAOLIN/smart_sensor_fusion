@@ -11,11 +11,27 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TransformerPredictorPl(pl.LightningModule):
+def kl_divergence(mu, logvar):
+    batch_size = mu.size(0)
+    assert batch_size != 0
+    if mu.data.ndimension() == 4:
+        mu = mu.view(mu.size(0), mu.size(1))
+    if logvar.data.ndimension() == 4:
+        logvar = logvar.view(logvar.size(0), logvar.size(1))
+
+    klds = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
+    total_kld = klds.sum(1).mean(0, True)
+    dimension_wise_kld = klds.mean(0)
+    mean_kld = klds.mean(1).mean(0, True)
+
+    return total_kld, dimension_wise_kld, mean_kld
+
+
+class AlohaPolicy(pl.LightningModule):
 
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
-                 train_tasks, masked_train,
+                 train_tasks, mask_type,
                  weight,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
@@ -40,7 +56,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.validation_preds = []
         self.loss_cce = torch.nn.CrossEntropyLoss()
         self.train_tasks = train_tasks
-        self.masked_train = masked_train
+        self.mask_type = mask_type
         self.weight = weight
 
     def configure_optimizers(self):
@@ -55,57 +71,56 @@ class TransformerPredictorPl(pl.LightningModule):
 
     def _calculate_loss(self, batch, mode="train"):
         """ Calculation of loss and prediction accuracy using output and label"""
+        total_loss = 0
+        metrics = {}
+
         # Fetch data and transform categories to one-hot vectors
-        inp_data = batch["observation"]
-        demo = batch["action"]
-        xyzrpy_gt = batch["pose"]
-        vf_inp, vg_inp, t_inp, audio_g, audio_h = inp_data
+        observation = batch["observation"]
+        action = batch["action"]
+        pose = batch["pose"]
+        optical_flow = batch["optical_flow"]
+        action_seq = batch["action_seq"]
+        pose_seq = batch["pose_seq"]
+        vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
         multimod_inputs = {
             "vision": vg_inp,
             "tactile": t_inp,
             "audio": audio_h
         }
         task = self.train_tasks.split("+")
+
         # Perform prediction and calculate loss and accuracy
-        output = self.mdl.forward(multimod_inputs,
-                                  mask=self.masked_train,
-                                  task=task,
-                                  mode=mode,
-                                  )
-        step_output = {}
-        total_loss = 0
-        if "imitation" in task:
-            loss, immi_loss, aux_loss = self.compute_loss(
-                demo, output["predict"]["action_logits"], xyzrpy_gt, output["predict"]["xyzrpy"]
-            )
-            total_loss += loss
-            action_logits = output["predict"]["action_logits"]
-            action_pred = torch.argmax(output["predict"]["action_logits"], dim=1)
-            acc = (action_pred == demo).sum() / action_pred.numel()
-            top_1_accu = top_k_accuracy(action_logits, demo, 1)
-            top_3_accu = top_k_accuracy(action_logits, demo, 3)
-            top_5_accu = top_k_accuracy(action_logits, demo, 5)
-            self.log_dict({
-                f"{mode}_sup_loss": loss,
-                f"{mode}_immi_loss": immi_loss,
-                f"{mode}_aux_loss": aux_loss,
-                f"{mode}_acc": acc,
-                f"{mode}_top_1_acc": top_1_accu,
-                f"{mode}_top_3_acc": top_3_accu,
-                f"{mode}_top_5_acc": top_5_accu,
+        if pose_seq is not None:  # training time
 
-            })
-            step_output["imitation_acc"] = acc
+            qpos = pose_seq[:, 0, :]
+            is_pad = torch.zeros([pose_seq.shape[0], pose_seq.shape[1]], device=qpos.device).bool()
+            out = self.mdl(qpos,
+                           multimod_inputs,
+                           actions=pose_seq,
+                           is_pad=is_pad,
+                           mask=None,
+                           mask_type=self.mask_type,
+                           task=task,
+                           mode=mode, )
+            metrics.update(out["obs_encoder_out"]["ssl_losses"])
+            a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
+            total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
+            all_l1 = F.l1_loss(pose_seq, a_hat, reduction='none')
+            l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
+            metrics['l1_loss'] = l1
+            metrics['kl'] = total_kld[0]
+            metrics['vae_loss'] = metrics['l1_loss'] + metrics['kl'] * self.weight["kl_divergence"]
+            total_loss += metrics['vae_loss']
+            for key, value in out["obs_encoder_out"]["ssl_losses"].items():
+                total_loss += value * self.weight[key]
 
-        ssl_losses_dict = {}
-        for key, value in output["ssl_losses"].items():
-            total_loss += value * self.weight[key]
-            ssl_losses_dict[f"{mode}_{key}"] = value
-        self.log_dict(ssl_losses_dict)
+        metrics["total_loss"] = total_loss
+        mod_metric = {}
+        for key, value in metrics.items():
+            mod_metric[f"{mode}_{key}"] = value
+        self.log_dict(mod_metric)
 
-        step_output["total_loss"] = total_loss
-
-        return step_output
+        return metrics
 
     def train_dataloader(self):
         """Training dataloader"""
@@ -125,7 +140,7 @@ class TransformerPredictorPl(pl.LightningModule):
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
         val_step_output = self._calculate_loss(batch, mode="val")
-        self.validation_epoch_outputs.append(val_step_output["imitation_acc"])
+        self.validation_epoch_outputs.append(val_step_output["total_loss"])
 
     def on_validation_epoch_end(self) -> None:
         """ Calculate the validation accuracy after an entire epoch.
@@ -133,7 +148,7 @@ class TransformerPredictorPl(pl.LightningModule):
         Returns: validation accuracy of an entire epoch
 
         """
-        val_acc = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
+        val_loss = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.validation_preds.clear()
 
