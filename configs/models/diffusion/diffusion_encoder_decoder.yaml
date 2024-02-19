@@ -62,7 +62,7 @@ model:
         dropout: 0.
     mask_latent_prediction:
       momentum: False
-      loss: cosine
+      loss: mse
       predictor:
         _target_: src.models.utils.header.MLPHead
         in_dim: ${models.model.obs_encoder.model_dim}
