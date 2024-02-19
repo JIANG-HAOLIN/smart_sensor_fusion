@@ -19,7 +19,7 @@ class TransformerForDiffusion(nn.Module):
 
         input_dim = action_decoder.input_dim
         output_dim = action_decoder.output_dim
-        horizon = action_decoder.horizon  # Tp
+        horizon = action_decoder.horizon  # Tp prediction horizon
         n_obs_steps = action_decoder.n_obs_steps
         cond_dim = action_decoder.cond_dim
         n_layer = action_decoder.n_layer
@@ -357,73 +357,3 @@ class TransformerForDiffusion(nn.Module):
         return {"pred": x, "obs_encoder_out": obs_encoder_out}
 
 
-def test():
-    # GPT with time embedding
-    transformer = TransformerForDiffusion(
-        input_dim=16,
-        output_dim=16,
-        horizon=8,
-        n_obs_steps=4,
-        # cond_dim=10,
-        causal_attn=True,
-        # time_as_cond=False,
-        # n_cond_layers=4
-    )
-    opt = transformer.configure_optimizers()
-
-    timestep = torch.tensor(0)
-    sample = torch.zeros((4, 8, 16))
-    out = transformer(sample, timestep)
-
-    # GPT with time embedding and obs cond
-    transformer = TransformerForDiffusion(
-        input_dim=16,
-        output_dim=16,
-        horizon=8,
-        n_obs_steps=4,
-        cond_dim=10,
-        causal_attn=True,
-        # time_as_cond=False,
-        # n_cond_layers=4
-    )
-    opt = transformer.configure_optimizers()
-
-    timestep = torch.tensor(0)
-    sample = torch.zeros((4, 8, 16))
-    cond = torch.zeros((4, 4, 10))
-    out = transformer(sample, timestep, cond)
-
-    # GPT with time embedding and obs cond and encoder
-    transformer = TransformerForDiffusion(
-        input_dim=16,
-        output_dim=16,
-        horizon=8,
-        n_obs_steps=4,
-        cond_dim=10,
-        causal_attn=True,
-        # time_as_cond=False,
-        n_cond_layers=4
-    )
-    opt = transformer.configure_optimizers()
-
-    timestep = torch.tensor(0)
-    sample = torch.zeros((4, 8, 16))
-    cond = torch.zeros((4, 4, 10))
-    out = transformer(sample, timestep, cond)
-
-    # BERT with time embedding token
-    transformer = TransformerForDiffusion(
-        input_dim=16,
-        output_dim=16,
-        horizon=8,
-        n_obs_steps=4,
-        # cond_dim=10,
-        # causal_attn=True,
-        time_as_cond=False,
-        # n_cond_layers=4
-    )
-    opt = transformer.configure_optimizers()
-
-    timestep = torch.tensor(0)
-    sample = torch.zeros((4, 8, 16))
-    out = transformer(sample, timestep)
