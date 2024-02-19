@@ -1,4 +1,5 @@
 """https://github.com/JunzheJosephZhu/see_hear_feel/tree/master/src/datasets"""
+import copy
 import json
 import os
 from PIL import Image
@@ -245,8 +246,12 @@ class VisionAudioTactile(Dataset):
         frame_idx[frame_idx < 0] = -1
 
         lb_end = idx + self.len_lb
-        lb_idx = np.arange(idx, lb_end)
+        lb_idx = np.arange(start, lb_end)
         lb_idx[lb_idx >= self.num_frames] = -1
+        action_idx = copy.deepcopy(lb_idx)
+        action_idx[action_idx < 0] = -1
+        lb_idx[lb_idx < 0] = 0
+        pose_idx = copy.deepcopy(lb_idx)
         # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0
@@ -402,8 +407,8 @@ class VisionAudioTactile(Dataset):
             "optical_flow": optical_flow,
             "start": start,
             "progress_bin": label,
-            "action_seq": self.get_demo_sequence(lb_idx),
-            "pose_seq": self.get_pose_sequence(lb_idx)
+            "action_seq": self.get_demo_sequence(action_idx),
+            "pose_seq": self.get_pose_sequence(pose_idx)
         }
 
 
