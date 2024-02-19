@@ -25,6 +25,7 @@ def set_random_seed(seed):
 def train(cfg: DictConfig) -> None:
     # set_random_seed(42)
     os.environ['HYDRA_FULL_ERROR'] = '1'
+
     os.environ['NUMEXPR_MAX_THREADS'] = '16'
     os.environ['NUMEXPR_NUM_THREADS'] = '8'
     torch.set_float32_matmul_precision('medium')

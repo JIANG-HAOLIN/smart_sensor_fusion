@@ -16,7 +16,7 @@ variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
 results_dir: 'results'
-data_folder_path: '/fs/scratch/rng_cr_bcai_dl_students/jin4rng/data'
+data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data'
 
 hydra:
   sweeper:
