@@ -4,7 +4,7 @@ model:
   action_decoder:
     input_dim: 6
     output_dim: ${models.model.action_decoder.input_dim}
-    horizon: 100
+    horizon: 10
     n_obs_steps: 10
     cond_dim: 256
     n_layer: 8
