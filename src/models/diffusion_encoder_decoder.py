@@ -19,7 +19,7 @@ class TransformerForDiffusion(nn.Module):
 
         input_dim = action_decoder.input_dim
         output_dim = action_decoder.output_dim
-        horizon = action_decoder.horizon  # Tp prediction horizon
+        t_p = action_decoder.t_p  # Tp prediction horizon
         n_obs_steps = action_decoder.n_obs_steps
         cond_dim = action_decoder.cond_dim
         n_layer = action_decoder.n_layer
@@ -33,11 +33,11 @@ class TransformerForDiffusion(nn.Module):
 
         # compute number of tokens for main trunk and condition encoder
         if action_decoder.n_obs_steps is None:
-            n_obs_steps = horizon
+            n_obs_steps = t_p
         else:
             self.n_obs_steps = n_obs_steps
 
-        T = horizon
+        T = t_p
         T_cond = 1
         if not time_as_cond:
             T += 1
@@ -150,7 +150,6 @@ class TransformerForDiffusion(nn.Module):
         # constants
         self.T = T
         self.T_cond = T_cond
-        self.horizon = horizon
         self.time_as_cond = time_as_cond
         self.obs_as_cond = obs_as_cond
         self.encoder_only = encoder_only

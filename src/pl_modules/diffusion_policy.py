@@ -26,7 +26,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
                  shape_meta: dict,
                  noise_scheduler: DDPMScheduler,
                  # task params
-                 horizon,
+                 t_p,
                  n_action_steps,
                  n_obs_steps,
                  num_inference_steps=None,
@@ -97,7 +97,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             action_visible=False
         )
         # self.normalizer = LinearNormalizer()
-        self.horizon = horizon
+        self.t_p = t_p
         self.obs_feature_dim = obs_feature_dim
         self.action_dim = action_dim
         self.n_action_steps = n_action_steps
@@ -158,7 +158,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         nobs = self.normalizer.normalize(obs_dict)
         value = next(iter(nobs.values()))
         B, To = value.shape[:2]
-        T = self.horizon
+        t_p = self.t_p
         Da = self.action_dim
         Do = self.obs_feature_dim
         To = self.n_obs_steps
@@ -176,7 +176,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             nobs_features = self.obs_encoder(this_nobs)
             # reshape back to B, To, Do
             cond = nobs_features.reshape(B, To, -1)
-            shape = (B, T, Da)
+            shape = (B, t_p, Da)
             if self.pred_action_steps_only:
                 shape = (B, self.n_action_steps, Da)
             cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
@@ -187,7 +187,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             nobs_features = self.obs_encoder(this_nobs)
             # reshape back to B, To, Do
             nobs_features = nobs_features.reshape(B, To, -1)
-            shape = (B, T, Da + Do)
+            shape = (B, t_p, Da + Do)
             cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
             cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
             cond_data[:, :To, Da:] = nobs_features
@@ -252,7 +252,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         optical_flow = batch["optical_flow"]
         action_seq = batch["action_seq"]
         pose_seq = batch["pose_seq"]
-        nactions = pose_seq
+        nactions = pose_seq[:, -self.t_p:, ]
         vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
         multimod_inputs = {
             "vision": vg_inp,

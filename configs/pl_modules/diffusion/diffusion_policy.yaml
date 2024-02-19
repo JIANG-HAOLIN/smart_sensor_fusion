@@ -8,7 +8,7 @@ pl_module:
   - 84
   - 84
   eval_fixed_crop: true
-  horizon: 100
+  t_p: 20
   n_action_steps: 8
   n_cond_layers: 0
   n_emb: 256
