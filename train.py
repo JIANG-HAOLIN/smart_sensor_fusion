@@ -71,7 +71,7 @@ def train(cfg: DictConfig) -> None:
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
-                                        train_loader, val_loader, test_loader)
+                                        train_loader, val_loader, test_loader, _recursive_=False)
 
     launch_trainer(pl_module, out_dir_path=out_dir_path, label=label, hydra_conf=cfg,
                    model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,

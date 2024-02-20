@@ -1,3 +1,4 @@
+import hydra.utils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,9 +6,9 @@ import torch.optim as optim
 import lightning as pl
 import logging
 from utils.metrics import top_k_accuracy
-
+import copy
 import logging
-
+from torch.optim import Optimizer
 logger = logging.getLogger(__name__)
 
 
@@ -16,7 +17,7 @@ class TransformerPredictorPl(pl.LightningModule):
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
                  train_tasks, masked_train,
-                 weight,
+                 weight, ema,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
@@ -42,6 +43,7 @@ class TransformerPredictorPl(pl.LightningModule):
         self.train_tasks = train_tasks
         self.masked_train = masked_train
         self.weight = weight
+        self.ema = hydra.utils.instantiate(ema, model=copy.deepcopy(self.mdl))
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -139,3 +141,6 @@ class TransformerPredictorPl(pl.LightningModule):
 
         for name, value in self.trainer.callback_metrics.items():
             logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
+
+    def on_before_zero_grad(self, optimizer: Optimizer) -> None:
+        self.ema.step(self.mdl)

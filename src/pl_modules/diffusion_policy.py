@@ -1,3 +1,4 @@
+import hydra.utils
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -88,7 +89,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
 
         self.obs_encoder = mdl.obs_encoder
         self.mdl = mdl
-        self.noise_scheduler = noise_scheduler
+        self.noise_scheduler = hydra.utils.instantiate(noise_scheduler)
         self.mask_generator = LowdimMaskGenerator(
             action_dim=action_dim,
             obs_dim=0 if (obs_as_cond) else obs_feature_dim,
