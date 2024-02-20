@@ -17,5 +17,5 @@ pl_module:
     inv_gamma: 1.0
     max_value: 0.9999
     min_value: 0.0
-    power: 0.75
+    power: 1.0
     update_after_step: 0

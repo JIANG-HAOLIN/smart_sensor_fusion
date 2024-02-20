@@ -30,6 +30,7 @@ hydra:
       optimizers: adam_steplr
       datasets.dataloader.batch_size: 16
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
+#      pl_modules.pl_module.ema: False
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
 
   sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/"

@@ -9,6 +9,7 @@ from utils.metrics import top_k_accuracy
 import copy
 import logging
 from torch.optim import Optimizer
+
 logger = logging.getLogger(__name__)
 
 
@@ -43,7 +44,8 @@ class TransformerPredictorPl(pl.LightningModule):
         self.train_tasks = train_tasks
         self.masked_train = masked_train
         self.weight = weight
-        self.ema = hydra.utils.instantiate(ema, model=copy.deepcopy(self.mdl))
+        self.ema_mdl = copy.deepcopy(self.mdl) if ema else None
+        self.ema = hydra.utils.instantiate(ema, model=self.ema_mdl) if ema else None
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -68,12 +70,17 @@ class TransformerPredictorPl(pl.LightningModule):
             "audio": audio_h
         }
         task = self.train_tasks.split("+")
+
+        mdl = self.mdl
+        if self.ema is not None and mode != "train":
+            mdl = self.ema_mdl
+
         # Perform prediction and calculate loss and accuracy
-        output = self.mdl.forward(multimod_inputs,
-                                  mask=self.masked_train,
-                                  task=task,
-                                  mode=mode,
-                                  )
+        output = mdl(multimod_inputs,
+                     mask=self.masked_train,
+                     task=task,
+                     mode=mode,
+                     )
         step_output = {}
         total_loss = 0
         if "imitation" in task:
@@ -143,4 +150,5 @@ class TransformerPredictorPl(pl.LightningModule):
             logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
 
     def on_before_zero_grad(self, optimizer: Optimizer) -> None:
-        self.ema.step(self.mdl)
+        if self.ema is not None:
+            self.ema.step(self.mdl)
