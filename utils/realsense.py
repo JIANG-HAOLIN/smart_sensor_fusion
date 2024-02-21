@@ -205,7 +205,7 @@ class RealsenseRecorder:
         # Get frame from every camera
         for s in self._serials:
             loc_frame_dict[s] = self._pipelines[s].wait_for_frames()
-    
+
         for s in self._serials:
             frames[s] = {}
             # Align images in each frame
