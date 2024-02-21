@@ -32,7 +32,7 @@ class AlohaPolicy(pl.LightningModule):
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
                  train_tasks, mask_type,
-                 weight,
+                 weight, t_p,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
@@ -58,6 +58,7 @@ class AlohaPolicy(pl.LightningModule):
         self.train_tasks = train_tasks
         self.mask_type = mask_type
         self.weight = weight
+        self.t_p = t_p
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -81,6 +82,7 @@ class AlohaPolicy(pl.LightningModule):
         optical_flow = batch["optical_flow"]
         action_seq = batch["action_seq"]
         pose_seq = batch["pose_seq"]
+        a = pose_seq[:, -self.t_p:]
         vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
         multimod_inputs = {
             "vision": vg_inp,
@@ -90,13 +92,13 @@ class AlohaPolicy(pl.LightningModule):
         task = self.train_tasks.split("+")
 
         # Perform prediction and calculate loss and accuracy
-        if pose_seq is not None:  # training time
+        if a is not None:  # training time
 
             qpos = pose_seq[:, 0, :]
-            is_pad = torch.zeros([pose_seq.shape[0], pose_seq.shape[1]], device=qpos.device).bool()
+            is_pad = torch.zeros([a.shape[0], a.shape[1]], device=qpos.device).bool()
             out = self.mdl(qpos,
                            multimod_inputs,
-                           actions=pose_seq,
+                           actions=a,
                            is_pad=is_pad,
                            mask=None,
                            mask_type=self.mask_type,
@@ -105,7 +107,7 @@ class AlohaPolicy(pl.LightningModule):
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
-            all_l1 = F.l1_loss(pose_seq, a_hat, reduction='none')
+            all_l1 = F.l1_loss(a, a_hat, reduction='none')
             l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
             metrics['l1_loss'] = l1
             metrics['kl'] = total_kld[0]
