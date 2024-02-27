@@ -169,7 +169,7 @@ def cosine_loss_fn(x, y, mask: Optional[torch.Tensor] = None):
         mask = torch.ones(x.shape[:-1]).unsqueeze(-1)
     mask = mask.squeeze(-1)
     pred_loss = mask * (2 - 2 * (x * y).sum(dim=-1))
-    pred_loss = torch.sum(pred_loss) / torch.sum(mask)
+    pred_loss = torch.sum(pred_loss) / torch.sum(mask) if torch.sum(mask) != 0 else torch.tensor(0.0)
     return pred_loss
 
 
@@ -187,7 +187,7 @@ def mse_fn(x, y, mask: Optional[torch.Tensor] = None):
     if mask is None:
         mask = torch.ones(x.shape[:-1]).unsqueeze(-1)
     pred_loss = mask * (x - y) ** 2
-    pred_loss = torch.sum(torch.mean(pred_loss, dim=-1)) / torch.sum(mask)  # mean value
+    pred_loss = torch.sum(torch.mean(pred_loss, dim=-1)) / torch.sum(mask) if torch.sum(mask) != 0 else torch.tensor(0.0)
     return pred_loss
 
 class EMAModel:

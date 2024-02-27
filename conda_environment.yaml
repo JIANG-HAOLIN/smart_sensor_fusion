@@ -27,7 +27,8 @@ dependencies:
   - tqdm=4.66.1
   - seaborn=0.12.2
   - setuptools=68.0.0
-  - pyaudio==0.2.11
+  - pyaudio==0.2.14
   - librosa==0.10.1
   - pip:
       - einops==0.7.0
+      - pyrealsense2==2.54.2.5684
