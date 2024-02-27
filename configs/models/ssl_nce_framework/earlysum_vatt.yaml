@@ -45,13 +45,13 @@ model:
       dropout: 0.
   mask_latent_prediction:
     momentum: False
-    loss: cosine
+    loss: mse
     predictor:
       _target_: src.models.utils.header.MLPHead
       in_dim: ${models.model.model_dim}
       out_dim: ${models.model.model_dim}
       dropout: 0.
-      norm: batch
+      norm: layer
 
   fom_args:
     reorder_prob: 0.2
@@ -60,7 +60,7 @@ model:
       in_dim: ${models.model.model_dim}
       out_dim: ${models.model.num_stack}
       dropout: 0.
-      norm: batch
+      norm: layer
   #---------------------------------------------------------------------------------------------------------#
   audio_args:
     preprocess_audio_args:
