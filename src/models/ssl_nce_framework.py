@@ -1345,19 +1345,19 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
 
     @staticmethod
     def random_masking(masked_mod: List,
-                       mask_prob: DictConfig,
-                       mask_length: DictConfig,
+                       mask_probs: DictConfig,
+                       mask_lengths: DictConfig,
                        multimod_inputs: Dict):
         mask_multimod_inputs = {}
         for mod_name, mod_feat in multimod_inputs.items():
             if mod_name in masked_mod:
-                mask_porb = mask_prob[mod_name]
-                mask_length = mask_length[mod_name]
+                mask_prob = mask_probs[mod_name]
+                mask_length = mask_lengths[mod_name]
                 if mod_name in ["vision", "tactile"]:
                     # mask whole image
                     bs, num_frame, c, h, w = mod_feat.shape
                     mask = torch.tensor(get_mask_sequence1d(seq_len=bs * num_frame,
-                                                            mask_prob=mask_porb,
+                                                            mask_prob=mask_prob,
                                                             mask_length=mask_length,
                                                             mask_mark=0,
                                                             unmask_mark=1, ), device=mod_feat.device)
@@ -1366,7 +1366,7 @@ class SslNceFramework_EarlySum_VATT(torch.nn.Module):
                     # channel-wise variant
                     bs, c, l = mod_feat.shape
                     mask = torch.tensor(get_mask_sequence1d(seq_len=bs * c * l,
-                                                            mask_prob=mask_porb,
+                                                            mask_prob=mask_prob,
                                                             mask_length=mask_length,
                                                             mask_mark=0,
                                                             unmask_mark=1, ), device=mod_feat.device)

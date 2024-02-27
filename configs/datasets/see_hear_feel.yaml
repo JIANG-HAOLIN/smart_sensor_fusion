@@ -5,6 +5,7 @@ dataloader:
   _target_: src.datasets.see_hear_feel.get_loaders
   batch_size: 128
   data_folder: ''
+  drop_last: True
 
   args:
     ablation: 'vg_ah_t'

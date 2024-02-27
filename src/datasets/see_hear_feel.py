@@ -412,13 +412,14 @@ class VisionAudioTactile(Dataset):
         }
 
 
-def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
+def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwargs):
     """
 
     Args:
         batch_size: batch size
         args: arguments for dataloader
         data_folder: absolute path of directory "data"
+        drop_last: whether drop_last for train dataloader
         **kwargs: other arguments
 
     Returns: training loader and validation loader
@@ -441,7 +442,7 @@ def get_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
-    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=True,)
+    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=drop_last,)
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, None
 
