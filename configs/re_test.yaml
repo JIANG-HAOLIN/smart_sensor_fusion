@@ -1,0 +1,205 @@
+datasets:
+  name: vision_audio_tactile
+  dataloader:
+    _target_: src.datasets.vision_audio.get_loaders
+    batch_size: 32
+    data_folder: /fs/scratch/rng_cr_bcai_dl_students/jin4rng/data
+    args:
+      ablation: vg_ah_t
+      train_csv: train.csv
+      val_csv: val.csv
+      task: insertion
+      num_stack: 10
+      frameskip: 5
+      no_crop: false
+      crop_percent: 0.1
+      resized_height_v: 75
+      resized_width_v: 100
+      resized_height_t: 60
+      resized_width_t: 80
+      action_dim: 3
+      use_flow: false
+      shuffle: true
+models:
+  name: ssnce_earlysum_5s_vatt
+  model:
+    _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT
+    mod_names:
+    - vision
+    - audio
+    - tactile
+    main_mod: vision
+    model_dim: 256
+    num_stack: 10
+    nce_args:
+      norm: batch
+      main_mod: ${models.model.main_mod}
+      temp: 1.0
+      nce_proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.0
+    mask_args:
+      mask_type: raw
+      masked_mod:
+      - vision
+      - audio
+      - tactile
+      mask_prob:
+        latent: 0.75
+        vision: 0.5
+        audio: 0.08
+        tactile: 0.5
+      mask_length:
+        latent: 1
+        vision: 1
+        audio: 10
+        tactile: 1
+    mask_fusion_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.0
+    mask_cross_time_trf_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.model_dim}
+        dropout: 0.0
+    mask_latent_prediction:
+      momentum: false
+      loss: mse
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.model_dim}
+        out_dim: ${models.model.model_dim}
+        dropout: 0.0
+        norm: layer
+    fom_args:
+      reorder_prob: 0.2
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.model_dim}
+        out_dim: ${models.model.num_stack}
+        dropout: 0.0
+        norm: layer
+    audio_args:
+      preprocess_audio_args:
+        _target_: src.models.utils.mel_spec.MelSpec
+        windows_size: 0.05
+        length: 80000
+        sr: 16000
+        n_mels: 64
+        norm_audio: false
+        hop: 0.05
+      tokenization_audio:
+        _target_: src.models.utils.tokenization.Vanilla2dTokenization
+        channel_size: 1
+        input_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 101
+        patch_size:
+        - ${models.model.audio_args.preprocess_audio_args.n_mels}
+        - 10
+        model_dim: ${models.model.model_dim}
+      pe_audio:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_audio_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+    vision_args:
+      short_window_len: 1
+      preprocess_vision_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      tokenization_vision:
+        _target_: src.models.vit_implementations.VitVATT3D
+        channel_size: 3
+        model_dim: ${models.model.model_dim}
+        num_heads: 8
+        num_layers: 4
+        patch_size:
+        - 1
+        - 8
+        - 8
+        input_size:
+        - 1
+        - 67
+        - 90
+        num_emb: 100
+      pe_vision:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_vision_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+    tactile_args:
+      short_window_len: 1
+      preprocess_tactile_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      tokenization_tactile:
+        _target_: src.models.vit_implementations.VitVATT3D
+        channel_size: 3
+        model_dim: ${models.model.model_dim}
+        num_heads: 8
+        num_layers: 4
+        patch_size:
+        - 1
+        - 6
+        - 6
+        input_size:
+        - 1
+        - 54
+        - 72
+        num_emb: 109
+      pe_tactile:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_tactile_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+    fusion_args:
+      _target_: src.models.utils.fusion.EarlySum
+      mod_names: ${models.model.mod_names}
+      dim: ${models.model.model_dim}
+    pos_emb_args:
+      _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+      d_model: ${models.model.model_dim}
+    cross_time_trf_args:
+      _target_: src.models.transformer_implementations.TransformerEncoderVanilla
+      token_dim: ${models.model.model_dim}
+      num_heads: 8
+      num_blocks: 4
+  inference:
+    ckpt_path: ' '
+optimizers:
+  name: steplr
+  optimizer:
+    _target_: torch.optim.Adam
+    lr: 0.0001
+  scheduler:
+    _target_: torch.optim.lr_scheduler.StepLR
+    step_size: 3
+    gamma: 1
+pl_modules:
+  name: ltmask_bind_fom_rec_imi
+  pl_module:
+    _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
+    num_stack: 5
+    train_tasks: bind+order+recover+imitation
+    masked_train: latent_mask
+    weight:
+      cr_m_nce_loss: 1.0
+      masked_fom_loss: 1.0
+      mask_fusion_nce_loss: 1.0
+      mask_cr_t_nce_loss: 1.0
+      recover_loss: 1.0
+      fom_loss: 1.0
+trainers:
+  launch_trainer:
+    repeat_trial: 4
+    max_epochs: 25
+    monitor: val_acc
+    mode: max
+    save_top_k: 1
+task_name: ss_nce
+variable_name: pl_modules.name___models.name___models.model.mask_args.mask_prob.latent___models.model.mask_latent_prediction.loss___models.model.fom_args.predictor.norm___models.model.mask_latent_prediction.predictor.norm
+output_name: ltmask_bind_fom_rec_imi_mse_test_mskratio_test_layer
+seed: 42
+results_dir: results
+data_folder_path: /fs/scratch/rng_cr_bcai_dl_students/jin4rng/data

@@ -54,6 +54,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.num_stack = kwargs['num_stack']
+        self.last_train_batch = None
         self.validation_epoch_outputs = []
         self.validation_preds = []
         self.loss_cce = torch.nn.CrossEntropyLoss()
@@ -224,6 +225,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
     #     return optimizer
 
     def _calculate_loss(self, batch, mode):
+        self.last_train_batch = batch
         total_loss = 0
         metrics = {}
         # normalize input
@@ -375,14 +377,20 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         """
         val_step_output = self._calculate_loss(batch, mode="val")
 
-        pose_seq = batch["pose_seq"]
-        nactions = pose_seq[:, -self.t_p:, ]
-        gt_action = nactions
-
-        result = self.predict_action(batch)
-        pred_action = result['action_pred']
-        mse = torch.nn.functional.mse_loss(pred_action, gt_action)
-        self.log("train_action_mse_error", mse)
+        if batch_idx == len(self.val_loader) - 1:
+            if self.last_train_batch is None:
+                print("rolling out on last val batch!")
+                last_batch = batch
+            else:
+                print("rolling out on last training batch!")
+                last_batch = self.last_train_batch
+            pose_seq = last_batch["pose_seq"]
+            nactions = pose_seq[:, -self.t_p:, ]
+            gt_action = nactions
+            result = self.predict_action(last_batch)
+            pred_action = result['action_pred']
+            mse = torch.nn.functional.mse_loss(pred_action, gt_action)
+            self.log("train_action_mse_error", mse)
 
         self.validation_epoch_outputs.append(val_step_output["total_loss"])
 
