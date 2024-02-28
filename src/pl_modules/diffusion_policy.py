@@ -114,7 +114,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
     # ========= inference  ============
     def conditional_sample(self,
                            condition_data, condition_mask,
-                           cond=None, generator=None,
+                           multimod_inputs=None, generator=None,
                            # keyword arguments to scheduler.step
                            **kwargs
                            ):
@@ -135,13 +135,17 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             trajectory[condition_mask] = condition_data[condition_mask]
 
             # 2. predict model output
-            model_output = model(trajectory, t, cond)
-
+            model_output = model(sample=trajectory,
+                                 timestep=t,
+                                 multimod_inputs=multimod_inputs,
+                                 mask=None,
+                                 task="imitation",
+                                 mode="val", )
+            pred = model_output["pred"]
             # 3. compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(
-                model_output, t, trajectory,
+                pred, t, trajectory,
                 generator=generator,
-                **kwargs
             ).prev_sample
 
         # finally make sure conditioning is enforced
@@ -149,72 +153,50 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
 
         return trajectory
 
-    def predict_action(self, obs_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """
-        obs_dict: must include "obs" key
-        result: must include "action" key
-        """
-        assert 'past_action' not in obs_dict  # not implemented yet
-        # normalize input
-        nobs = self.normalizer.normalize(obs_dict)
-        value = next(iter(nobs.values()))
-        B, To = value.shape[:2]
+    def predict_action(self, batch) -> Dict[str, torch.Tensor]:
+
         t_p = self.t_p
         Da = self.action_dim
-        Do = self.obs_feature_dim
-        To = self.n_obs_steps
 
-        # build input
         device = self.device
         dtype = self.dtype
 
-        # handle different ways of passing observation
-        cond = None
-        cond_data = None
-        cond_mask = None
-        if self.obs_as_cond:
-            this_nobs = dict_apply(nobs, lambda x: x[:, :To, ...].reshape(-1, *x.shape[2:]))
-            nobs_features = self.obs_encoder(this_nobs)
-            # reshape back to B, To, Do
-            cond = nobs_features.reshape(B, To, -1)
-            shape = (B, t_p, Da)
-            if self.pred_action_steps_only:
-                shape = (B, self.n_action_steps, Da)
-            cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
-            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
-        else:
-            # condition through impainting
-            this_nobs = dict_apply(nobs, lambda x: x[:, :To, ...].reshape(-1, *x.shape[2:]))
-            nobs_features = self.obs_encoder(this_nobs)
-            # reshape back to B, To, Do
-            nobs_features = nobs_features.reshape(B, To, -1)
-            shape = (B, t_p, Da + Do)
-            cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
-            cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
-            cond_data[:, :To, Da:] = nobs_features
-            cond_mask[:, :To, Da:] = True
+        observation = batch["observation"]
+        action = batch["action"]
+        pose = batch["pose"]
+        optical_flow = batch["optical_flow"]
+        action_seq = batch["action_seq"]
+        pose_seq = batch["pose_seq"]
+        vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
+        multimod_inputs = {
+            "vision": vg_inp,
+            "tactile": t_inp,
+            "audio": audio_h
+        }
+        batch_size = pose_seq.shape[0]
+        To = self.n_obs_steps
+        shape = (batch_size, t_p, Da)
+
+        cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
+        cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
 
         # run sampling
         nsample = self.conditional_sample(
             cond_data,
             cond_mask,
-            cond=cond,
+            multimod_inputs=multimod_inputs,
             **self.kwargs)
 
         # unnormalize prediction
         naction_pred = nsample[..., :Da]
-        action_pred = self.normalizer['action'].unnormalize(naction_pred)
+        action_pred = naction_pred
 
-        # get action
-        if self.pred_action_steps_only:
-            action = action_pred
-        else:
-            start = To - 1
-            end = start + self.n_action_steps
-            action = action_pred[:, start:end]
+        start = To - 1
+        end = start + self.n_action_steps
+        action_reduced_horizon = action_pred[:, start:end]
 
         result = {
-            'action': action,
+            'action': action_reduced_horizon,
             'action_pred': action_pred
         }
         return result
@@ -392,6 +374,16 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
         val_step_output = self._calculate_loss(batch, mode="val")
+
+        pose_seq = batch["pose_seq"]
+        nactions = pose_seq[:, -self.t_p:, ]
+        gt_action = nactions
+
+        result = self.predict_action(batch)
+        pred_action = result['action_pred']
+        mse = torch.nn.functional.mse_loss(pred_action, gt_action)
+        self.log("train_action_mse_error", mse)
+
         self.validation_epoch_outputs.append(val_step_output["total_loss"])
 
     def on_validation_epoch_end(self) -> None:
