@@ -57,7 +57,7 @@ class TransformerPredictorPl(pl.LightningModule):
         aux_loss = F.mse_loss(xyz_gt, xyz_pred)
         return immi_loss + aux_loss * 1.0, immi_loss, aux_loss
 
-    def _calculate_loss(self, batch, mode="train"):
+    def _calculate_loss(self, batch, mode="train", ema=""):
         """ Calculation of loss and prediction accuracy using output and label"""
         # Fetch data and transform categories to one-hot vectors
         inp_data = batch["observation"]
@@ -72,7 +72,7 @@ class TransformerPredictorPl(pl.LightningModule):
         task = self.train_tasks.split("+")
 
         mdl = self.mdl
-        if self.ema is not None and mode != "train":
+        if ema == "ema" and self.ema is not None and mode != "train":
             mdl = self.ema_mdl
 
         # Perform prediction and calculate loss and accuracy
@@ -95,13 +95,13 @@ class TransformerPredictorPl(pl.LightningModule):
             top_3_accu = top_k_accuracy(action_logits, demo, 3)
             top_5_accu = top_k_accuracy(action_logits, demo, 5)
             self.log_dict({
-                f"{mode}_sup_loss": loss,
-                f"{mode}_immi_loss": immi_loss,
-                f"{mode}_aux_loss": aux_loss,
-                f"{mode}_acc": acc,
-                f"{mode}_top_1_acc": top_1_accu,
-                f"{mode}_top_3_acc": top_3_accu,
-                f"{mode}_top_5_acc": top_5_accu,
+                f"{mode}{ema}_sup_loss": loss,
+                f"{mode}{ema}_immi_loss": immi_loss,
+                f"{mode}{ema}_aux_loss": aux_loss,
+                f"{mode}{ema}_acc": acc,
+                f"{mode}{ema}_top_1_acc": top_1_accu,
+                f"{mode}{ema}_top_3_acc": top_3_accu,
+                f"{mode}{ema}_top_5_acc": top_5_accu,
 
             })
             step_output["imitation_acc"] = acc
@@ -109,7 +109,7 @@ class TransformerPredictorPl(pl.LightningModule):
         ssl_losses_dict = {}
         for key, value in output["ssl_losses"].items():
             total_loss += value * self.weight[key]
-            ssl_losses_dict[f"{mode}_{key}"] = value
+            ssl_losses_dict[f"{mode}{ema}_{key}"] = value
         self.log_dict(ssl_losses_dict)
 
         step_output["total_loss"] = total_loss
@@ -134,6 +134,8 @@ class TransformerPredictorPl(pl.LightningModule):
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
         val_step_output = self._calculate_loss(batch, mode="val")
+        if self.ema is not None:
+            val_step_output_ema = self._calculate_loss(batch, mode="val", ema="ema")
         self.validation_epoch_outputs.append(val_step_output["imitation_acc"])
 
     def on_validation_epoch_end(self) -> None:

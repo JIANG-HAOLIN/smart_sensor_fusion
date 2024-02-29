@@ -1,11 +1,12 @@
-name: 'coswarmup'
+name: 'coswarmup_restart'
 optimizer:
   _target_: torch.optim.Adam
   lr: 1e-4
   weight_decay: 0.0
 
 scheduler:
-  _target_: diffusers.optimization.get_cosine_schedule_with_warmup
+  _target_: diffusers.optimization.get_cosine_with_hard_restarts_schedule_with_warmup
   num_warmup_steps: 250
   num_training_steps: 2500
+  num_cycles: 5
 

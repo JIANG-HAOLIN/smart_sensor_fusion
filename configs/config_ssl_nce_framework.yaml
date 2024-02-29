@@ -3,9 +3,9 @@
 
 defaults:
 - datasets: see_hear_feel
-- models: ssl_nce_framework/earlysum
+- models: ssl_nce_framework/earlysum_vatt_additional
 - optimizers: adam_steplr
-- pl_modules: ssl_nce_framework/mask_bind_fom
+- pl_modules: ssl_nce_framework/ltmask_bind_fom_rec_imi
 - trainers: ssl_nce_framework
 - _self_
 
