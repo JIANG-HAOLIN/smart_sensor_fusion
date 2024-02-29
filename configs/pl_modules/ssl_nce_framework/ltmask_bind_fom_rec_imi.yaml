@@ -15,7 +15,7 @@ pl_module:
   ema:
     _target_: src.models.utils.helpers.EMAModel
     inv_gamma: 1.0
-    max_value: 0.9999
+    max_value: 0.99
     min_value: 0.0
     power: 1.0
     update_after_step: 0
