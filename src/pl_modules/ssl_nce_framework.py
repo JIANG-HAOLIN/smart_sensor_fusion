@@ -50,7 +50,10 @@ class TransformerPredictorPl(pl.LightningModule):
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
 
-        return {"optimizer": self.optimizer, "lr_scheduler": self.scheduler}
+        return {"optimizer": self.optimizer,
+                "lr_scheduler": {"scheduler": self.scheduler,
+                                 "interval": "step"},
+                }
 
     def compute_loss(self, demo, pred_logits, xyz_gt, xyz_pred):
         immi_loss = self.loss_cce(pred_logits, demo)
@@ -113,7 +116,8 @@ class TransformerPredictorPl(pl.LightningModule):
         self.log_dict(ssl_losses_dict)
 
         step_output["total_loss"] = total_loss
-
+        if mode == "train":
+            self.log("learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
         return step_output
 
     def train_dataloader(self):
