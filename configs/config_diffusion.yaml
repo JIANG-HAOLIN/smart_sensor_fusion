@@ -15,7 +15,7 @@ task_name: "diffusion"
 variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
-results_dir: 'results'
+results_dir: '/home/jin4rng/Documents/code/smart_sensor_fusion/results'
 data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data'
 
 hydra:
@@ -34,7 +34,7 @@ hydra:
 #      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
 
   sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/" \\ if add timestamp: _${now:%m-%d-%H:%M:%S}
-    dir: ./${results_dir}/${task_name}/${datasets.name}/${output_name}/${pl_modules.name}_${models.name}_${optimizers.name}/
+    dir: ${results_dir}/${task_name}/${datasets.name}/${output_name}/${pl_modules.name}_${models.name}_${optimizers.name}/
     # only controls where config.yaml is saved
     subdir: ./
   run: # control where multirun.yaml is saved
