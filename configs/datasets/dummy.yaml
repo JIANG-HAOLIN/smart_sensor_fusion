@@ -2,7 +2,7 @@ name: 'dummy'
 
 dataloader:
   # norm_audio: True
-  _target_: src.datasets.dummy_robot_arm.get_debug_loaders
+  _target_: src.datasets.dummy_robot_arm.get_loaders
   batch_size: 128
   data_folder: ''
   drop_last: True

@@ -4,7 +4,7 @@
 defaults:
 - datasets: dummy
 - models: ssl_nce_framework/dummy
-- optimizers: adam_steplr
+- optimizers: adam_cosine
 - pl_modules: ssl_nce_framework/ltmask_fom_rec_ctnce_imi
 - trainers: dummy
 - _self_
