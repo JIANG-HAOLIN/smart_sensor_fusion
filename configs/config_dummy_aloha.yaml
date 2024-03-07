@@ -1,0 +1,49 @@
+# config_dummy_aloha.yaml
+
+
+defaults:
+- datasets: dummy
+- models: aloha/vae
+- optimizers: adam_cosine
+- pl_modules: aloha/aloha
+- trainers: dummy
+- _self_
+
+
+# General settings
+task_name: "dummy_aloha"
+variable_name: trainers.launch_trainer.repeat_trial
+output_name: debug
+seed: 42
+results_dir: '/home/jin4rng/Documents/code/smart_sensor_fusion/results'
+data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robot_demo'
+
+hydra:
+  sweeper:
+    params:
+      trainers.launch_trainer.repeat_trial: 1
+      trainers.launch_trainer.max_epochs: 2
+#      trainers.launch_trainer.monitor: "val_loss"
+      datasets.dataloader.data_folder: ${data_folder_path}
+      datasets.dataloader.args.num_stack: 10
+      datasets.dataloader.args.len_lb: 30
+      models.model.action_decoder.num_queries: 30
+      models.model.obs_encoder.model_dim: 256
+      optimizers: adam_steplr
+      datasets.dataloader.batch_size: 16
+      pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
+#      models.model.transformer_classifier_args._target_: src.models.vit_implementations.Vit_ClassifierVanillaNoPatch
+
+  sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/" \\ if add timestamp: _${now:%m-%d-%H:%M:%S}
+    dir: ${results_dir}/${task_name}/${datasets.name}/${output_name}/${pl_modules.name}_${models.name}_${optimizers.name}/
+    # only controls where config.yaml is saved
+    subdir: ./
+  run: # control where multirun.yaml is saved
+    dir: ${hydra.sweep.sub}/.hydra
+
+
+
+
+
+
+

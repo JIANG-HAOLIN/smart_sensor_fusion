@@ -3,75 +3,36 @@ name: 'vae'
 model:
   _target_: src.models.aloha.build_detrvae
   action_dim: 6
+  pose_dim: 7
   style_encoder:
-    lr: 1e-05
-    lr_backbone: 1e-05
-    batch_size: 8
-    weight_decay: 0.0001
-    epochs: 300
-    lr_drop: 200
-    clip_max_norm: 0.1
-
     dilation: False
     position_embedding: 'sine'
-
     enc_layers: 4
     dec_layers: 7
-    dim_feedforward: 3200
-    hidden_dim: 512
+    dim_feedforward: 1024
+    hidden_dim: 256
     dropout: 0.1
     nheads: 8
-
     pre_norm: False
-    masks: False
-    eval: False
-    onscreen_render: False
-    ckpt_dir: 'ckp_dir'
-    policy_class: 'ACT'
-    task_name: 'sim_transfer_cube_scripted'
-    num_epochs: 2000
-    kl_weight: 10
-    chunk_size: 100
-    temporal_agg: False
 
   action_decoder:
-    lr: 1e-05
-    lr_backbone: 1e-05
-    batch_size: 8
-    weight_decay: 0.0001
-    epochs: 300
-    lr_drop: 200
-    clip_max_norm: 0.1
-
     dilation: False
     position_embedding: 'sine'
-
     enc_layers: 4
     dec_layers: 7
-    dim_feedforward: 3200
-    hidden_dim: 512
+    dim_feedforward: 1024
+    hidden_dim: 256
     dropout: 0.1
     nheads: 8
-    num_queries: 20
+    num_queries: 50
     pre_norm: False
-    masks: False
-    eval: False
-    onscreen_render: False
-    ckpt_dir: 'ckp_dir'
-    policy_class: 'ACT'
-    task_name: 'sim_transfer_cube_scripted'
-    num_epochs: 2000
-    kl_weight: 10
-    chunk_size: 100
-    temporal_agg: False
-
 
   obs_encoder:
     #---------------------------------------------------------------------------------------------------------#
     _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT_addtional
-    mod_names: ["vision","audio","tactile"]
+    mod_names: ["vision"]
     main_mod: "vision"
-    model_dim: 512
+    model_dim: 256
     num_stack: 10  # num_frame / short_window_len
 
     nce_args:
@@ -85,7 +46,7 @@ model:
 
     mask_args:
       mask_type: raw
-      masked_mod: ["vision", "audio", "tactile"]
+      masked_mod: ["vision"]
       mask_prob:
         latent: 0.5
         vision: 0.5
@@ -164,13 +125,13 @@ model:
         num_layers: 4
         patch_size:
           - 1
-          - 8
-          - 8
+          - 16
+          - 16
         input_size: # first dim = short_window_len
           - 1
-          - 67
-          - 90
-        num_emb: 100
+          - 216
+          - 576
+        num_emb: 500
       pe_vision:
         _target_: src.models.encoders.identity.get_identity_encoder
       encoder_vision_args:

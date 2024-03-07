@@ -325,10 +325,10 @@ class DummyDataset(Dataset):
             "start": start,
             "current": idx,
             "end": lb_end,
-            "whole_pose_seq": torch.from_numpy(np.concatenate([whole_position_seq, whole_orientation_seq], axis=-1)),
-            "target_pose_seq": torch.from_numpy(np.concatenate([target_position_seq, target_orientation_seq], axis=-1)),
+            "whole_pose_seq": torch.from_numpy(np.concatenate([whole_position_seq, whole_orientation_seq], axis=-1)).float(),
+            "target_pose_seq": torch.from_numpy(np.concatenate([target_position_seq, target_orientation_seq], axis=-1)).float(),
             "target_delta_seq": torch.from_numpy(
-                np.concatenate([target_position_delta_seq, target_orientation_delta_seq], axis=-1))
+                np.concatenate([target_position_delta_seq, target_orientation_delta_seq], axis=-1)).float()
             ,
         }
 

@@ -77,29 +77,25 @@ class AlohaPolicy(pl.LightningModule):
         metrics = {}
 
         # Fetch data and transform categories to one-hot vectors
-        observation = batch["observation"]
-        action = batch["action"]
-        pose = batch["pose"]
-        optical_flow = batch["optical_flow"]
-        action_seq = batch["action_seq"]
-        pose_seq = batch["pose_seq"]
-        a = pose_seq[:, -self.t_p:]
-        vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
+        inp_data = batch["observation"]
+        delta = batch["target_delta_seq"][:, 1:]
+        pose = batch["target_pose_seq"]
+        vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": vg_inp,
-            "tactile": t_inp,
-            "audio": audio_h
+            "vision": [vf_inp, vg_inp],
         }
+
+
         task = self.train_tasks.split("+")
 
         # Perform prediction and calculate loss and accuracy
-        if a is not None:  # training time
+        if delta is not None:  # training time
 
-            qpos = pose_seq[:, 0, :]
-            is_pad = torch.zeros([a.shape[0], a.shape[1]], device=qpos.device).bool()
+            qpos = pose[:, 0, :]
+            is_pad = torch.zeros([delta.shape[0], delta.shape[1]], device=qpos.device).bool()
             out = self.mdl(qpos,
                            multimod_inputs,
-                           actions=a,
+                           actions=delta,
                            is_pad=is_pad,
                            mask=None,
                            mask_type=self.mask_type,
@@ -108,7 +104,7 @@ class AlohaPolicy(pl.LightningModule):
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
-            all_l1 = F.l1_loss(a, a_hat, reduction='none')
+            all_l1 = F.l1_loss(delta, a_hat, reduction='none')
             l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
             metrics['l1_loss'] = l1
             metrics['kl'] = total_kld[0]
@@ -159,27 +155,27 @@ class AlohaPolicy(pl.LightningModule):
             logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
 
 
-def rollout(max_timesteps: int, policy: nn.Module, ):
-    all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, dim]).cuda()
-
-    with torch.inference_mode():
-        for t in range(max_timesteps):
-            all_actions = policy(qpos,
-                                 multimod_inputs,
-                                 actions=None,
-                                 is_pad=None,
-                                 mask=None,
-                                 mask_type=None,
-                                 task="imitation",
-                                 mode="val")
-            all_time_actions[[t], t:t + num_queries] = all_actions
-            actions_for_curr_step = all_time_actions[:, t]
-            actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
-            actions_for_curr_step = actions_for_curr_step[actions_populated]
-            k = 0.01
-            exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
-            exp_weights = exp_weights / exp_weights.sum()
-            exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
-            raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
-            raw_action = raw_action.squeeze(0).cpu().numpy()
-            action = post_process(raw_action)
+# def rollout(max_timesteps: int, policy: nn.Module, ):
+#     all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, dim]).cuda()
+#
+#     with torch.inference_mode():
+#         for t in range(max_timesteps):
+#             all_actions = policy(qpos,
+#                                  multimod_inputs,
+#                                  actions=None,
+#                                  is_pad=None,
+#                                  mask=None,
+#                                  mask_type=None,
+#                                  task="imitation",
+#                                  mode="val")
+#             all_time_actions[[t], t:t + num_queries] = all_actions
+#             actions_for_curr_step = all_time_actions[:, t]
+#             actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
+#             actions_for_curr_step = actions_for_curr_step[actions_populated]
+#             k = 0.01
+#             exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
+#             exp_weights = exp_weights / exp_weights.sum()
+#             exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+#             raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
+#             raw_action = raw_action.squeeze(0).cpu().numpy()
+#             action = post_process(raw_action)

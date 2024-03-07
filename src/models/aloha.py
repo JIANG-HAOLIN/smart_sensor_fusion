@@ -347,7 +347,7 @@ def get_sinusoid_encoding_table(n_position, d_hid):
 class DETRVAE(nn.Module):
     """ This is the DETR module that performs object detection """
 
-    def __init__(self, style_encoder, transformer, action_dim, num_queries):
+    def __init__(self, style_encoder, transformer, action_dim, num_queries, pose_dim):
         """ Initializes the model.
         Parameters:
             backbones: torch module of the backbone to be used. See backbone.py
@@ -367,13 +367,13 @@ class DETRVAE(nn.Module):
         self.is_pad_head = nn.Linear(hidden_dim, 1)
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
 
-        self.input_proj_robot_state = nn.Linear(action_dim, hidden_dim)
+        self.input_proj_robot_state = nn.Linear(pose_dim, hidden_dim)
 
         # encoder extra parameters
         self.latent_dim = 32  # final size of latent z # TODO tune
         self.cls_embed = nn.Embedding(1, hidden_dim)  # extra cls token embedding
         self.encoder_action_proj = nn.Linear(action_dim, hidden_dim)  # project action to embedding
-        self.encoder_joint_proj = nn.Linear(action_dim, hidden_dim)  # project qpos to embedding
+        self.encoder_joint_proj = nn.Linear(pose_dim, hidden_dim)  # project qpos to embedding
         self.latent_proj = nn.Linear(hidden_dim, self.latent_dim * 2)  # project hidden state to latent std, var
         self.register_buffer('pos_table',
                              get_sinusoid_encoding_table(1 + 1 + num_queries, hidden_dim))  # [CLS], qpos, a_seq
@@ -471,7 +471,8 @@ def build_encoder(args):
 def build_detrvae(style_encoder: DictConfig,
                   action_decoder: DictConfig,
                   obs_encoder: DictConfig,
-                  action_dim: int):
+                  action_dim: int,
+                  pose_dim: int):
 
     # From state
     # backbone = None # from state for now, no need for conv nets
@@ -495,6 +496,7 @@ def build_detrvae(style_encoder: DictConfig,
         style_encoder,
         transformer,
         action_dim=action_dim,
+        pose_dim=pose_dim,
         num_queries=action_decoder.num_queries,
     )
 
