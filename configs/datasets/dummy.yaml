@@ -1,0 +1,18 @@
+name: 'dummy'
+
+dataloader:
+  # norm_audio: True
+  _target_: src.datasets.dummy_robot_arm.get_debug_loaders
+  batch_size: 128
+  data_folder: ''
+  drop_last: True
+
+  args:
+    ablation: 'vg_vf'
+    num_stack: 5
+    frameskip: 5
+    no_crop: True
+    crop_percent: 0.1
+    resized_height_v: 240
+    resized_width_v: 320
+    len_lb: 20

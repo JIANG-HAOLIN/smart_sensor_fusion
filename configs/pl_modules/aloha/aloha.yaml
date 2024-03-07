@@ -4,7 +4,7 @@ pl_module:
   _target_: src.pl_modules.aloha.AlohaPolicy
   num_stack: 10
   t_p: 10
-  train_tasks: bind+order+recover+imitation
+  train_tasks: cross_time_nce+order+recover+imitation
   mask_type: latent_mask
   weight:
     cr_m_nce_loss: 1.0

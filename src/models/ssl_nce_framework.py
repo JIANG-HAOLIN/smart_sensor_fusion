@@ -1879,6 +1879,10 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
         # process of vision signal
         if "vision" in multimod_inputs.keys():
             vision_signal = multimod_inputs["vision"]
+            if isinstance(vision_signal, list):
+                # concatenate along width
+                vision_signal = torch.cat(vision_signal, dim = -1)
+
             batch_size, num_frame, c_v, h_v, w_v = vision_signal.shape
             short_window_len = self.mod_args["vision"].short_window_len
             assert num_frame % short_window_len == 0

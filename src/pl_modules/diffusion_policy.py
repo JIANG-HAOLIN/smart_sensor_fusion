@@ -336,8 +336,9 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         for key, value in mdl_out["obs_encoder_out"]["ssl_losses"].items():
             total_loss += value * self.weight[key]
 
+        if mode == "train":
+            self.log("learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
         metrics["total_loss"] = total_loss
-
         mod_metric = {}
         for key, value in metrics.items():
             mod_metric[f"{mode}_{key}"] = value
