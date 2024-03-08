@@ -86,7 +86,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         scatter_tsne([i[:, -1:] for i in trials_outs], ["cross_time_output", ],
                      trials_names, output_png_path+"_ct_output")
         # scatter_pca(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
-        #             traj_name, output_png_path)
+        #             traj_name``, output_png_path)
         # scatter_tnse_3d(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
         #                 traj_name, output_png_path)
         # scatter_pca_3d(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],

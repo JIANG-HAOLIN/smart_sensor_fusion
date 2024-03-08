@@ -81,7 +81,7 @@ class TransformerPredictorPl(pl.LightningModule):
                      )
 
         if "imitation" in task:
-            loss = self.compute_loss(delta, output["predict"]["xyzrpy"])
+            loss = 10 * self.compute_loss(delta, output["predict"]["xyzrpy"])
             total_loss += loss
             metrics[f"imitation_loss{ema}"] = loss
 
