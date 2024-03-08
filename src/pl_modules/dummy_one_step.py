@@ -70,7 +70,7 @@ class TransformerPredictorPl(pl.LightningModule):
         task = self.train_tasks.split("+")
 
         mdl = self.mdl
-        if ema == "ema" and self.ema is not None and mode != "train":
+        if ema == "EMA" and self.ema is not None and mode != "train":
             mdl = self.ema_mdl
 
         # Perform prediction and calculate loss and accuracy
@@ -83,15 +83,15 @@ class TransformerPredictorPl(pl.LightningModule):
         if "imitation" in task:
             loss = self.compute_loss(delta, output["predict"]["xyzrpy"])
             total_loss += loss
-            metrics[f"{ema}_imitation_loss"] = loss
+            metrics[f"imitation_loss{ema}"] = loss
 
         for key, value in output["ssl_losses"].items():
             total_loss += value * self.weight[key]
-            metrics[f"{ema}_{key}"] = value
+            metrics[f"{key}{ema}"] = value
 
         if mode == "train":
             self.log("learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
-        metrics[f"{ema}total_loss"] = total_loss
+        metrics[f"total_loss{ema}"] = total_loss
         mod_metric = {}
         for key, value in metrics.items():
             mod_metric[f"{mode}_{key}"] = value
@@ -118,7 +118,7 @@ class TransformerPredictorPl(pl.LightningModule):
         """
         val_step_output = self._calculate_loss(batch, mode="val")
         if self.ema is not None:
-            val_step_output_ema = self._calculate_loss(batch, mode="val", ema="ema")
+            val_step_output_ema = self._calculate_loss(batch, mode="val", ema="EMA")
 
     def on_validation_epoch_end(self) -> None:
         """ Calculate the validation accuracy after an entire epoch.
