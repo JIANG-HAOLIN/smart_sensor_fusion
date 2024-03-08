@@ -52,7 +52,7 @@ class TransformerPredictorPl(pl.LightningModule):
                 }
 
     def compute_loss(self, delta, output):
-        aux_loss = F.mse_loss(delta, output)
+        aux_loss = F.l1_loss(delta, output)
         return aux_loss
 
     def _calculate_loss(self, batch, mode="train", ema=""):
