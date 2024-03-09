@@ -1625,6 +1625,7 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             output["predict"]["action_logits"] = action_logits
             output["predict"]["xyzrpy"] = xyzrpy
             output["time"] = time.time() - start_time
+            output["pos_emb"]["cross_time_emb"] = self.cross_time_pos_emb.pe[:, :self.num_stack + 1, :]
             return output
 
         if "bind" in task:

@@ -19,7 +19,7 @@ import torchvision.transforms as T
 from copy import deepcopy
 from PIL import Image
 from types import SimpleNamespace
-from utils.pose_trajectory_processor import PoseTrajectoryProcessor
+from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
 from utils.quaternion import q_log_map
 
 
@@ -106,35 +106,44 @@ class DummyDataset(Dataset):
             else:
                 return None
 
-        with open(os.path.join(traj_path, "robot_trajectory.json")) as ts:
-            robot_trajectory = json.load(ts)
+        if os.path.exists(os.path.join(traj_path, "resampled_robot_trajectory.json")):
+            with open(os.path.join(traj_path, "robot_trajectory.json")) as ts:
+                robot_trajectory = json.load(ts)
+                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
+            json_path = os.path.join(traj_path, "resampled_robot_trajectory.json")
+            resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
+        else:
+            json_path = os.path.join(traj_path, "robot_trajectory.json")
+            with open(json_path) as ts:
+                robot_trajectory = json.load(ts)
+                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
+                resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
+                                                                                        sampling_time=0.1)
+                resampled_trajectory.save_to_file(os.path.join(traj_path, "resampled_robot_trajectory.json"))
 
-            pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-            resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory, sampling_time=0.1)
+        # get pseudo time stamp from resampled real time stamp and original real time stamps
+        resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
+        og_time_step = np.expand_dims(np.array(pose_trajectory.time_stamps), axis=0)
+        og_time_step = np.tile(og_time_step, (resample_time_step.shape[0], 1))
+        diff = np.abs(og_time_step - resample_time_step)
+        resample_pseudo_time_stamps = np.argmin(diff, axis=1, keepdims=False)
 
-            # get pseudo time stamp from resampled real time stamp and original real time stamps
-            resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
-            og_time_step = np.expand_dims(np.array(pose_trajectory.time_stamps), axis=0)
-            og_time_step = np.tile(og_time_step, (resample_time_step.shape[0], 1))
-            diff = np.abs(og_time_step - resample_time_step)
-            resample_pseudo_time_stamps = np.argmin(diff, axis=1, keepdims=False)
+        # get all raw info
+        raw_position_histroy = []
+        raw_orientation_history = []
+        raw_absolute_real_time_stamps = []
+        for i, v in robot_trajectory.items():
+            raw_position_histroy.append(v["pose"][:3])
+            raw_orientation_history.append(v["pose"][3:])
+            raw_absolute_real_time_stamps.append(v["time"])
 
-            # get all raw info
-            raw_position_histroy = []
-            raw_orientation_history = []
-            raw_absolute_real_time_stamps = []
-            for i, v in robot_trajectory.items():
-                raw_position_histroy.append(v["pose"][:3])
-                raw_orientation_history.append(v["pose"][3:])
-                raw_absolute_real_time_stamps.append(v["time"])
-
-            # get all resampled info
-            resample_position_histroy = []
-            resample_orientation_history = []
-            for i in resampled_trajectory.pose_trajectory.poses:
-                resample_orientation_history.append(
-                    [i.orientation.w, i.orientation.x, i.orientation.y, i.orientation.z])
-                resample_position_histroy.append([i.position.x, i.position.y, i.position.z])
+        # get all resampled info
+        resample_position_histroy = []
+        resample_orientation_history = []
+        for i in resampled_trajectory.pose_trajectory.poses:
+            resample_orientation_history.append(
+                [i.orientation.w, i.orientation.x, i.orientation.y, i.orientation.z])
+            resample_position_histroy.append([i.position.x, i.position.y, i.position.z])
 
         if "ag" in modes:
             audio_gripper_left = load("audio_gripper_left.wav")
@@ -384,8 +393,8 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
 
     """
     trajs = [os.path.join(data_folder, traj) for traj in os.listdir(data_folder)]
-
-    random.shuffle(trajs)
+    # random.seed(42)
+    # random.shuffle(trajs)
     num_train = 1
     val_trajs_paths = trajs[-1:]
     train_trajs_paths = trajs[:num_train]
@@ -420,7 +429,7 @@ if __name__ == "__main__":
     args.num_stack = 5
     args.frameskip = 5
     args.no_crop = True
-    args.crop_percent = 0.1
+    args.crop_percent = 0.0
     args.resized_height_v = 240
     args.resized_width_v = 320
     args.len_lb = 1
@@ -436,8 +445,10 @@ if __name__ == "__main__":
         image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
         image = np.concatenate([image_f, image_g], axis=0)
         cv2.imshow("asdf", image)
-        plt.draw()
-        plt.pause(0.05)
+        time.sleep(0.1)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
 
         whole_pose_seq = batch["whole_pose_seq"]
         target_pose_seq = batch["target_pose_seq"]

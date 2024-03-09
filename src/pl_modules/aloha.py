@@ -155,27 +155,27 @@ class AlohaPolicy(pl.LightningModule):
             logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
 
 
-# def rollout(max_timesteps: int, policy: nn.Module, ):
-#     all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, dim]).cuda()
-#
-#     with torch.inference_mode():
-#         for t in range(max_timesteps):
-#             all_actions = policy(qpos,
-#                                  multimod_inputs,
-#                                  actions=None,
-#                                  is_pad=None,
-#                                  mask=None,
-#                                  mask_type=None,
-#                                  task="imitation",
-#                                  mode="val")
-#             all_time_actions[[t], t:t + num_queries] = all_actions
-#             actions_for_curr_step = all_time_actions[:, t]
-#             actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
-#             actions_for_curr_step = actions_for_curr_step[actions_populated]
-#             k = 0.01
-#             exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
-#             exp_weights = exp_weights / exp_weights.sum()
-#             exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
-#             raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
-#             raw_action = raw_action.squeeze(0).cpu().numpy()
-#             action = post_process(raw_action)
+def rollout(max_timesteps: int, policy: nn.Module, ):
+    all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, dim]).cuda()
+
+    with torch.inference_mode():
+        for t in range(max_timesteps):
+            all_actions = policy(qpos,
+                                 multimod_inputs,
+                                 actions=None,
+                                 is_pad=None,
+                                 mask=None,
+                                 mask_type=None,
+                                 task="imitation",
+                                 mode="val")
+            all_time_actions[[t], t:t + num_queries] = all_actions
+            actions_for_curr_step = all_time_actions[:, t]
+            actions_populated = torch.all(actions_for_curr_step != 0, axis=1)
+            actions_for_curr_step = actions_for_curr_step[actions_populated]
+            k = 0.01
+            exp_weights = np.exp(-k * np.arange(len(actions_for_curr_step)))
+            exp_weights = exp_weights / exp_weights.sum()
+            exp_weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+            raw_action = (actions_for_curr_step * exp_weights).sum(dim=0, keepdim=True)
+            raw_action = raw_action.squeeze(0).cpu().numpy()
+            action = post_process(raw_action)
