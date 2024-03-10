@@ -1732,7 +1732,7 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
                 output["predict"]["action_logits"] = action_logits
                 output["predict"]["xyzrpy"] = xyzrpy
 
-        elif mask is None:
+        elif mask == "no_mask":
             if "order" in task:
                 fom_loss = self.forward_order_prediction(fused_t_feats,
                                                          compute_loss=True,

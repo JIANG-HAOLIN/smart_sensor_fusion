@@ -1,7 +1,22 @@
-name: nomask_imi
+name: "nomask_imi"
 pl_module:
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
   num_stack: 5
   train_tasks: imitation
-  masked_train: False
+  masked_train: "no_mask"
+  weight:
+    imitation: 10
+    cr_m_nce_loss: 1.0
+    masked_fom_loss: 1.0
+    mask_fusion_nce_loss: 1.0
+    mask_cr_t_nce_loss: 1.0
+    recover_loss: 1.0
+    fom_loss: 1.0
 
+  ema:
+    _target_: src.models.utils.helpers.EMAModel
+    inv_gamma: 1.0
+    max_value: 0.99
+    min_value: 0.0
+    power: 1.0
+    update_after_step: 0

@@ -3,5 +3,5 @@ pl_module:
   _target_: src.pl_modules.ssl_nce_framework.TransformerPredictorPl
   num_stack: 5
   train_tasks: bind+order+imitation
-  masked_train: False
+  masked_train: "no_mask"
 
