@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.nn.modules.activation import MultiheadAttention
 from src.models.vit_implementations import Vit_Classifier, Vit_Classifier_Mel, LrnEmb_Agg_Trf
 from src.models.utils.mel_spec import MelSpec
-from src.models.utils.header import ClassificationHead
+from src.models.utils.header import ClassificationHead, MLPHead
 from src.models.utils.helpers import get_scatter_idx_target, get_mask_sequence1d
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -1592,7 +1592,7 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(model_dim, 3 ** 3),
         )
-        self.aux_mlp = torch.nn.Linear(model_dim, 6)
+        self.aux_mlp = MLPHead(in_dim=256, out_dim=6, norm="batch")
 
         self.latent_mask_token = nn.ParameterDict({mod_name: torch.nn.Parameter(torch.randn([1, 1, model_dim]))
                                                    for mod_name in self.mod_names})

@@ -45,7 +45,8 @@ class MLPHead(nn.Module):
                  hidden_dim: Optional[int] = None,
                  out_dim: int = 10,
                  dropout: float = 0.,
-                 norm: str = "layer"):
+                 norm: str = "layer",
+                 eps: float = 1e-5,):
         """
         Args:
             in_dim: the model dim for linear layer
@@ -58,7 +59,7 @@ class MLPHead(nn.Module):
             norm = nn.LayerNorm(hidden_dim)
         elif norm == "batch":
             norm = nn.Sequential(MyPermute([0, 2, 1]),
-                                 nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=hidden_dim),
+                                 nn.BatchNorm1d(momentum=0.9, eps=eps, num_features=hidden_dim),
                                  MyPermute([0, 2, 1]),
                                  )
 
