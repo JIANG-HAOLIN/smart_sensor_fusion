@@ -102,9 +102,9 @@ model:
         - 16
       input_size: # first dim = short_window_len
         - 1
-        - 216
-        - 576
-      num_emb: 500
+        - 240
+        - 640
+      num_emb: 601
     pe_vision:
       _target_: src.models.encoders.identity.get_identity_encoder
     encoder_vision_args:

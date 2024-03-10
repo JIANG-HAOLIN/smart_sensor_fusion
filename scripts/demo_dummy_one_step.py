@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='name=ltmask_bind_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5_03-07-18:04:31')
+                        default='../results/ltmask_bind_fom_rec_imi_ssnce_earlysum_vatt_additional_coswarmup/name=ltmask_bind_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5_03-08-11:25:44')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

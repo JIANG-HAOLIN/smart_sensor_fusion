@@ -7,4 +7,4 @@ optimizer:
 scheduler:
   _target_: diffusers.optimization.get_cosine_schedule_with_warmup
   num_warmup_steps: 500
-  num_training_steps: 5000
+  num_training_steps: 10000
