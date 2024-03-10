@@ -594,7 +594,7 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwar
     Returns: training loader and validation loader
 
     """
-    trajs = [os.path.join(data_folder, traj) for traj in os.listdir(data_folder)]
+    trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
     num_train = int(len(trajs) * 0.8)
 
     train_trajs_paths = trajs[:num_train]
