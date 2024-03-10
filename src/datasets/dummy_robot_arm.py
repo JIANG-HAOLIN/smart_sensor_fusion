@@ -429,7 +429,7 @@ class Normalizer(torch.nn.Module):
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
                 resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
                                                                                         sampling_time=0.1)
-                resampled_trajectory.save_to_file(os.path.join(traj_path, "resampled_robot_trajectory.json"))
+                resampled_trajectory.save_to_file(os.path.join(json_path))
 
         # get pseudo time stamp from resampled real time stamp and original real time stamps
         resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
