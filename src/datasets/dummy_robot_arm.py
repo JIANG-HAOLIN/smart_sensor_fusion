@@ -415,12 +415,14 @@ class Normalizer(torch.nn.Module):
                 return None
 
         if os.path.exists(os.path.join(traj_path, "resampled_robot_trajectory.json")):
+            print(f"resampled trajectory exists")
             with open(os.path.join(traj_path, "robot_trajectory.json")) as ts:
                 robot_trajectory = json.load(ts)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
             json_path = os.path.join(traj_path, "resampled_robot_trajectory.json")
             resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
         else:
+            print(f"resampled trajectory not exists")
             json_path = os.path.join(traj_path, "robot_trajectory.json")
             with open(json_path) as ts:
                 robot_trajectory = json.load(ts)
@@ -572,7 +574,10 @@ class Normalizer(torch.nn.Module):
         p_mean, p_std = all_delta_p.mean(0, keepdims=True), all_delta_p.std(0, keepdims=True)
         all_delta_o = np.concatenate(all_delta_o, axis=0)
         o_mean, o_std = all_delta_o.mean(0, keepdims=True), all_delta_o.std(0, keepdims=True)
-
+        print(f"p_mean:{p_mean}")
+        print(f"p_std:{p_std}")
+        print(f"o_mean{o_mean}")
+        print(f"o_std:{o_std}")
         return p_mean, p_std, o_mean, o_std
 
 

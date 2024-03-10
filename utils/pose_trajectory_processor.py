@@ -395,7 +395,7 @@ class PoseTrajectoryProcessor:
         # An exhaustive implementation of quaternion interpolation
         q_interp = np.zeros((num_time_steps + 1, 4))
         for i in range(num_time_steps):
-            print(f"{i}/{num_time_steps}")
+            # print(f"{i}/{num_time_steps}")
             # find closes sampling point
             curr_interpolation_time = i * sampling_time
             demo_ix = np.argmin((time_stamps - curr_interpolation_time)**2)
