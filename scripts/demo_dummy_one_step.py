@@ -51,7 +51,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/dummy_one_step/dummy/$name/nomask_imi_ssnce_earlysum_vatt_additional_steplr/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-11-17:24:35')
+                        default='../results/name=ltmask_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5weight_decay=0.0_03-11-18:32:01')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

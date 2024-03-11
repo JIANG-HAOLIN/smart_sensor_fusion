@@ -530,10 +530,10 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwar
 
     """
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
-    num_train = int(len(trajs) * 0.8)
+    # num_train = int(len(trajs) * 0.8)
 
-    train_trajs_paths = trajs[:num_train]
-    val_trajs_paths = trajs[num_train:]
+    train_trajs_paths = trajs[:-6] + trajs[-4:]
+    val_trajs_paths = trajs[-6:-4]
 
     normalizer = Normalizer(train_trajs_paths, args, True)
     args.p_mean, args.p_std, args.o_mean, args.o_std = normalizer.get_mean_std()
@@ -573,9 +573,9 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     num_train = int(len(trajs) * 0.8)
 
     train_trajs_paths = trajs[:num_train]
-    train_trajs_paths = train_trajs_paths[8:9]
+    train_trajs_paths = train_trajs_paths[:1]
     val_trajs_paths = trajs[num_train:]
-    val_trajs_paths = val_trajs_paths[3:4]
+    val_trajs_paths = val_trajs_paths[1:2]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
     args.p_mean = np.array([[0.00010239, 0.0003605, -0.00236236]])
