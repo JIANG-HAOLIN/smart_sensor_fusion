@@ -65,7 +65,7 @@ class TransformerPredictorPl(pl.LightningModule):
         delta = batch["target_delta_seq"][:, 1].float()
         vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": [vf_inp, vg_inp],
+            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
         }
         task = self.train_tasks.split("+")
 

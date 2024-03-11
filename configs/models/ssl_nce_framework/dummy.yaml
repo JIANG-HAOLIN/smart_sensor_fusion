@@ -5,7 +5,7 @@ model:
   _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT_addtional
   mod_names: ["vision"]
   main_mod: "vision"
-  model_dim: 256
+  model_dim: 768
   num_stack: 10  # num_frame / short_window_len
 
   nce_args:
@@ -62,30 +62,6 @@ model:
       dropout: 0.
       norm: layer
   #---------------------------------------------------------------------------------------------------------#
-  audio_args:
-    preprocess_audio_args:
-      _target_: src.models.utils.mel_spec.MelSpec
-      windows_size: 0.05
-      length: 80000
-      sr: 16000
-      n_mels: 64
-      norm_audio: false
-      hop: 0.05
-    tokenization_audio:
-      _target_: src.models.utils.tokenization.Vanilla2dTokenization
-      channel_size: 1
-      input_size:
-        - ${models.model.audio_args.preprocess_audio_args.n_mels}
-        - 101
-      patch_size:
-        - ${models.model.audio_args.preprocess_audio_args.n_mels}
-        - 10
-      model_dim: ${models.model.model_dim}
-    pe_audio:
-      _target_: src.models.encoders.identity.get_identity_encoder
-    encoder_audio_args:
-      _target_: src.models.encoders.identity.get_identity_encoder
-
   vision_args:
     short_window_len: 1
     preprocess_vision_args:
@@ -94,8 +70,8 @@ model:
       _target_: src.models.vit_implementations.VitVATT3D
       channel_size: 3
       model_dim: ${models.model.model_dim}
-      num_heads: 8
-      num_layers: 4
+      num_heads: 12
+      num_layers: 8
       patch_size:
         - 1
         - 16
@@ -103,35 +79,11 @@ model:
       input_size: # first dim = short_window_len
         - 1
         - 240
-        - 640
-      num_emb: 601
+        - 160
+      num_emb: 151
     pe_vision:
       _target_: src.models.encoders.identity.get_identity_encoder
     encoder_vision_args:
-      _target_: src.models.encoders.identity.get_identity_encoder
-    
-  tactile_args:
-    short_window_len: 1
-    preprocess_tactile_args:
-      _target_: src.models.encoders.identity.get_identity_encoder
-    tokenization_tactile:
-      _target_: src.models.vit_implementations.VitVATT3D
-      channel_size: 3
-      model_dim: ${models.model.model_dim}
-      num_heads: 8
-      num_layers: 4
-      patch_size:
-        - 1
-        - 6
-        - 6
-      input_size: # first dim = short_window_len
-        - 1
-        - 54
-        - 72
-      num_emb: 109  # 1 more aggregation token
-    pe_tactile:
-      _target_: src.models.encoders.identity.get_identity_encoder
-    encoder_tactile_args:
       _target_: src.models.encoders.identity.get_identity_encoder
   #---------------------------------------------------------------------------------------------------------#
 
@@ -149,7 +101,7 @@ model:
   cross_time_trf_args:
     _target_: src.models.transformer_implementations.TransformerEncoderVanilla
     token_dim: ${models.model.model_dim}
-    num_heads: 8
+    num_heads: 12
     num_blocks: 4
 
 

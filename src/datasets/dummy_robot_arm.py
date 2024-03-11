@@ -64,7 +64,7 @@ class DummyDataset(Dataset):
          self.resample_trajectory,
          self.audio_gripper,
          self.audio_holebase,
-         ) = self.get_episode(traj_path, ablation=args.ablation)
+         ) = self.get_episode(traj_path, ablation=args.ablation, sampling_time=args.sampling_time)
 
         self.num_frames = len(self.resample_trajectory["relative_real_time_stamps"])
         print(self.num_frames)
@@ -92,9 +92,10 @@ class DummyDataset(Dataset):
         self.p_std = args.p_std
         self.o_mean = args.o_mean
         self.o_std = args.o_std
+
         pass
 
-    def get_episode(self, traj_path, ablation=""):
+    def get_episode(self, traj_path, ablation="", sampling_time=150):
         """
         Return:
             folder for traj_path
@@ -111,11 +112,11 @@ class DummyDataset(Dataset):
             else:
                 return None
 
-        if os.path.exists(os.path.join(traj_path, "resampled_robot_trajectory.json")):
+        if os.path.exists(os.path.join(traj_path, f"resampled_{sampling_time}_robot_trajectory.json")):
             with open(os.path.join(traj_path, "robot_trajectory.json")) as ts:
                 robot_trajectory = json.load(ts)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-            json_path = os.path.join(traj_path, "resampled_robot_trajectory.json")
+            json_path = os.path.join(traj_path, f"resampled_{sampling_time}_robot_trajectory.json")
             resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
         else:
             json_path = os.path.join(traj_path, "robot_trajectory.json")
@@ -123,8 +124,8 @@ class DummyDataset(Dataset):
                 robot_trajectory = json.load(ts)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
                 resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
-                                                                                        sampling_time=0.1)
-                resampled_trajectory.save_to_file(json_path)
+                                                                                        sampling_time=sampling_time / 1000)
+                resampled_trajectory.save_to_file(os.path.join(traj_path, f"{sampling_time}_robot_trajectory.json"))
 
         # get pseudo time stamp from resampled real time stamp and original real time stamps
         resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
@@ -246,7 +247,7 @@ class DummyDataset(Dataset):
         start = idx - self.len_obs
         # compute which frames to use
         frame_idx = np.arange(start, idx + 1, self.frameskip)
-        frame_idx[frame_idx < 0] = -1
+        frame_idx[frame_idx < 0] = 0
 
         lb_end = idx + self.len_lb
         lb_idx = np.arange(start, lb_end)
@@ -272,7 +273,7 @@ class DummyDataset(Dataset):
             cam_gripper_framestack = torch.stack(
                 [
                     self.transform_cam(
-                        self.load_image(self.gripper_cam_path, f"{0 if timestep == -1 else timestep :06d}" + ".jpg")
+                        self.load_image(self.gripper_cam_path, f"{timestep :06d}" + ".jpg")
                     )
                     for timestep in self.resample_trajectory["pseudo_time_stamps"][frame_idx]
                 ],
@@ -282,7 +283,7 @@ class DummyDataset(Dataset):
             cam_fixed_framestack = torch.stack(
                 [
                     self.transform_cam(
-                        self.load_image(self.fix_cam_path, f"{0 if timestep == -1 else timestep :06d}" + ".jpg")
+                        self.load_image(self.fix_cam_path, f"{timestep :06d}" + ".jpg")
                     )
                     for timestep in self.resample_trajectory["pseudo_time_stamps"][frame_idx]
                 ],
@@ -390,16 +391,14 @@ class Normalizer(torch.nn.Module):
         for traj in traj_paths:
             (raw_trajectory,
              resample_trajectory,
-             audio_gripper,
-             audio_holebase,
-             ) = self.get_episode(traj, ablation=args.ablation)
+             ) = self.get_episode(traj, ablation=args.ablation, sampling_time=args.sampling_time)
             all_poses.append(resample_trajectory)
         self.all_poses = all_poses
 
         self.modalities = args.ablation.split("_")
         self.len_lb = args.len_lb
 
-    def get_episode(self, traj_path, ablation=""):
+    def get_episode(self, traj_path, ablation="", sampling_time=150):
         """
         Return:
             folder for traj_path
@@ -407,21 +406,13 @@ class Normalizer(torch.nn.Module):
             audio tracks
             number of frames in episode
         """
-        modes = ablation.split("_")
 
-        def load(file):
-            fullpath = os.path.join(traj_path, file)
-            if os.path.exists(fullpath):
-                return sf.read(fullpath)[0]
-            else:
-                return None
-
-        if os.path.exists(os.path.join(traj_path, "resampled_robot_trajectory.json")):
+        if os.path.exists(os.path.join(traj_path, f"resampled_{sampling_time}_robot_trajectory.json")):
             print(f"resampled trajectory exists")
             with open(os.path.join(traj_path, "robot_trajectory.json")) as ts:
                 robot_trajectory = json.load(ts)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-            json_path = os.path.join(traj_path, "resampled_robot_trajectory.json")
+            json_path = os.path.join(traj_path, f"resampled_{sampling_time}_robot_trajectory.json")
             resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
         else:
             print(f"resampled trajectory not exists")
@@ -430,8 +421,8 @@ class Normalizer(torch.nn.Module):
                 robot_trajectory = json.load(ts)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
                 resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
-                                                                                        sampling_time=0.1)
-                resampled_trajectory.save_to_file(os.path.join(json_path))
+                                                                                        sampling_time=sampling_time / 1000)
+                resampled_trajectory.save_to_file(os.path.join(traj_path, f"{sampling_time}_robot_trajectory.json"))
 
         # get pseudo time stamp from resampled real time stamp and original real time stamps
         resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
@@ -457,25 +448,6 @@ class Normalizer(torch.nn.Module):
                 [i.orientation.w, i.orientation.x, i.orientation.y, i.orientation.z])
             resample_position_histroy.append([i.position.x, i.position.y, i.position.z])
 
-        if "ag" in modes:
-            audio_gripper_left = load("audio_gripper_left.wav")
-            audio_gripper_right = load("audio_gripper_right.wav")
-            audio_gripper = [
-                x for x in [audio_gripper_left, audio_gripper_right] if x is not None
-            ]
-            audio_gripper = torch.as_tensor(np.stack(audio_gripper, 0))
-        else:
-            audio_gripper = None
-        if "ah" in modes:
-            audio_holebase_left = load("audio_holebase_left.wav")
-            audio_holebase_right = load("audio_holebase_right.wav")
-            audio_holebase = [
-                x for x in [audio_holebase_left, audio_holebase_right] if x is not None
-            ]
-            audio_holebase = torch.as_tensor(np.stack(audio_holebase, 0))
-        else:
-            audio_holebase = None
-
         raw_traj = {
             "position": np.array(raw_position_histroy),
             "orientation": np.array(raw_orientation_history),
@@ -491,48 +463,7 @@ class Normalizer(torch.nn.Module):
         return (
             raw_traj,
             resample_traj,
-
-            audio_gripper,
-            audio_holebase,
         )
-
-    @staticmethod
-    def load_image(rgb_path, idx):
-        """
-        Args:
-            trial: the folder of the current episode
-            stream: ["cam_gripper_color", "cam_fixed_color", "left_gelsight_frame"]
-                for "left_gelsight_flow", please add another method to this class using torch.load("xxx.pt")
-            timestep: the timestep of frame you want to extract
-        """
-        rgb_path = os.path.join(rgb_path, idx)
-        image = (
-                torch.as_tensor(np.array(Image.open(rgb_path))).float().permute(2, 0, 1)
-                / 255
-        )
-        return image
-
-    @staticmethod
-    def clip_resample(audio, audio_start, audio_end):
-        left_pad, right_pad = torch.Tensor([]), torch.Tensor([])
-        if audio_start < 0:
-            left_pad = torch.zeros((audio.shape[0], -audio_start))
-            audio_start = 0
-        if audio_end >= audio.size(-1):
-            right_pad = torch.zeros((audio.shape[0], audio_end - audio.size(-1)))
-            audio_end = audio.size(-1)
-        audio_clip = torch.cat(
-            [left_pad, audio[:, audio_start:audio_end], right_pad], dim=1
-        )
-        audio_clip = torchaudio.functional.resample(audio_clip, 44100, 16000)
-        return audio_clip
-
-    @staticmethod
-    def resize_image(image, size):
-        assert len(image.size()) == 3  # [3, H, W]
-        return torch.nn.functional.interpolate(
-            image.unsqueeze(0), size=size, mode="bilinear"
-        ).squeeze(0)
 
     def __len__(self):
         return self.num_frames
@@ -635,18 +566,19 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     Returns: training loader and validation loader
 
     """
-    trajs = [os.path.join(data_folder, traj) for traj in os.listdir(data_folder)]
-    # random.seed(42)
-    # random.shuffle(trajs)
-    num_train = 1
-    val_trajs_paths = trajs[-1:]
-    train_trajs_paths = trajs[2: 2+num_train]
+    trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
+    num_train = int(len(trajs) * 0.8)
 
-    args = SimpleNamespace(**args)
-    args.p_mean = np.array([[0.00043155, 0.00055406, -0.00184476]])
-    args.p_std = np.array([[0.04235121, 0.05596836, 0.09110417]])
-    args.o_mean = np.array([[0.00205523, -0.00076305, 0.00013525]])
-    args.o_std = np.array([[0.04276301, 0.03441597, 0.16914098]])
+    train_trajs_paths = trajs[:num_train]
+    train_trajs_paths = train_trajs_paths[8:9]
+    val_trajs_paths = trajs[num_train:]
+    val_trajs_paths = val_trajs_paths[3:4]
+
+    args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
+    args.p_mean = np.array([[0.00010239, 0.0003605, -0.00236236]])
+    args.p_std = np.array([[0.05333986, 0.07098175, 0.11525309]])
+    args.o_mean = np.array([[0.00295716, -0.0009488, 0.000222]])
+    args.o_std = np.array([[0.05337297, 0.04242631, 0.21439145]])
 
     train_set = torch.utils.data.ConcatDataset(
         [
@@ -662,7 +594,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
-    train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=True, drop_last=True, )
+    train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=False, drop_last=True, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, None
 
@@ -680,13 +612,16 @@ if __name__ == "__main__":
     args.frameskip = 5
     args.no_crop = True
     args.crop_percent = 0.0
-    args.resized_height_v = 240
-    args.resized_width_v = 320
+    args.resized_height_v = 120
+    args.resized_width_v = 160
     args.len_lb = 1
+    args.sampling_time = 150
     all_step = []
-    train_loader, val_loader, _ = get_loaders(batch_size=1, args=args, data_folder=data_folder_path, drop_last=True)
+    train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path, drop_last=True)
     print(len(train_loader))
     for idx, batch in enumerate(train_loader):
+        # if idx >= 100:
+        #     break
         print(f"{idx} \n")
         obs = batch["observation"]
 
@@ -713,6 +648,8 @@ if __name__ == "__main__":
 
     all_step = torch.concatenate(all_step, dim=0)
     pm = all_step.detach().cpu().numpy()
+    print(pm.mean())
+    print(pm.std())
     t = np.arange(all_step.shape[0])
     plt.figure()
     plt.subplot(611)

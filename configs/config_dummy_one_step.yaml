@@ -25,8 +25,6 @@ hydra:
       trainers.launch_trainer.max_epochs: 2
       trainers.launch_trainer.monitor:  "val_imitation_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
-      datasets.dataloader.args.num_stack: 10
-      models.model.model_dim: 256
       datasets.dataloader.batch_size: 32
       pl_modules.pl_module.ema: False
       pl_modules.pl_module._target_: src.pl_modules.dummy_one_step.TransformerPredictorPl

@@ -47,6 +47,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         trials_names = []
         pm = []
         pmr = []
+        loss_list = []
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
@@ -65,7 +66,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     delta = batch["target_delta_seq"][:, 1].float()
                     vf_inp, vg_inp, _, _ = inp_data
                     multimod_inputs = {
-                        "vision": [vf_inp.to(args.device), vg_inp.to(args.device)],
+                        "vision": torch.cat([vg_inp, vf_inp], dim=-2).to(args.device),
                     }
 
                     # Perform prediction and calculate loss and accuracy
@@ -76,6 +77,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                                            mode="inference",
                                            )
                     out_delta = output["predict"]["xyzrpy"]
+                    loss = torch.nn.functional.l1_loss(delta.to(args.device), output["predict"]["xyzrpy"])
+                    loss_list.append(loss.reshape(1,))
                     base = qpos.squeeze(0).detach().cpu().numpy()
                     base_position = base[:3]
                     base_orientation = base[3:]
@@ -103,7 +106,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 print(f"trial {name}: total infernce time {compute_time},\n"
                       f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
                       f"example inference time:{inference_time[:10]}")
-
+        print(torch.cat(loss_list).mean())
         pm = torch.cat(pm, dim=0).detach().cpu().numpy()
         pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
         t = np.arange(len(pm))
@@ -151,7 +154,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/linear')
+                        default='../results/dummy_one_step/dummy/$name/nomask_imi_ssnce_earlysum_vatt_additional_coswarmup/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-11-14:36:32')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
