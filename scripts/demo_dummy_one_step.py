@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-10-19:58:20')
+                        default='../results/linear')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
