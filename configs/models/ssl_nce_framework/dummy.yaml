@@ -2,7 +2,7 @@ name: 'ssnce_earlysum_vatt_additional'
 
 model:
   #---------------------------------------------------------------------------------------------------------#
-  _target_: src.models.ssl_nce_framework.OneImageResnet
+  _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT_addtional
   mod_names: ["vision"]
   main_mod: "vision"
   model_dim: 768
