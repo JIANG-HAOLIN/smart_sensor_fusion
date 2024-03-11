@@ -1592,9 +1592,7 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.Linear(model_dim, 3 ** 3),
         )
-        self.aux_mlp = nn.Sequential(nn.Linear(256, 256),
-                                     nn.BatchNorm1d(num_features=256),
-                                     nn.Linear(256, 6))
+        self.aux_mlp = nn.Sequential(nn.Linear(256, 6))
 
         self.latent_mask_token = nn.ParameterDict({mod_name: torch.nn.Parameter(torch.randn([1, 1, model_dim]))
                                                    for mod_name in self.mod_names})
