@@ -50,7 +50,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -65,7 +65,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     delta = batch["target_delta_seq"][:, 1].float()
                     vf_inp, vg_inp, _, _ = inp_data
                     multimod_inputs = {
-                        "vision": [vf_inp[:, :, :, :208, ].to(args.device), vg_inp[:, :, :, :208, ].to(args.device)],
+                        "vision": [vf_inp.to(args.device), vg_inp.to(args.device)],
                     }
 
                     # Perform prediction and calculate loss and accuracy
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/ltmask_bind_fom_rec_imi_ssnce_earlysum_vatt_additional_coswarmup/name=ltmask_bind_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5_03-08-11:25:44')
+                        default='../results/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-10-19:58:20')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

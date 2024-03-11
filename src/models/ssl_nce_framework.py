@@ -1593,7 +1593,6 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             torch.nn.Linear(model_dim, 3 ** 3),
         )
         self.aux_mlp = nn.Sequential(nn.Linear(256, 256),
-                                     nn.GELU(),
                                      nn.BatchNorm1d(num_features=256),
                                      nn.Linear(256, 6))
 

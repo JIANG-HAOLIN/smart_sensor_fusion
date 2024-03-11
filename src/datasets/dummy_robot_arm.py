@@ -21,6 +21,7 @@ from PIL import Image
 from types import SimpleNamespace
 from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
 from utils.quaternion import q_log_map
+from omegaconf import OmegaConf, open_dict
 
 
 class DummyDataset(Dataset):
@@ -340,12 +341,15 @@ class DummyDataset(Dataset):
             "start": start,
             "current": idx,
             "end": lb_end,
-            "whole_pose_seq": torch.from_numpy(np.concatenate([whole_position_seq, whole_orientation_seq], axis=-1)).float(),
-            "target_pose_seq": torch.from_numpy(np.concatenate([target_position_seq, target_orientation_seq], axis=-1)).float(),
+            "whole_pose_seq": torch.from_numpy(
+                np.concatenate([whole_position_seq, whole_orientation_seq], axis=-1)).float(),
+            "target_pose_seq": torch.from_numpy(
+                np.concatenate([target_position_seq, target_orientation_seq], axis=-1)).float(),
             "target_delta_seq": torch.from_numpy(
                 np.concatenate([target_position_delta_seq, target_orientation_delta_seq], axis=-1)).float()
             ,
         }
+
 
 class Normalizer(torch.nn.Module):
     def __init__(self, traj_paths, args, train=True):
@@ -391,8 +395,6 @@ class Normalizer(torch.nn.Module):
              ) = self.get_episode(traj, ablation=args.ablation)
             all_poses.append(resample_trajectory)
         self.all_poses = all_poses
-
-
 
         self.modalities = args.ablation.split("_")
         self.len_lb = args.len_lb
@@ -555,7 +557,6 @@ class Normalizer(torch.nn.Module):
             p = i["position"]
             o = i["orientation"]
             for idx in range(p.shape[0]):
-
                 start = idx - self.len_obs
                 lb_end = idx + self.len_lb
                 lb_idx = np.arange(start, lb_end)
@@ -639,10 +640,13 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     # random.shuffle(trajs)
     num_train = 1
     val_trajs_paths = trajs[-1:]
-    train_trajs_paths = trajs[:num_train]
+    train_trajs_paths = trajs[2: 2+num_train]
 
-    normalizer = Normalizer(train_trajs_paths, args, True)
-    args.p_mean, args.p_std, args.o_mean, args.o_std = normalizer.get_mean_std()
+    args = SimpleNamespace(**args)
+    args.p_mean = np.array([[0.00043155, 0.00055406, -0.00184476]])
+    args.p_std = np.array([[0.04235121, 0.05596836, 0.09110417]])
+    args.o_mean = np.array([[0.00205523, -0.00076305, 0.00013525]])
+    args.o_std = np.array([[0.04276301, 0.03441597, 0.16914098]])
 
     train_set = torch.utils.data.ConcatDataset(
         [
@@ -658,7 +662,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
-    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=True, )
+    train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=True, drop_last=True, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, None
 
@@ -667,6 +671,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
     import cv2
+
     data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robot_demo'
     args = SimpleNamespace()
 
@@ -696,7 +701,6 @@ if __name__ == "__main__":
         #         break
 
         all_step.append(batch["target_delta_seq"][:, 1])
-
 
         whole_pose_seq = batch["whole_pose_seq"]
         target_pose_seq = batch["target_pose_seq"]
