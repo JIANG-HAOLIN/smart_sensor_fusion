@@ -261,8 +261,11 @@ class DummyDataset(Dataset):
             whole_position_seq[-self.len_lb - 1:, :], whole_orientation_seq[-self.len_lb - 1:, :]
         target_position_delta_seq, target_orientation_delta_seq = \
             self.get_delta_sequence(target_position_seq, target_orientation_seq)
-        target_position_delta_seq = (target_position_delta_seq - self.p_mean) / self.p_std
-        target_orientation_delta_seq = (target_orientation_delta_seq - self.o_mean) / self.o_std
+        # target_position_delta_seq = ((target_position_delta_seq - self.p_mean) / self.p_std) * 100
+        # target_orientation_delta_seq = ((target_orientation_delta_seq - self.o_mean) / self.o_std) * 100
+
+        target_position_delta_seq = target_position_delta_seq * 100
+        target_orientation_delta_seq = target_orientation_delta_seq * 100
         # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0
@@ -580,6 +583,11 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     args.o_mean = np.array([[0.00295716, -0.0009488, 0.000222]])
     args.o_std = np.array([[0.05337297, 0.04242631, 0.21439145]])
 
+    # mean[0.12096352  0.12888882 - 0.30349103  0.00160154 - 0.06071072 - 0.04832873]
+    # std[0.4358776  0.5022668  0.50152147 0.6001411  0.7150956  1.1324104]
+    # max[2.3246083 2.104693  2.135981  2.5701568 4.644128  5.43282]
+    # min[-3.3144479 - 1.9043726 - 1.7756243 - 3.3247855 - 7.9488 - 4.817799]
+
     train_set = torch.utils.data.ConcatDataset(
         [
             DummyDataset(traj, args, )
@@ -617,7 +625,8 @@ if __name__ == "__main__":
     args.len_lb = 1
     args.sampling_time = 150
     all_step = []
-    train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path, drop_last=True)
+    train_loader, val_loader, _ = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
+                                                    drop_last=True)
     print(len(train_loader))
     for idx, batch in enumerate(train_loader):
         # if idx >= 100:
@@ -648,8 +657,10 @@ if __name__ == "__main__":
 
     all_step = torch.concatenate(all_step, dim=0)
     pm = all_step.detach().cpu().numpy()
-    print(pm.mean())
-    print(pm.std())
+    print(np.mean(pm, axis=0))
+    print(np.std(pm, axis=0))
+    print(np.max(pm, axis=0))
+    print(np.min(pm, axis=0))
     t = np.arange(all_step.shape[0])
     plt.figure()
     plt.subplot(611)

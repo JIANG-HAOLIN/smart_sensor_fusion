@@ -2028,3 +2028,184 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             pred_loss = loss_fn(pred_out, target, mask)
 
         return pred_loss
+
+
+class OneImageVit(torch.nn.Module):
+    """Framework for multi-model self-supervised pretraining"""
+
+    def __init__(self,
+                 mod_names: List,
+                 main_mod: str,
+                 model_dim: int,
+                 num_stack: int,
+
+                 nce_args: DictConfig,
+                 fom_args: DictConfig,
+                 mask_args: DictConfig,
+                 mask_fusion_nce: DictConfig,
+                 mask_cross_time_trf_nce: DictConfig,
+                 mask_latent_prediction: DictConfig,
+
+                 audio_args: Optional[DictConfig] = None,
+                 vision_args: Optional[DictConfig] = None,
+                 tactile_args: Optional[DictConfig] = None,
+                 ultrasonic_args: Optional[DictConfig] = None,
+                 imu_args: Optional[DictConfig] = None,
+                 force_args: Optional[DictConfig] = None,
+                 current_args: Optional[DictConfig] = None,
+                 thermal_args: Optional[DictConfig] = None,
+                 depth_args: Optional[DictConfig] = None,
+                 text_args: Optional[DictConfig] = None,
+
+                 fusion_args: Optional[DictConfig] = None,
+                 pos_emb_args: Optional[DictConfig] = None,
+                 cross_time_trf_args: Optional[DictConfig] = None,
+
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             cross_time_trf_args: arguments for cross time transformer
+             **kwargs:
+        """
+        super().__init__()
+        from src.models.vit_implementations import Vit
+        self.mod_args = {
+            "vision": vision_args,
+            "tactile": tactile_args,
+            "audio": audio_args,
+
+            "ultrasonic": ultrasonic_args,
+            "imu": imu_args,
+            "force": force_args,
+            "current": current_args,
+
+            "thermal": thermal_args,
+            "depth": depth_args,
+            "text": text_args,
+        }
+        self.vit = Vit(model_dim=model_dim, num_heads=12, num_layers=8, input_size=(240, 160), patch_size=(16, 16), num_emb=151)
+        self.mlp = nn.Linear(model_dim, 6)
+        self.mod_names = mod_names
+        self.main_mod = main_mod
+        self.num_stack = num_stack
+
+        self.aux_mlp = nn.Sequential(nn.Linear(model_dim, 6))
+
+    def forward(self, multimod_inputs: Dict,
+                mask: Optional[str] = "input_mask",
+                task: Optional[str] = "imitation",
+                mode: str = "train",
+                additional_input: Optional[torch.Tensor] = None,
+                multi_mod_input_key_padding_mask: Optional[torch.Tensor] = None,
+                ):
+        assert mode in ["train", "val", "inference"]
+
+        start_time = time.time()
+        output = {"predict": {}, "ssl_losses": {}, "repr": {}, "pos_emb": {}}
+
+        image = multimod_inputs["vision"][:, -1, ...]
+        image = self.vit(image)[0]
+        image = self.mlp(image)
+        output["predict"]["xyzrpy"] = image
+        return output
+
+
+
+class OneImageResnet(torch.nn.Module):
+    """Framework for multi-model self-supervised pretraining"""
+
+    def __init__(self,
+                 mod_names: List,
+                 main_mod: str,
+                 model_dim: int,
+                 num_stack: int,
+
+                 nce_args: DictConfig,
+                 fom_args: DictConfig,
+                 mask_args: DictConfig,
+                 mask_fusion_nce: DictConfig,
+                 mask_cross_time_trf_nce: DictConfig,
+                 mask_latent_prediction: DictConfig,
+
+                 audio_args: Optional[DictConfig] = None,
+                 vision_args: Optional[DictConfig] = None,
+                 tactile_args: Optional[DictConfig] = None,
+                 ultrasonic_args: Optional[DictConfig] = None,
+                 imu_args: Optional[DictConfig] = None,
+                 force_args: Optional[DictConfig] = None,
+                 current_args: Optional[DictConfig] = None,
+                 thermal_args: Optional[DictConfig] = None,
+                 depth_args: Optional[DictConfig] = None,
+                 text_args: Optional[DictConfig] = None,
+
+                 fusion_args: Optional[DictConfig] = None,
+                 pos_emb_args: Optional[DictConfig] = None,
+                 cross_time_trf_args: Optional[DictConfig] = None,
+
+                 **kwargs
+                 ):
+        """
+
+        Args:
+             preprocess_audio_args: arguments for audio prepressing
+             tokenization_audio: arguments for audio tokenization
+             pe_audio: arguments for positional encoding for audio tokens
+             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
+             preprocess_vision_args: arguments for vision prepressing
+             tokenization_vision: arguments for vision tokenization
+             pe_vision: arguments for positional encoding for vision tokens
+             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
+             cross_time_trf_args: arguments for cross time transformer
+             **kwargs:
+        """
+        super().__init__()
+        from src.models.encoders.res_net_18 import make_vision_encoder
+        self.mod_args = {
+            "vision": vision_args,
+            "tactile": tactile_args,
+            "audio": audio_args,
+
+            "ultrasonic": ultrasonic_args,
+            "imu": imu_args,
+            "force": force_args,
+            "current": current_args,
+
+            "thermal": thermal_args,
+            "depth": depth_args,
+            "text": text_args,
+        }
+        self.vit = make_vision_encoder(256, "layer4.1.relu_1")
+        self.mlp = nn.Linear(256, 6)
+        self.mod_names = mod_names
+        self.main_mod = main_mod
+        self.num_stack = num_stack
+
+        self.aux_mlp = nn.Sequential(nn.Linear(model_dim, 6))
+
+    def forward(self, multimod_inputs: Dict,
+                mask: Optional[str] = "input_mask",
+                task: Optional[str] = "imitation",
+                mode: str = "train",
+                additional_input: Optional[torch.Tensor] = None,
+                multi_mod_input_key_padding_mask: Optional[torch.Tensor] = None,
+                ):
+        assert mode in ["train", "val", "inference"]
+
+        start_time = time.time()
+        output = {"predict": {}, "ssl_losses": {}, "repr": {}, "pos_emb": {}}
+
+        image = multimod_inputs["vision"][:, -1, ...]
+        image = self.vit(image)[:, 0, :]
+        image = self.mlp(image)
+        output["predict"]["xyzrpy"] = image
+        return output

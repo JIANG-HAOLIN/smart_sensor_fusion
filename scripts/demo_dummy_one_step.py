@@ -51,7 +51,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
-            for idx1, loader in enumerate([train_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -94,18 +94,18 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     raw_output = np.squeeze(np.concatenate([raw_position, raw_orientation], axis=0), axis=-1)
                     compute_time = round(time.time() - t, 2)
 
-                    out = torch.cat([
-                        output["repr"]["encoded_inputs"]["vision"],
-                        output["repr"]['fused_encoded_inputs'],
-                        output["repr"]['cross_time_repr'][:, 1:, :],
-                    ], dim=0).permute(1, 0, 2)
-                    out = out.detach().cpu().numpy()
-                    trial_outs.append(out)
-                    inference_time.append(output["time"])
-                trials_outs.append(np.concatenate(trial_outs, axis=0))
-                print(f"trial {name}: total infernce time {compute_time},\n"
-                      f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
-                      f"example inference time:{inference_time[:10]}")
+                    # out = torch.cat([
+                    #     output["repr"]["encoded_inputs"]["vision"],
+                    #     output["repr"]['fused_encoded_inputs'],
+                    #     output["repr"]['cross_time_repr'][:, 1:, :],
+                    # ], dim=0).permute(1, 0, 2)
+                    # out = out.detach().cpu().numpy()
+                    # trial_outs.append(out)
+                    # inference_time.append(output["time"])
+                # trials_outs.append(np.concatenate(trial_outs, axis=0))
+                # print(f"trial {name}: total infernce time {compute_time},\n"
+                #       f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
+                #       f"example inference time:{inference_time[:10]}")
         print(torch.cat(loss_list).mean())
         pm = torch.cat(pm, dim=0).detach().cpu().numpy()
         pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
@@ -154,7 +154,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/dummy_one_step/dummy/$name/nomask_imi_ssnce_earlysum_vatt_additional_coswarmup/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-11-14:36:32')
+                        default='../results/dummy_one_step/dummy/$name/nomask_imi_ssnce_earlysum_vatt_additional_steplr/name=nomask_iminame=ssnce_earlysum_vatt_additionallatent=0.5imitation=1.0_03-11-17:24:35')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

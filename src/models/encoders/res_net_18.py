@@ -33,7 +33,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.feature_extractor = feature_extractor
         self.coord_conv = CoordConv()
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.maxpool = nn.AdaptiveMaxPool2d((1, 1))
         if out_dim is not None:
             self.fc = nn.Conv2d(in_dim, out_dim, kernel_size=1)
 
@@ -47,7 +47,7 @@ class Encoder(nn.Module):
         x = self.feature_extractor(x)
         assert len(x.values()) == 1
         x = list(x.values())[0]
-        x = self.avgpool(x)
+        x = self.maxpool(x)
         if self.fc is not None:
             x = self.fc(x)
         return torch.flatten(x, start_dim=1).unsqueeze(1)
