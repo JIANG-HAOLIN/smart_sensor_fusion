@@ -82,9 +82,8 @@ class AlohaPolicy(pl.LightningModule):
         pose = batch["target_pose_seq"]
         vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": [vf_inp, vg_inp],
+            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
         }
-
 
         task = self.train_tasks.split("+")
 
