@@ -16,6 +16,7 @@ from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scat
 from src.datasets.dummy_robot_arm import get_debug_loaders
 import time
 from utils.quaternion import q_exp_map
+import cv2
 
 
 def inference(cfg: DictConfig, args: argparse.Namespace):
@@ -33,7 +34,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if 'last' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -51,7 +52,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
-            for idx1, loader in enumerate([train_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -69,6 +70,17 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         "vision": torch.cat([vg_inp, vf_inp], dim=-2).to(args.device),
                     }
 
+                    obs = inp_data
+                    for i in range(obs[0].shape[1]):
+                        image_f = obs[0][0][i].permute(1, 2, 0).numpy()
+                        image_g = obs[1][0][i].permute(1, 2, 0).numpy()
+                        image = np.concatenate([image_f, image_g], axis=0)
+                        cv2.imshow("asdf", image)
+                        time.sleep(0.2)
+                        key = cv2.waitKey(1)
+                        if key == ord("q"):
+                            break
+
                     # Perform prediction and calculate loss and accuracy
                     t = time.time()
                     output = model.forward(multimod_inputs,
@@ -77,7 +89,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                                            mode="inference",
                                            )
                     out_delta = output["predict"]["xyzrpy"]
-                    loss = torch.nn.functional.l1_loss(delta.to(args.device), output["predict"]["xyzrpy"])
+                    loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
                     loss_list.append(loss.reshape(1,))
                     base = qpos.squeeze(0).detach().cpu().numpy()
                     base_position = base[:3]
@@ -154,7 +166,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/name=ltmask_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5weight_decay=0.0_03-11-18:32:01')
+                        default='../results/name=ltmask_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5weight_decay=0.0_03-12-10:06:11')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

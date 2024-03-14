@@ -35,6 +35,9 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
         model.load_state_dict(clone_state_dict)
         model.eval()
+        pm = []
+        pmr = []
+        loss_list = []
         trials_outs = []
         trials_names = []
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
@@ -59,7 +62,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     pose = batch["target_pose_seq"]
                     vf_inp, vg_inp, _, _ = inp_data
                     multimod_inputs = {
-                        "vision": [vf_inp.to(args.device), vg_inp.to(args.device)],
+                        "vision": torch.cat([vg_inp, vf_inp], dim=-2).to(args.device),
                     }
                     qpos = pose[:, 0, :].to(args.device)
 
@@ -74,6 +77,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                                         task="repr",
                                         mode="val")
                     a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
+                    # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
+                    # loss_list.append(loss.reshape(1,))
                     out_delta = a_hat
                     base = qpos.squeeze(0).detach().cpu().numpy()
                     base_position = base[:3]
@@ -127,6 +132,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     # out = out.detach().cpu().numpy()
                     # trial_outs.append(out)
                     inference_time.append(compute_time)
+
+                    pm.append(delta)
+                    pmr.append(out_delta)
+
                 # trials_outs.append(np.concatenate(trial_outs, axis=0))
                 print(f"trial {name}: total infernce time {compute_time},\n"
                       f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
@@ -141,6 +150,37 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         #              trials_names, output_png_path+"_fused_inputs")
         # scatter_tsne([i[:, -1:] for i in trials_outs], ["cross_time_output", ],
         #              trials_names, output_png_path+"_ct_output")
+
+
+        # print(torch.cat(loss_list).mean())
+        pm = torch.cat(pm, dim=0).detach().cpu().numpy()
+        pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
+        t = np.arange(len(pm))
+        tr = t.copy()
+        plt.figure()
+        plt.subplot(611)
+        plt.plot(t, pm[:, :1], '.-', )
+        plt.plot(tr, pmr[:, :1], '.-')
+        # plt.plot(tfwd, pmfwd[:, :3], 'd-')
+        plt.subplot(612)
+        plt.plot(t, pm[:, 1:2], '.-')
+        plt.plot(tr, pmr[:, 1:2], '.-')
+        # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
+        plt.subplot(613)
+        plt.plot(t, pm[:, 2:3], '.-')
+        plt.plot(tr, pmr[:, 2:3], '.-')
+        plt.subplot(614)
+        plt.plot(t, pm[:, 3:4], '.-')
+        plt.plot(tr, pmr[:, 3:4], '.-')
+        plt.subplot(615)
+        plt.plot(t, pm[:, 4:5], '.-')
+        plt.plot(tr, pmr[:, 4:5], '.-')
+        plt.subplot(616)
+        plt.plot(t, pm[:, 5:6], '.-')
+        plt.plot(tr, pmr[:, 5:6], '.-')
+        plt.show()
+
+
     else:
         print(f'pretrained Model at {checkpoints_path} not found')
 
@@ -152,7 +192,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='name=alohaname=vaelatent=0.5_03-07-21:01:18')
+                        default='../checkpoints/name=alohaname=vae_03-12-09:59:12')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

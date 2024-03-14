@@ -571,10 +571,9 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     """
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
     num_train = int(len(trajs) * 0.8)
-
-    train_trajs_paths = trajs[:num_train]
-    train_trajs_paths = train_trajs_paths[:1]
-    val_trajs_paths = trajs[num_train:]
+    train_trajs_paths = trajs[:-6] + trajs[-4:]
+    val_trajs_paths = trajs[-6:-4]
+    train_trajs_paths = train_trajs_paths[-1:]
     val_trajs_paths = val_trajs_paths[1:2]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args

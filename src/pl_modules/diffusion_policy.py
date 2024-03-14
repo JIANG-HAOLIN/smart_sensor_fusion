@@ -162,19 +162,15 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         device = self.device
         dtype = self.dtype
 
-        observation = batch["observation"]
-        action = batch["action"]
-        pose = batch["pose"]
-        optical_flow = batch["optical_flow"]
-        action_seq = batch["action_seq"]
-        pose_seq = batch["pose_seq"]
-        vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
+        inp_data = batch["observation"]
+        delta = batch["target_delta_seq"][:, 1:]
+        pose = batch["target_pose_seq"]
+        vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": vg_inp,
-            "tactile": t_inp,
-            "audio": audio_h
+            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
         }
-        batch_size = pose_seq.shape[0]
+
+        batch_size = delta.shape[0]
         To = self.n_obs_steps
         shape = (batch_size, t_p, Da)
 
@@ -202,27 +198,6 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         }
         return result
 
-    # ========= training  ============
-    # def set_normalizer(self, normalizer: LinearNormalizer):
-    #     self.normalizer.load_state_dict(normalizer.state_dict())
-
-    # def get_optimizer(
-    #         self,
-    #         transformer_weight_decay: float,
-    #         obs_encoder_weight_decay: float,
-    #         learning_rate: float,
-    #         betas: Tuple[float, float]
-    # ) -> torch.optim.Optimizer:
-    #     optim_groups = self.mdl.get_optim_groups(
-    #         weight_decay=transformer_weight_decay)
-    #     optim_groups.append({
-    #         "params": self.obs_encoder.parameters(),
-    #         "weight_decay": obs_encoder_weight_decay
-    #     })
-    #     optimizer = torch.optim.AdamW(
-    #         optim_groups, lr=learning_rate, betas=betas
-    #     )
-    #     return optimizer
 
     def _calculate_loss(self, batch, mode):
         self.last_train_batch = batch
@@ -231,19 +206,15 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         # normalize input
         assert 'valid_mask' not in batch
 
-        observation = batch["observation"]
-        action = batch["action"]
-        pose = batch["pose"]
-        optical_flow = batch["optical_flow"]
-        action_seq = batch["action_seq"]
-        pose_seq = batch["pose_seq"]
-        nactions = pose_seq[:, -self.t_p:, ]
-        vf_inp, vg_inp, t_inp, audio_g, audio_h = observation
+        inp_data = batch["observation"]
+        delta = batch["target_delta_seq"][:, 1:]
+        pose = batch["target_pose_seq"]
+        vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": vg_inp,
-            "tactile": t_inp,
-            "audio": audio_h
+            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
         }
+
+        nactions = delta[:, -self.t_p:, ]
         task = self.train_tasks.split("+")
 
         # nobs = self.normalizer.normalize(batch['obs'])
@@ -255,16 +226,8 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         trajectory = nactions
         # reshape B, T, ... to B*T
 
-        if self.pred_action_steps_only:
-            start = To - 1
-            end = start + self.n_action_steps
-            trajectory = nactions[:, start:end]
 
-        # generate impainting mask
-        if self.pred_action_steps_only:
-            condition_mask = torch.zeros_like(trajectory, dtype=torch.bool)
-        else:
-            condition_mask = self.mask_generator(trajectory.shape)
+        condition_mask = self.mask_generator(trajectory.shape)
 
         # Sample noise that we'll add to the images
         noise = torch.randn(trajectory.shape, device=trajectory.device)
@@ -385,8 +348,8 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
             else:
                 print("rolling out on last training batch!")
                 last_batch = self.last_train_batch
-            pose_seq = last_batch["pose_seq"]
-            nactions = pose_seq[:, -self.t_p:, ]
+            delta = last_batch["target_delta_seq"][:, 1:]
+            nactions = delta[:, -self.t_p:, ]
             gt_action = nactions
             result = self.predict_action(last_batch)
             pred_action = result['action_pred']

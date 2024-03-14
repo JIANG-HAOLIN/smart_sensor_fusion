@@ -45,8 +45,8 @@ pl_module:
         - 96
         type: rgb
   time_as_cond: true
-  train_tasks: imitation
-  mask_type: no_mask
+  train_tasks: cross_time_nce+order+recover+imitation
+  mask_type: latent_mask
   weight:
     cr_m_nce_loss: 1.0
     masked_fom_loss: 1.0

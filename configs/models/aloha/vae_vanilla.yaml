@@ -1,0 +1,16 @@
+name: 'vae'
+
+model:
+  _target_: src.models.aloha_vanilla.build
+  replace_args:
+    camera_names:
+      - 'vf'
+      - 'vg'
+    num_queries: 10
+    state_dim: 7
+
+
+
+inference:
+  ckpt_path: ' '
+

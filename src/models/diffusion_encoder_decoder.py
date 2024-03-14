@@ -299,10 +299,10 @@ class TransformerForDiffusion(nn.Module):
         """
         batch_size = sample.shape[0]
         obs_encoder_out = self.obs_encoder(multimod_inputs=multimod_inputs,
-                                  mask=mask,
-                                  task=task,
-                                  mode=mode,
-                                  additional_input=additional_input, )
+                                           mask=mask,
+                                           task=task,
+                                           mode=mode,
+                                           additional_input=additional_input, )
         nobs_features = obs_encoder_out["repr"]['cross_time_repr'][:, 1:, ...]
         # reshape back to B, To, Do
         cond = nobs_features
@@ -323,10 +323,10 @@ class TransformerForDiffusion(nn.Module):
 
         # encoder
         cond_embeddings = time_emb
-        if self.obs_as_cond:
-            cond_obs_emb = self.cond_obs_emb(cond)
-            # (B,To,n_emb)
-            cond_embeddings = torch.cat([cond_embeddings, cond_obs_emb], dim=1)
+
+        cond_obs_emb = self.cond_obs_emb(cond)
+        # (B,To,n_emb)
+        cond_embeddings = torch.cat([cond_embeddings, cond_obs_emb], dim=1)
         tc = cond_embeddings.shape[1]
         position_embeddings = self.cond_pos_emb[:, :tc, :]  # each position maps to a (learnable) vector
         x = self.drop(cond_embeddings + position_embeddings)
@@ -354,5 +354,3 @@ class TransformerForDiffusion(nn.Module):
         # (B,T,n_out)
 
         return {"pred": x, "obs_encoder_out": obs_encoder_out}
-
-

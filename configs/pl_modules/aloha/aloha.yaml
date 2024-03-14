@@ -4,6 +4,7 @@ pl_module:
   _target_: src.pl_modules.aloha.AlohaPolicy
   num_stack: 10
   t_p: 10
+  action: "delta"
   train_tasks: imitation
   mask_type: latent_mask
   weight:
