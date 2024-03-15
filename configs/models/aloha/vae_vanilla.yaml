@@ -8,7 +8,7 @@ model:
       - 'vg'
     num_queries: 10
     state_dim: 7
-
+    hidden_dim: 256
 
 
 inference:
