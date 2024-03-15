@@ -1,4 +1,4 @@
-name: 'vae'
+name: 'vae_vanilla'
 
 model:
   _target_: src.models.aloha_vanilla.build

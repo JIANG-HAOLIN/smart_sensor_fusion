@@ -83,7 +83,7 @@ class AlohaPolicy(pl.LightningModule):
         pose = batch["target_pose_seq"]
         vf_inp, vg_inp, _, _ = inp_data
         multimod_inputs = {
-            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
+            "vision": torch.cat([vf_inp, vg_inp], dim=-2),
         }
 
         if self.action == "delta":

@@ -594,6 +594,13 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
+    train_inference_set = torch.utils.data.ConcatDataset(
+        [
+            DummyDataset(traj, args, False)
+            for i, traj in enumerate(train_trajs_paths)
+        ]
+    )
+
     val_set = torch.utils.data.ConcatDataset(
         [
             DummyDataset(traj, args, False)
@@ -602,8 +609,9 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     )
 
     train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=False, drop_last=True, )
+    train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=True, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
-    return train_loader, val_loader, None
+    return train_loader, val_loader, train_inference_loader
 
 
 if __name__ == "__main__":
@@ -627,21 +635,22 @@ if __name__ == "__main__":
     train_loader, val_loader, _ = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
                                                     drop_last=True)
     print(len(train_loader))
-    for idx, batch in enumerate(train_loader):
+    for idx, batch in enumerate(val_loader):
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
         obs = batch["observation"]
 
         # for i in range(obs[0].shape[1]):
-        #     image_f = obs[0][0][i].permute(1, 2, 0).numpy()
-        #     image_g = obs[1][0][i].permute(1, 2, 0).numpy()
-        #     image = np.concatenate([image_f, image_g], axis=0)
-        #     cv2.imshow("asdf", image)
-        #     time.sleep(0.2)
-        #     key = cv2.waitKey(1)
-        #     if key == ord("q"):
-        #         break
+
+        image_f = obs[0][0][-1].permute(1, 2, 0).numpy()
+        image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
+        image = np.concatenate([image_f, image_g], axis=0)
+        cv2.imshow("asdf", image)
+        time.sleep(0.2)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
 
         all_step.append(batch["target_delta_seq"][:, 1])
 

@@ -18,9 +18,7 @@ from typing import Dict, List, Optional
 import math
 from types import SimpleNamespace
 import copy
-
-
-
+from utils.quaternion import q_exp_map, q_log_map
 
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
@@ -28,6 +26,8 @@ Misc functions, including distributed helpers.
 
 Mostly copy-paste from torchvision references.
 """
+
+
 class NestedTensor(object):
     def __init__(self, tensors, mask: Optional[Tensor]):
         self.tensors = tensors
@@ -50,6 +50,7 @@ class NestedTensor(object):
     def __repr__(self):
         return str(self.tensors)
 
+
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False
@@ -57,10 +58,13 @@ def is_dist_avail_and_initialized():
         return False
     return True
 
+
 def get_rank():
     if not is_dist_avail_and_initialized():
         return 0
     return dist.get_rank()
+
+
 def is_main_process():
     return get_rank() == 0
 
@@ -654,7 +658,7 @@ class DETRVAE(nn.Module):
         actions: batch, seq, action_dim
         """
         image = multimod_inputs["vision"]
-        height = (image.shape[-2])//2
+        height = (image.shape[-2]) // 2
         assert (image.shape[-2]) % 2 == 0, "image not dividable"
         image = torch.stack([image[:, -1, :, :height, :], image[:, -1, :, height:, :]], dim=1)
         is_training = actions is not None  # train or val
@@ -713,8 +717,72 @@ class DETRVAE(nn.Module):
         a_hat = self.action_head(hs)
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
-                "obs_encoder_out": {"ssl_losses":{}},
+                "obs_encoder_out": {"ssl_losses": {}},
                 }
+
+    def rollout(self, qpos, multimod_inputs, env_state, actions=None, is_pad=None,
+                all_time_position=None,
+                all_time_orientation=None,
+                t=None,
+                args=None,
+                **kwargs):
+        output = self.forward(qpos,
+                              multimod_inputs,
+                              actions=actions,
+                              is_pad=is_pad,
+                              mask=None,
+                              mask_type=None,
+                              task="repr",
+                              mode="val",
+                              env_state=None, )
+        a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
+        # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
+        # loss_list.append(loss.reshape(1,))
+        if a_hat.shape[-1] == 6:
+            out_delta = a_hat
+            base = qpos.squeeze(0).detach().cpu().numpy()
+            base_position = base[:3]
+            base_orientation = base[3:]
+            v = out_delta.squeeze(0).detach().cpu().numpy()
+            v_position = v[:, :3]
+            v_orientation = v[:, 3:]
+            out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)
+            out_orientation = torch.tensor(q_exp_map(np.transpose(v_orientation, (1, 0)), base_orientation)).permute(1, 0)
+        elif a_hat.shape[-1] == 7:
+            a_hat = a_hat.squeeze(0)
+            out_position = a_hat.detach().cpu()
+            out_position = out_position[:, :3]
+            out_orientation = a_hat.detach().cpu()
+            out_orientation = out_orientation[:, 3:]
+
+        all_time_orientation[[t], t:t + self.num_queries] = out_orientation.float().to(args.device)
+        orientation_for_curr_step = all_time_orientation[:, t]
+        actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
+        orientation_for_curr_step = orientation_for_curr_step[actions_populated]
+
+        k = 0.01
+        exp_weights = np.exp(-k * np.arange(len(orientation_for_curr_step)))
+        exp_weights = exp_weights / exp_weights.sum()
+
+        weights = np.expand_dims(exp_weights, axis=0)
+        raw_orientation = orientation_for_curr_step[0].detach().cpu().numpy()
+        orientation = orientation_for_curr_step.permute(1, 0).detach().cpu().numpy()
+        for i in range(5):
+            tangent_space_vector = q_log_map(orientation, raw_orientation)
+            tangent_space_vector = np.sum(tangent_space_vector * weights, axis=1, keepdims=True)
+            raw_orientation = q_exp_map(tangent_space_vector, raw_orientation)[:, 0]
+
+        all_time_position[[t], t:t + self.num_queries] = out_position.float().to(args.device)
+        position_for_curr_step = all_time_position[:, t]
+        actions_populated = torch.all(position_for_curr_step != 0, axis=1)
+        position_for_curr_step = position_for_curr_step[actions_populated]
+        weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+        raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
+        raw_position = raw_action.squeeze(0).cpu().numpy()
+        return a_hat.squeeze(0).detach().cpu(), np.concatenate([raw_position, raw_orientation])
+
+
+
 
 
 def mlp(input_dim, hidden_dim, output_dim, hidden_depth):
@@ -749,36 +817,36 @@ def build_encoder(args):
 def build(replace_args):
     # OG args
     args = SimpleNamespace(
-                            lr=1e-05,
-                            lr_backbone=1e-05,
-                            batch_size=32,
-                            weight_decay=0.0001,
-                            epochs=300,
-                            lr_drop=200,
-                            clip_max_norm=0.1,
-                            backbone='resnet18',
-                            dilation=False,
-                            position_embedding='sine',
-                            camera_names=['top'],
-                            enc_layers=4,
-                            dec_layers=7,
-                            dim_feedforward=3200,
-                            hidden_dim=512,
-                            dropout=0.1,
-                            nheads=8,
-                            num_queries=100,
-                            pre_norm=False,
-                            masks=False,
-                            eval=False,
-                            onscreen_render=False,
-                            ckpt_dir='ckp_dir',
-                            policy_class='ACT',
-                            task_name='sim_transfer_cube_scripted',
-                            seed=0,
-                            num_epochs=20,
-                            kl_weight=10,
-                            chunk_size=100,
-                            temporal_agg=True, )
+        lr=1e-05,
+        lr_backbone=1e-05,
+        batch_size=32,
+        weight_decay=0.0001,
+        epochs=300,
+        lr_drop=200,
+        clip_max_norm=0.1,
+        backbone='resnet18',
+        dilation=False,
+        position_embedding='sine',
+        camera_names=['top'],
+        enc_layers=4,
+        dec_layers=7,
+        dim_feedforward=3200,
+        hidden_dim=512,
+        dropout=0.1,
+        nheads=8,
+        num_queries=100,
+        pre_norm=False,
+        masks=False,
+        eval=False,
+        onscreen_render=False,
+        ckpt_dir='ckp_dir',
+        policy_class='ACT',
+        task_name='sim_transfer_cube_scripted',
+        seed=0,
+        num_epochs=20,
+        kl_weight=10,
+        chunk_size=100,
+        temporal_agg=True, )
     for key, value in replace_args.items():
         args.__setattr__(key, value)
     state_dim = args.state_dim  # TODO hardcode

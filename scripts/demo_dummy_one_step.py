@@ -34,7 +34,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'last' in p and p.split('.')[-1] == 'ckpt':
+        if 'best' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -52,12 +52,13 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
         l = len(train_loaders)
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
                 inference_time = []
                 for idx2, batch in enumerate(loader):
+                    start_time = time.time()
                     total_loss = 0
                     metrics = {}
 
@@ -71,18 +72,17 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     }
 
                     obs = inp_data
-                    for i in range(obs[0].shape[1]):
-                        image_f = obs[0][0][i].permute(1, 2, 0).numpy()
-                        image_g = obs[1][0][i].permute(1, 2, 0).numpy()
-                        image = np.concatenate([image_f, image_g], axis=0)
-                        cv2.imshow("asdf", image)
-                        time.sleep(0.2)
-                        key = cv2.waitKey(1)
-                        if key == ord("q"):
-                            break
+                    # for i in range(obs[0].shape[1]):
+                    #     image_f = obs[0][0][i].permute(1, 2, 0).numpy()
+                    #     image_g = obs[1][0][i].permute(1, 2, 0).numpy()
+                    #     image = np.concatenate([image_f, image_g], axis=0)
+                    #     cv2.imshow("asdf", image)
+                    #     time.sleep(0.2)
+                    #     key = cv2.waitKey(1)
+                    #     if key == ord("q"):
+                    #         break
 
                     # Perform prediction and calculate loss and accuracy
-                    t = time.time()
                     output = model.forward(multimod_inputs,
                                            mask=cfg.pl_modules.pl_module.masked_train,
                                            task="repr",
@@ -104,7 +104,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     raw_orientation = q_exp_map(v_orientation, base_orientation)
                     raw_position = np.expand_dims(base_position, axis=-1) + v_position
                     raw_output = np.squeeze(np.concatenate([raw_position, raw_orientation], axis=0), axis=-1)
-                    compute_time = round(time.time() - t, 2)
+                    compute_time = round(time.time() - start_time, 2)
 
                     # out = torch.cat([
                     #     output["repr"]["encoded_inputs"]["vision"],
@@ -113,11 +113,11 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                     # ], dim=0).permute(1, 0, 2)
                     # out = out.detach().cpu().numpy()
                     # trial_outs.append(out)
-                    # inference_time.append(output["time"])
+                    inference_time.append(compute_time)
                 # trials_outs.append(np.concatenate(trial_outs, axis=0))
-                # print(f"trial {name}: total infernce time {compute_time},\n"
-                #       f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
-                #       f"example inference time:{inference_time[:10]}")
+                print(f"trial {name}: total infernce time {compute_time},\n"
+                      f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
+                      f"example inference time:{inference_time[:10]}")
         print(torch.cat(loss_list).mean())
         pm = torch.cat(pm, dim=0).detach().cpu().numpy()
         pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
@@ -166,7 +166,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/name=ltmask_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5weight_decay=0.0_03-12-10:06:11')
+                        default='../checkpoints/name=ltmask_fom_rec_iminame=ssnce_earlysum_vatt_additionallatent=0.5weight_decay=0.0001_03-12-18:11:46')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
