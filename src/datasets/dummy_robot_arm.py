@@ -86,7 +86,7 @@ class DummyDataset(Dataset):
                     T.CenterCrop((self._crop_height_v, self._crop_width_v)),
                 ]
             )
-
+        self.sampling_time = args.sampling_time/1000
         self.len_lb = args.len_lb
         self.p_mean = args.p_mean
         self.p_std = args.p_std
@@ -264,8 +264,8 @@ class DummyDataset(Dataset):
         # target_position_delta_seq = ((target_position_delta_seq - self.p_mean) / self.p_std) * 100
         # target_orientation_delta_seq = ((target_orientation_delta_seq - self.o_mean) / self.o_std) * 100
 
-        target_position_delta_seq = target_position_delta_seq * 100
-        target_orientation_delta_seq = target_orientation_delta_seq * 100
+        target_position_delta_seq = target_position_delta_seq / self.sampling_time
+        target_orientation_delta_seq = target_orientation_delta_seq / self.sampling_time
         # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0

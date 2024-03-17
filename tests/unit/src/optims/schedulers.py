@@ -46,14 +46,14 @@ class TestSchedulers(unittest.TestCase):
     def test_steplr_scheduler(self):
         with initialize(version_base='1.2', config_path="../../../../configs/optimizers/"):
             # config is relative to a module
-            cfg = compose(config_name="adam_steplr", overrides=["scheduler.step_size=750", "scheduler.gamma=0.9"])
+            cfg = compose(config_name="adam_steplr", overrides=[])
 
             p = nn.Parameter(torch.empty(4, 4))
             optimizer = optim.Adam([p], lr=1e-4)
 
             lr_scheduler = hydra.utils.instantiate(cfg.scheduler, optimizer=optimizer)
             # Plotting
-            epochs = list(range(2500))
+            epochs = list(range(11400))
             plt.figure(figsize=(8, 3))
             lrs = []
             for e in epochs:
