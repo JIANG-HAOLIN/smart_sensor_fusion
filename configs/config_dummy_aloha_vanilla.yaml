@@ -22,7 +22,7 @@ hydra:
   sweeper:
     params:
       trainers.launch_trainer.repeat_trial: 1
-      trainers.launch_trainer.max_epochs: 200
+      trainers.launch_trainer.max_epochs: 50
       trainers.launch_trainer.monitor:  "val_vae_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10

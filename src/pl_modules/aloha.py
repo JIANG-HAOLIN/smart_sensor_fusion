@@ -61,6 +61,7 @@ class AlohaPolicy(pl.LightningModule):
         self.weight = weight
         self.t_p = t_p
         self.action = action
+        self.automatic_optimization = False
 
     def configure_optimizers(self):
         """ configure the optimizer and scheduler """
@@ -119,7 +120,10 @@ class AlohaPolicy(pl.LightningModule):
             for key, value in out["obs_encoder_out"]["ssl_losses"].items():
                 total_loss += value * self.weight[key]
 
-        metrics["learning_rate"] = self.scheduler.get_last_lr()[0]
+        if mode== "train":
+            self.log("train_learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
+            # print(self.scheduler.get_last_lr()[0])
+
         metrics["total_loss"] = total_loss
         mod_metric = {}
         for key, value in metrics.items():
@@ -138,8 +142,15 @@ class AlohaPolicy(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         """ Calculate training loss and accuracy after each batch """
+        opt = self.optimizers()
+        sch = self.lr_schedulers()
+
         train_step_output = self._calculate_loss(batch, mode="train")
-        return train_step_output["total_loss"]
+        opt.zero_grad()
+        self.manual_backward(train_step_output["total_loss"])
+        opt.step()
+        sch.step()
+        # return train_step_output["total_loss"]
 
     def validation_step(self, batch, batch_idx):
         """ Calculate validation loss and accuracy after each batch
