@@ -74,7 +74,8 @@ class PlotMetric(Callback):
         super().__init__()
         self.out_dir_path = out_dir_path
         self.wanted_metrics = wanted_metrics
-        self.metrics = {}
+        self.val_metrics = {}
+        self.train_metrics = {}
 
     def on_validation_epoch_end(self, trainer: Trainer, pl_module):
         # print the validation metrics as curves in png forms and save them
@@ -84,11 +85,11 @@ class PlotMetric(Callback):
                 if "val" in metric and any(element in metric for element in self.wanted_metrics):
                     num_metric += 1
                     value = value.detach().cpu().numpy()
-                    if metric not in self.metrics.keys():
-                        self.metrics[metric] = []
-                    self.metrics[metric].append(value)
+                    if metric not in self.val_metrics.keys():
+                        self.val_metrics[metric] = []
+                    self.val_metrics[metric].append(value)
             fig, ax = plt.subplots(num_metric, 1, figsize = (5, 3*num_metric))
-            for idx, (metric, values) in enumerate(self.metrics.items()):
+            for idx, (metric, values) in enumerate(self.val_metrics.items()):
                 x = np.arange(len(values))
                 y = np.asarray(values)
                 ax[idx].plot(x, y, '-', label=f'{metric}', linewidth=0.2)
@@ -100,6 +101,35 @@ class PlotMetric(Callback):
                     best_pos = y.argmax()
                 ax[idx].set_title(f'{metric}  = {y[best_pos]} at epoch {best_pos}')
                 fig.savefig(os.path.join(self.out_dir_path, f'val_metrics.png'),
+                            dpi=300,
+                            bbox_inches='tight', )
+            plt.clf()
+            plt.close('all')
+
+        num_metric = 0
+        for metric, value in trainer.callback_metrics.items():
+            if "train" in metric:
+                num_metric += 1
+                value = value.detach().cpu().numpy()
+                if metric not in self.train_metrics.keys():
+                    self.train_metrics[metric] = []
+                self.train_metrics[metric].append(value)
+        if num_metric > 0:
+            fig, ax = plt.subplots(num_metric, 1, figsize=(5, 3 * num_metric))
+            for idx, (metric, values) in enumerate(self.train_metrics.items()):
+                x = np.arange(len(values))
+                y = np.asarray(values)
+                ax[idx].plot(x, y, '-', label=f'{metric}', linewidth=0.2)
+                ax[idx].set_xlabel('x')
+                ax[idx].set_ylabel('y')
+                if "loss" in metric:
+                    best_pos = y.argmin()
+                elif "acc" in metric:
+                    best_pos = y.argmax()
+                else:
+                    best_pos = y.argmin()
+                ax[idx].set_title(f'{metric}  = {y[best_pos]} at epoch {best_pos}')
+                fig.savefig(os.path.join(self.out_dir_path, f'train_metrics.png'),
                             dpi=300,
                             bbox_inches='tight', )
             plt.clf()

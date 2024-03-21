@@ -59,7 +59,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 3]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
-            for idx1, loader in enumerate([train_inference_loaders]):
+            for idx1, loader in enumerate([train_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -74,10 +74,13 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         inp_data = batch["observation"]
                         delta = batch["target_delta_seq"][:, 1:]
                         pose = batch["target_pose_seq"]
-                        actions = pose[:, 1:, :].to(args.device)
+                        ####
+                        # actions = pose[:, 1:, :].to(args.device)
+                        actions = delta.to(args.device)
+                        ####
                         vf_inp, vg_inp, _, _ = inp_data
                         multimod_inputs = {
-                            "vision": torch.cat([vg_inp, vf_inp], dim=-2).to(args.device),
+                            "vision": torch.cat([vf_inp, vg_inp], dim=-2).to(args.device),
                         }
                         qpos = pose[:, 0, :].to(args.device)
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
@@ -95,13 +98,14 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
                         print(l1)
 
-                        o = all_action[..., -4:]
-                        print(torch.sum(o**2, dim=-1)**0.5)
-                        o_real = actions[..., -4:]
+                        o = all_action[..., 3:]
+                        print(torch.sum(o ** 2, dim=-1) ** 0.5)
+                        o_real = actions[..., 3:]
                         print(torch.sum(o_real ** 2, dim=-1) ** 0.5)
                         # pm.append(pose[0, 1:2, :])
                         # pmr.append(all_action[0:1,:])
-                        pm.append(pose[0, 1:, :])
+                        # pm.append(pose[0, 1:, :])
+                        pm.append(delta[0, :, :])
                         pmr.append(all_action[:, :])
 
                         inference_time.append(time.time() - start_time)
@@ -127,24 +131,24 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         plt.figure()
         plt.subplot(611)
         plt.plot(t, pm[:, :1], '.-', )
-        plt.plot(tr, pmr[:, :1], '.-')
+        plt.plot(tr, pmr[:, :1], '-')
         # plt.plot(tfwd, pmfwd[:, :3], 'd-')
         plt.subplot(612)
         plt.plot(t, pm[:, 1:2], '.-')
-        plt.plot(tr, pmr[:, 1:2], '.-')
+        plt.plot(tr, pmr[:, 1:2], '-')
         # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
         plt.subplot(613)
         plt.plot(t, pm[:, 2:3], '.-')
-        plt.plot(tr, pmr[:, 2:3], '.-')
+        plt.plot(tr, pmr[:, 2:3], '-')
         plt.subplot(614)
         plt.plot(t, pm[:, 3:4], '.-')
-        plt.plot(tr, pmr[:, 3:4], '.-')
+        plt.plot(tr, pmr[:, 3:4], '-')
         plt.subplot(615)
         plt.plot(t, pm[:, 4:5], '.-')
-        plt.plot(tr, pmr[:, 4:5], '.-')
+        plt.plot(tr, pmr[:, 4:5], '-')
         plt.subplot(616)
         plt.plot(t, pm[:, 5:6], '.-')
-        plt.plot(tr, pmr[:, 5:6], '.-')
+        plt.plot(tr, pmr[:, 5:6], '-')
         plt.show()
 
 
@@ -159,7 +163,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/aloha_vanilla_pos_small_unnorm')
+                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.001kl_divergence=10hidden_dim=256_03-17-17:23:59')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

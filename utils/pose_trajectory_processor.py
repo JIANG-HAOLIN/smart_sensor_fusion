@@ -447,9 +447,9 @@ class PoseTrajectoryProcessor:
 
 if __name__ == "__main__":
 
-    file_names = ["/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robot_demo/demo_2024-03-06T13-58-26-139927/robot_trajectory.json"]
-    file_name_orig = file_names[0]
-    file_name_orig = "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robot_demo/demo_2024-03-06T13-58-26-139927/robot_trajectory.json"
+    file_names = ["/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_20/demo_2024-03-20T17-23-41-142189/source_robot_trajectory.json"]
+    file_name_orig = file_names[1]
+    file_name_orig = "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_20/demo_2024-03-20T17-23-41-142189/target_robot_trajectory.json"
     with open(file_name_orig) as f:
         pose_trajectory = json.load(f)
         print("Trajectory loaded ...")

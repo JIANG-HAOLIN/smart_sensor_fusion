@@ -658,9 +658,11 @@ class DETRVAE(nn.Module):
         actions: batch, seq, action_dim
         """
         image = multimod_inputs["vision"]
-        height = (image.shape[-2]) // 2
-        assert (image.shape[-2]) % 2 == 0, "image not dividable"
-        image = torch.stack([image[:, -1, :, :height, :], image[:, -1, :, height:, :]], dim=1)
+        # height = (image.shape[-2]) // 2
+        # assert (image.shape[-2]) % 2 == 0, "image not dividable"
+        # image = torch.stack([image[:, -1, :, :height, :], image[:, -1, :, height:, :]], dim=1)
+        image = torch.stack([image[:, -1, :, :, :]], dim=1)
+
         is_training = actions is not None  # train or val
         bs, _ = qpos.shape
         ### Obtain latent z from action sequence

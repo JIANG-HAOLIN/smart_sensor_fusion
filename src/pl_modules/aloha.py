@@ -79,11 +79,12 @@ class AlohaPolicy(pl.LightningModule):
 
         # Fetch data and transform categories to one-hot vectors
         inp_data = batch["observation"]
-        delta = batch["target_delta_seq"]
-        pose = batch["target_pose_seq"]
-        vf_inp, vg_inp, _, _ = inp_data
+        delta = batch["future_delta_seq"]
+        pose = batch["future_pose_seq"]
+        qpos = batch["previous_pose_seq"][:, -1, :]
+        vf_inp, vg_inp = inp_data
         multimod_inputs = {
-            "vision": torch.cat([vf_inp, vg_inp], dim=-2),
+            "vision": vg_inp,
         }
 
         if self.action == "delta":
@@ -95,7 +96,7 @@ class AlohaPolicy(pl.LightningModule):
         # Perform prediction and calculate loss and accuracy
         if action is not None:  # training time
 
-            qpos = pose[:, 0, :]
+
             is_pad = torch.zeros([action.shape[0], action.shape[1]], device=qpos.device).bool()
             out = self.mdl(qpos,
                            multimod_inputs,
@@ -117,6 +118,9 @@ class AlohaPolicy(pl.LightningModule):
             total_loss += metrics['vae_loss']
             for key, value in out["obs_encoder_out"]["ssl_losses"].items():
                 total_loss += value * self.weight[key]
+
+        if mode == "train":
+            self.log("learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
 
         metrics["total_loss"] = total_loss
         mod_metric = {}
