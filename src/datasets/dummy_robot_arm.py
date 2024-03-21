@@ -22,6 +22,7 @@ from types import SimpleNamespace
 from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
 from utils.quaternion import q_log_map
 from omegaconf import OmegaConf, open_dict
+from scipy.interpolate import splrep, BSpline
 
 
 def get_pose_sequence(resampled_trajectory, lb_idx):
@@ -691,8 +692,9 @@ if __name__ == "__main__":
     t = np.arange(all_step.shape[0])
     plt.figure()
     plt.subplot(711)
-    plt.plot(t, pm[:, :1], '-', )
-    # plt.plot(tfwd, pmfwd[:, :3], 'd-')
+    tck = splrep(t, pm[:, :1], s=1)
+    o = np.stack([pm[:, 0], BSpline(*tck)(t)], axis=1)
+    plt.plot(t, o, '-', )
     plt.subplot(712)
     plt.plot(t, pm[:, 1:2], '-')
     # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
