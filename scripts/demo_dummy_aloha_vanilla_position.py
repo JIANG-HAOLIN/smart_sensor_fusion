@@ -35,7 +35,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if 'last' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -55,7 +55,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
         max_timesteps = 1000
         num_queries = 10
-        query_frequency = 1
+        query_frequency = 10
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 3]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
@@ -102,11 +102,11 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         o_real = actions[..., 3:]
                         print(torch.sum(o_real ** 2, dim=-1) ** 0.5)
 
-                        # pm.append(pose[0, 1:query_frequency + 1, :])
-                        # pmr.append(all_action[:query_frequency, :])
+                        pm.append(pose[0, 1:query_frequency + 1, :])
+                        pmr.append(all_action[:query_frequency, :])
 
-                        pm.append(pose[0, 1:2, :])
-                        pmr.append(np.expand_dims(raw_action, axis=0))
+                        # pm.append(pose[0, 1:2, :])
+                        # pmr.append(np.expand_dims(raw_action, axis=0))
 
                         inference_time.append(time.time() - start_time)
                 print(
@@ -169,7 +169,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=0.0001weight_decay=0.0001kl_divergence=10hidden_dim=256_03-21-09:54:58')
+                        default='../checkpoints/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-22-11:00:11')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

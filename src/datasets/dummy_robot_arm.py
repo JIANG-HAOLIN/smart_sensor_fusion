@@ -600,7 +600,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
     train_trajs_paths = trajs[:43]
     val_trajs_paths = trajs[43:]
-    train_trajs_paths = train_trajs_paths[2:3]
+    train_trajs_paths = train_trajs_paths[3:4]
     val_trajs_paths = val_trajs_paths[0:1]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
@@ -669,12 +669,12 @@ if __name__ == "__main__":
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        # image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
-        # cv2.imshow("asdf", image_g)
-        # time.sleep(0.2)
-        # key = cv2.waitKey(1)
-        # if key == ord("q"):
-        #     break
+        image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
+        cv2.imshow("asdf", image_g)
+        time.sleep(0.2)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
 
         all_step_delta.append(batch["future_delta_seq"][:, 1])
         all_step_pose.append(batch["future_pose_seq"][:, 1])

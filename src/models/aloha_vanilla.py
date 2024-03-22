@@ -727,6 +727,7 @@ class DETRVAE(nn.Module):
                 all_time_orientation=None,
                 t=None,
                 args=None,
+                v_scale=None,
                 **kwargs):
         output = self.forward(qpos,
                               multimod_inputs,
@@ -741,15 +742,24 @@ class DETRVAE(nn.Module):
                 # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
         # loss_list.append(loss.reshape(1,))
         if a_hat.shape[-1] == 6:
-            out_delta = a_hat
+            a_hat = a_hat
+            out_delta = a_hat * v_scale
             base = qpos.squeeze(0).detach().cpu().numpy()
             base_position = base[:3]
             base_orientation = base[3:]
             v = out_delta.squeeze(0).detach().cpu().numpy()
             v_position = v[:, :3]
+            for i in range(v_position.shape[0]):
+                if i == 0:
+                    v_position[i] = v_position[0] + base_position
+                else:
+                    v_position[i] = v_position[i] + v_position[i-1]
             v_orientation = v[:, 3:]
-            out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)
+            out_position = torch.from_numpy(v_position)
+            # out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)
             out_orientation = torch.tensor(q_exp_map(np.transpose(v_orientation, (1, 0)), base_orientation)).permute(1, 0)
+            v[:, :3] = v_position
+            out_chunk = v
         elif a_hat.shape[-1] == 7:
             out_chunk = a_hat.detach().cpu().squeeze(0)
             out_position = out_chunk[:, :3]

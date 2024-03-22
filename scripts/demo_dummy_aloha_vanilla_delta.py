@@ -59,7 +59,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 3]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
-            for idx1, loader in enumerate([train_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -72,41 +72,42 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         total_loss = 0
                         metrics = {}
                         inp_data = batch["observation"]
-                        delta = batch["target_delta_seq"][:, 1:]
-                        pose = batch["target_pose_seq"]
-                        ####
-                        # actions = pose[:, 1:, :].to(args.device)
-                        actions = delta.to(args.device)
-                        ####
-                        vf_inp, vg_inp, _, _ = inp_data
+                        delta = batch["future_delta_seq"]
+                        pose = batch["future_pose_seq"]
+                        qpos = batch["previous_pose_seq"][:, -1, :].to(args.device)
+                        vf_inp, vg_inp = inp_data
                         multimod_inputs = {
-                            "vision": torch.cat([vf_inp, vg_inp], dim=-2).to(args.device),
+                            "vision": vg_inp.to(args.device),
                         }
-                        qpos = pose[:, 0, :].to(args.device)
+                        actions = pose[:, 1:, :].to(args.device)
+
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
 
-                        all_action, raw_action = model.rollout(qpos, multimod_inputs,
-                                                               env_state=None,
-                                                               actions=None,
-                                                               is_pad=None,
-                                                               all_time_position=all_time_position,
-                                                               all_time_orientation=all_time_orientation,
-                                                               t=idx1,
-                                                               args=args, )
-                        base = qpos.squeeze(0)
-                        all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
-                        l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
-                        print(l1)
+                        all_action, raw_action, all_time_position, all_time_orientation = model.rollout(qpos,
+                                                                                                        multimod_inputs,
+                                                                                                        env_state=None,
+                                                                                                        actions=None,
+                                                                                                        is_pad=None,
+                                                                                                        all_time_position=all_time_position,
+                                                                                                        all_time_orientation=all_time_orientation,
+                                                                                                        t=t,
+                                                                                                        args=args,
+                                                                                                        v_scale=0.15 / 10)
+                        # all_action = torch.from_numpy(all_action)
+                        # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
+                        # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
+                        # print(l1)
+                        #
+                        # o = all_action[..., 3:]
+                        # print(torch.sum(o ** 2, dim=-1) ** 0.5)
+                        # o_real = actions[..., 3:]
+                        # print(torch.sum(o_real ** 2, dim=-1) ** 0.5)
 
-                        o = all_action[..., 3:]
-                        print(torch.sum(o ** 2, dim=-1) ** 0.5)
-                        o_real = actions[..., 3:]
-                        print(torch.sum(o_real ** 2, dim=-1) ** 0.5)
-                        # pm.append(pose[0, 1:2, :])
-                        # pmr.append(all_action[0:1,:])
-                        # pm.append(pose[0, 1:, :])
-                        pm.append(delta[0, :, :])
-                        pmr.append(all_action[:, :])
+                        # pm.append(delta[0, 1:query_frequency + 1, :])
+                        # pmr.append(all_action[:query_frequency, :])
+
+                        pm.append(pose[0, 1:query_frequency + 1, :])
+                        pmr.append(all_action[:query_frequency, :])
 
                         inference_time.append(time.time() - start_time)
                 print(
@@ -125,30 +126,36 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
         # print(torch.cat(loss_list).mean())
         pm = torch.cat(pm, dim=0).detach().cpu().numpy()
-        pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
+        if isinstance(pmr, torch.Tensor):
+            pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
+        else:
+            pmr = np.concatenate(pmr, axis=0)
         t = np.arange(len(pm))
         tr = t.copy()
         plt.figure()
-        plt.subplot(611)
+        plt.subplot(711)
         plt.plot(t, pm[:, :1], '.-', )
         plt.plot(tr, pmr[:, :1], '-')
         # plt.plot(tfwd, pmfwd[:, :3], 'd-')
-        plt.subplot(612)
+        plt.subplot(712)
         plt.plot(t, pm[:, 1:2], '.-')
         plt.plot(tr, pmr[:, 1:2], '-')
         # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
-        plt.subplot(613)
+        plt.subplot(713)
         plt.plot(t, pm[:, 2:3], '.-')
         plt.plot(tr, pmr[:, 2:3], '-')
-        plt.subplot(614)
+        plt.subplot(714)
         plt.plot(t, pm[:, 3:4], '.-')
         plt.plot(tr, pmr[:, 3:4], '-')
-        plt.subplot(615)
+        plt.subplot(715)
         plt.plot(t, pm[:, 4:5], '.-')
         plt.plot(tr, pmr[:, 4:5], '-')
-        plt.subplot(616)
+        plt.subplot(716)
         plt.plot(t, pm[:, 5:6], '.-')
         plt.plot(tr, pmr[:, 5:6], '-')
+        plt.subplot(717)
+        plt.plot(t, pm[:, 6:7], '.-')
+        plt.plot(tr, pmr[:, 6:7], '-')
         plt.show()
 
 
@@ -163,7 +170,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.001kl_divergence=10hidden_dim=256_03-17-17:23:59')
+                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-22-10:26:22')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
