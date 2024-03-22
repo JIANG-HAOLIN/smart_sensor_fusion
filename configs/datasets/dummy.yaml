@@ -20,4 +20,4 @@ dataloader:
     p_std: 0
     o_mean: 0
     o_std: 0
-    sampling_time: 150
+    sampling_time: 100

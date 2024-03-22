@@ -738,7 +738,7 @@ class DETRVAE(nn.Module):
                               mode="val",
                               env_state=None, )
         a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
-        # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
+                # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
         # loss_list.append(loss.reshape(1,))
         if a_hat.shape[-1] == 6:
             out_delta = a_hat
@@ -751,12 +751,13 @@ class DETRVAE(nn.Module):
             out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)
             out_orientation = torch.tensor(q_exp_map(np.transpose(v_orientation, (1, 0)), base_orientation)).permute(1, 0)
         elif a_hat.shape[-1] == 7:
-            a_hat = a_hat.squeeze(0)
-            out_position = a_hat.detach().cpu()
-            out_position = out_position[:, :3]
-            out_orientation = a_hat.detach().cpu()
-            out_orientation = out_orientation[:, 3:]
-
+            out_chunk = a_hat.detach().cpu().squeeze(0)
+            out_position = out_chunk[:, :3]
+            out_orientation = out_chunk[:, 3:]
+            out_orientation = out_orientation / np.linalg.norm(out_orientation, 2, axis=1, keepdims=True)
+            out_chunk = np.concatenate([out_position, out_orientation], axis=1)
+            out_position = torch.from_numpy(out_chunk[:, :3])
+            out_orientation = torch.from_numpy(out_chunk[:, 3:])
         all_time_orientation[[t], t:t + self.num_queries] = out_orientation.float().to(args.device)
         orientation_for_curr_step = all_time_orientation[:, t]
         actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
@@ -781,7 +782,7 @@ class DETRVAE(nn.Module):
         weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
         raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
         raw_position = raw_action.squeeze(0).cpu().numpy()
-        return a_hat.squeeze(0).detach().cpu(), np.concatenate([raw_position, raw_orientation])
+        return out_chunk, np.concatenate([raw_position, raw_orientation]), all_time_position, all_time_orientation
 
 
 

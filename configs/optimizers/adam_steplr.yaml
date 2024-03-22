@@ -6,4 +6,4 @@ optimizer:
 
 scheduler:
   _target_: diffusers.optimization.get_constant_schedule_with_warmup
-  num_warmup_steps: 450
+  num_warmup_steps: 500

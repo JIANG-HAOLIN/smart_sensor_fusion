@@ -224,10 +224,15 @@ class DummyDataset(Dataset):
             timestep: the timestep of frame you want to extract
         """
         rgb_path = os.path.join(rgb_path, idx)
-        image = (
-                torch.as_tensor(np.array(Image.open(rgb_path))).float().permute(2, 0, 1)
-                / 255
-        )
+        image = Image.open(rgb_path).convert('RGB')
+        image = np.array(image)
+        # cv2.imshow("show", image)
+        # while True:
+        #     key = cv2.waitKey(1)
+        #     if key == ord("q"):
+        #         break
+        # image.show()
+        image = torch.as_tensor(image).float().permute(2, 0, 1) / 255
         return image
 
     @staticmethod
@@ -305,8 +310,8 @@ class DummyDataset(Dataset):
         # target_position_delta_seq = ((target_position_delta_seq - self.p_mean) / self.p_std) * 100
         # target_orientation_delta_seq = ((target_orientation_delta_seq - self.o_mean) / self.o_std) * 100
 
-        future_position_delta_seq = future_position_delta_seq * 10  / self.sampling_time  # cm/s
-        future_orientation_delta_seq = future_orientation_delta_seq * 10  / self.sampling_time  # cm/s
+        future_position_delta_seq = future_position_delta_seq * 10 / self.sampling_time  # cm/s
+        future_orientation_delta_seq = future_orientation_delta_seq * 10 / self.sampling_time  # cm/s
         # 2i_images
         # to speed up data loading, do not load img if not using
         cam_gripper_framestack = 0
@@ -555,8 +560,8 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwar
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
     # num_train = int(len(trajs) * 0.8)
 
-    train_trajs_paths = trajs[:30]
-    val_trajs_paths = trajs[30:]
+    train_trajs_paths = trajs[:43]
+    val_trajs_paths = trajs[43:]
 
     # normalizer = Normalizer(train_trajs_paths, args, True)
     # args.p_mean, args.p_std, args.o_mean, args.o_std = normalizer.get_mean_std()
@@ -593,9 +598,9 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
 
     """
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
-    train_trajs_paths = trajs[:30]
-    val_trajs_paths = trajs[30:]
-    train_trajs_paths = train_trajs_paths[0:1]
+    train_trajs_paths = trajs[:43]
+    val_trajs_paths = trajs[43:]
+    train_trajs_paths = train_trajs_paths[2:3]
     val_trajs_paths = val_trajs_paths[0:1]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
@@ -631,7 +636,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     )
 
     train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=False, drop_last=True, )
-    train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=True, )
+    train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, train_inference_loader
 
@@ -641,7 +646,7 @@ if __name__ == "__main__":
     import time
     import cv2
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_20'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_22_transition'
     args = SimpleNamespace()
 
     args.ablation = 'vg'
@@ -656,7 +661,7 @@ if __name__ == "__main__":
     all_step_delta = []
     all_step_pose = []
     train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                              drop_last=True)
+                                                    drop_last=True)
     print(len(train_loader))
     for idx, batch in enumerate(train_loader):
         # if idx >= 100:
@@ -664,16 +669,12 @@ if __name__ == "__main__":
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        # for i in range(obs[0].shape[1]):
-        #
-        #     image_f = obs[0][0][i].permute(1, 2, 0).numpy()
-        #     image_g = obs[1][0][i].permute(1, 2, 0).numpy()
-        #     image = np.concatenate([image_f, image_g], axis=0)
-        #     cv2.imshow("asdf", image)
-        #     time.sleep(0.2)
-        #     key = cv2.waitKey(1)
-        #     if key == ord("q"):
-        #         break
+        # image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
+        # cv2.imshow("asdf", image_g)
+        # time.sleep(0.2)
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
 
         all_step_delta.append(batch["future_delta_seq"][:, 1])
         all_step_pose.append(batch["future_pose_seq"][:, 1])
@@ -683,7 +684,7 @@ if __name__ == "__main__":
         # print(f"target pose sequence shape: {target_pose_seq.shape}")
         # print(f"target delta sequence shape: {target_delta_seq.shape}")
 
-    all_step = torch.concatenate(all_step_pose, dim=0)
+    all_step = torch.concatenate(all_step_delta, dim=0)
     pm = all_step.detach().cpu().numpy()
     print(np.mean(pm, axis=0))
     print(np.std(pm, axis=0))
@@ -692,7 +693,7 @@ if __name__ == "__main__":
     t = np.arange(all_step.shape[0])
     plt.figure()
     plt.subplot(711)
-    tck = splrep(t, pm[:, :1], s=1)
+    tck = splrep(t, pm[:, :1], s=0.1)
     o = np.stack([pm[:, 0], BSpline(*tck)(t)], axis=1)
     plt.plot(t, o, '-', )
     plt.subplot(712)
@@ -706,6 +707,6 @@ if __name__ == "__main__":
     plt.plot(t, pm[:, 4:5], '-')
     plt.subplot(716)
     plt.plot(t, pm[:, 5:6], '-')
-    plt.subplot(717)
-    plt.plot(t, pm[:, 6:7], '-')
+    # plt.subplot(717)
+    # plt.plot(t, pm[:, 6:7], '-')
     plt.show()
