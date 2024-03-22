@@ -111,7 +111,9 @@ class AlohaPolicy(pl.LightningModule):
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
-            all_l1 = F.l1_loss(action[:, :, :3], a_hat[:, :, :3], reduction='none')
+            action = action[:, :, :3]
+            a_hat = a_hat[:, :, :3]
+            all_l1 = F.l1_loss(action, a_hat, reduction='none')
             l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
             metrics['l1_loss'] = l1
             metrics['kl_loss'] = total_kld[0]
