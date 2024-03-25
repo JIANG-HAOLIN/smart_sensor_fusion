@@ -79,19 +79,26 @@ class AlohaPolicy(pl.LightningModule):
         metrics = {}
 
         # Fetch data and transform categories to one-hot vectors
+        real_delta = batch["smooth_future_real_delta"]
+        real_delta_direct = batch["smooth_future_real_delta_direct"]
+        relative_delta = batch["smooth_future_relative_delta"]
+        pose = batch["smooth_future_glb_pos_ori"]
+        qpos = batch["smooth_previous_glb_pos_ori"][:, -1, :]
+
         inp_data = batch["observation"]
-        delta = batch["future_delta_seq"]
-        pose = batch["future_pose_seq"]
-        qpos = batch["previous_pose_seq"][:, -1, :]
         vf_inp, vg_inp = inp_data
         multimod_inputs = {
             "vision": vg_inp,
         }
 
-        if self.action == "delta":
-            action = delta[:, 1:, :]
+        if self.action == "real_delta":
+            action = real_delta[:, 1:, :]
         elif self.action == "position":
             action = pose[:, 1:, :]
+        elif self.action == "relative_delta":
+            action = relative_delta[:, 1:, :]
+        elif self.action == "real_delta_direct":
+            action = real_delta_direct[:, 1:, :]
         task = self.train_tasks.split("+")
 
         # Perform prediction and calculate loss and accuracy

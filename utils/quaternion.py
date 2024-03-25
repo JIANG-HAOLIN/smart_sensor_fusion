@@ -43,7 +43,7 @@ def q_exp_map(v, base=None):
     """
     v_2d = v.reshape((3, 1)) if len(v.shape) == 1 else v
     if base is None:
-        norm_v = np.sqrt(np.sum(v_2d**2, 0))
+        norm_v = np.sqrt(np.sum(v_2d ** 2, 0))
         q = np.append(np.ones((1, v_2d.shape[1])), np.zeros((3, v_2d.shape[1])), 0)
         non_0 = np.where(norm_v > 0)[0]
         q[:, non_0] = np.append(
@@ -90,6 +90,8 @@ def q_log_map(q, base=None):
         return q_log_map(q_mul(q_inverse(base), q))
 
 
+
+
 def q_parallel_transport(p_g, g, h):
     """
     Transport p in tangent space at g to tangent space at h. According to (2.11)--(2.13) in [7].
@@ -131,7 +133,7 @@ def q_div(q1, q2):
 
 
 def q_norm_squared(q):
-    return np.sum(q**2)
+    return np.sum(q ** 2)
 
 
 def q_norm(q):
@@ -153,9 +155,9 @@ def q_to_rotation_matrix(q):
     w, x, y, z = q
     return np.array(
         [
-            [1 - 2 * (y**2 + z**2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
-            [2 * (x * y + w * z), 1 - 2 * (x**2 + z**2), 2 * (y * z - w * x)],
-            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x**2 + y**2)],
+            [1 - 2 * (y ** 2 + z ** 2), 2 * (x * y - w * z), 2 * (x * z + w * y)],
+            [2 * (x * y + w * z), 1 - 2 * (x ** 2 + z ** 2), 2 * (y * z - w * x)],
+            [2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x ** 2 + y ** 2)],
         ]
     )
 
@@ -253,7 +255,7 @@ def q_from_rot_mat(rot_mat):
     if nm == 0:
         q = np.array([1, 0, 0, 0])
     else:
-        s = np.sqrt(1 - qs**2) / nm
+        s = np.sqrt(1 - qs ** 2) / nm
         qv = s * np.array([kx, ky, kz])
         q = np.append(qs, qv)
     return q
@@ -404,20 +406,31 @@ def recover_pose_from_relative_vel(future_vel_seq: np.ndarray, base: np.ndarray,
     return recover_pose
 
 
-def smooth_traj(pm: np.ndarray, s: float) -> np.ndarray:
+def smooth_traj(pm: np.ndarray, s: tuple) -> (np.ndarray, np.ndarray):
     """
     pm: input trajectory, with shape [N, 7]
     """
-    pm_base = pm[0].copy()
     t = np.arange(pm.shape[0])
-    pm_delta = compute_sequence_delta(pm.copy(), pm_base)
+    pm_delta = compute_sequence_delta(pm.copy(), np.array([0, 0, 0, 0, 1, 0, 0]))
     pmr_delta = []
-    for i in pm_delta.transpose(1, 0):
-        x = BSpline(*splrep(t, i, s=s))(t)
+    for i in range(6):
+        x = BSpline(*splrep(t, pm_delta[:, i], s=s[i]))(t)
         pmr_delta.append(x)
     pmr_delta = np.stack(pmr_delta, axis=1)
-    pmr = compute_sequence_integral(pmr_delta, pm_base)
-    return pmr
+    pmr = compute_sequence_integral(pmr_delta, np.array([0, 0, 0, 0, 1, 0, 0]))
+    return pmr, pm_delta, pmr_delta
 
 
-
+# q1 = np.array([1,2,3,4])/np.linalg.norm([1,2,3,4],2)
+# q2 = np.array([2,3,4,5])/np.linalg.norm([2,3,4,5],2)
+# q3 = np.array([3,4,5,6])/np.linalg.norm([3,4,5,6],2)
+# v12 = q_log_map(q2, q1)
+# v23 = q_log_map(q3, q2)
+#
+# v1 = q_log_map(q1)
+# v2 = q_log_map(q2)
+# v3 = q_log_map(q3)
+# v12_ = v2 - v1
+# v23_ = v3 - v2
+# print(v12 - v12_)
+# print(v23 - v23_)
