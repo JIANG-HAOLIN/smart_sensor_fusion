@@ -259,7 +259,7 @@ class DummyDataset(Dataset):
         ).squeeze(0)
 
     def __len__(self):
-        return self.num_frames - 10
+        return (self.num_frames - self.len_lb)
 
     @staticmethod
     def get_relative_delta_sequence(pos_seq: np.ndarray, quaternion_seq: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -593,7 +593,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     Args:
         batch_size: batch size
         args: arguments for dataloader
-        data_folder: absolute path of directory "data"11
+        data_folder: absolute path of directory "data"
         drop_last: whether drop_last for train dataloader
         **kwargs: other arguments
 
