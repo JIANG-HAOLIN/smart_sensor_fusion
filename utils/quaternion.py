@@ -363,3 +363,32 @@ def q_to_intrinsic_xyz(q):
         else euler
     )
     return euler
+
+
+def compute_delta(pos, base):
+    delta_p = pos[:3] - base[:3]
+    delta_o = q_log_map(pos[3:], base[3:])
+    return np.concatenate([delta_p, delta_o])
+
+
+def compute_integral(delta, base):
+    pos_p = delta[:3] + base[:3]
+    pos_o = q_exp_map(delta[3:], base[3:])
+    return np.concatenate([pos_p, pos_o])
+
+
+def recover_pose_from_relative_vel(future_vel_seq: np.ndarray, base: np.ndarray, vel_scale=0.01):
+    """
+    base: [7,]
+    future_pose_seq: [10, 7]
+
+    """
+    recover_pose = np.zeros([future_vel_seq.shape[0], 7])
+    for i in range(future_vel_seq.shape[0]):
+        out = compute_integral(future_vel_seq[i, :] * vel_scale, base)
+        base = out
+        recover_pose[i] = out
+    return recover_pose
+
+
+

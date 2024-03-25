@@ -748,12 +748,7 @@ class DETRVAE(nn.Module):
             base_position = base[:3]
             base_orientation = base[3:]
             v = out_delta.squeeze(0).detach().cpu().numpy()
-            v_position = v[:, :3]
-            for i in range(v_position.shape[0]):
-                if i == 0:
-                    v_position[i] = v_position[0] + base_position
-                else:
-                    v_position[i] = v_position[i] + v_position[i-1]
+            v_position = np.cumsum(v[:, :3], axis=0) + base_position[None, :].copy()
             v_orientation = v[:, 3:]
             out_position = torch.from_numpy(v_position)
             # out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)

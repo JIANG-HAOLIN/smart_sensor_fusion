@@ -92,7 +92,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                                                                                                         all_time_orientation=all_time_orientation,
                                                                                                         t=t,
                                                                                                         args=args,
-                                                                                                        v_scale=0.15 / 10)
+                                                                                                        v_scale=0.10 / 10)
                         # all_action = torch.from_numpy(all_action)
                         # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
                         # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
