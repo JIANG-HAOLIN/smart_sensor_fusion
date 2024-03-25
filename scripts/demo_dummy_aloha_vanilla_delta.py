@@ -35,7 +35,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if 'last' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -130,6 +130,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
             pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
         else:
             pmr = np.concatenate(pmr, axis=0)
+
+        pmr[:, 3:] = pmr[:, 3:] * -1
         t = np.arange(len(pm))
         tr = t.copy()
         plt.figure()
@@ -170,7 +172,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-22-10:26:22')
+                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-25-11:23:11')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

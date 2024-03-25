@@ -22,8 +22,9 @@ from types import SimpleNamespace
 from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
 from utils.quaternion import q_log_map, q_exp_map
 from omegaconf import OmegaConf, open_dict
-from scipy.interpolate import splrep, BSpline
-from utils.quaternion import compute_integral, compute_delta, recover_pose_from_relative_vel
+
+from utils.quaternion import compute_integral, compute_delta, recover_pose_from_relative_vel, \
+    compute_sequence_delta, compute_sequence_integral, smooth_traj
 
 
 def get_pose_sequence(resampled_trajectory, lb_idx):
@@ -197,6 +198,8 @@ class DummyDataset(Dataset):
         #     print(f"nan detected in resampled pos histroy {json_name}")
         # if np.isnan(np.array(resample_orientation_history)).any():
         #     print(f"nan detected in resampled ori histroy {json_name}")
+        smoothed_traj = smooth_traj(np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)], axis=1), 0.0005)
+
         raw_traj = {
             "position": np.array(raw_position_histroy),
             "orientation": np.array(raw_orientation_history),
@@ -205,8 +208,8 @@ class DummyDataset(Dataset):
         }
 
         resample_traj = {
-            "position": np.array(resample_position_histroy),
-            "orientation": np.array(resample_orientation_history),
+            "position": smoothed_traj[:, :3],
+            "orientation": smoothed_traj[:, 3:],
             "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
         }
@@ -608,8 +611,8 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     val_trajs_paths = trajs[num_train:]
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
-    train_trajs_paths = train_trajs_paths[4:5]
-    val_trajs_paths = val_trajs_paths[0:1]
+    train_trajs_paths = train_trajs_paths[5:6]
+    val_trajs_paths = val_trajs_paths[3:4]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
     args.p_mean = np.array([[0.00010239, 0.0003605, -0.00236236]])
@@ -674,24 +677,85 @@ if __name__ == "__main__":
     print(len(train_loader))
 
 
+    for idx, batch in enumerate(train_loader):
+        # if idx >= 100:
+        #     break
+        print(f"{idx} \n")
+        obs = batch["observation"]
+
+        # image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
+        # cv2.imshow("asdf", image_g)
+        # time.sleep(0.2)
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
+
+        all_step_delta.append(batch["future_delta_seq"][:, 1])
+        all_step_pose.append(batch["future_pose_seq"][:, 1])
+
+    all_step_pose = torch.concatenate(all_step_pose, dim=0)
+    pm = all_step_pose.detach().cpu().numpy()
+    all_step_delta = torch.concatenate(all_step_delta, dim=0)
+    pmr = all_step_delta.detach().cpu().numpy()
+    print(np.mean(pm, axis=0))
+    print(np.std(pm, axis=0))
+    print(np.max(pm, axis=0))
+    print(np.min(pm, axis=0))
+    t = np.arange(all_step_pose.shape[0])
+    plt.figure()
+    plt.subplot(711)
+    plt.plot(t, pm[:, 0:1], '-', )
+    plt.plot(t, pmr[:, 0:1], '-', )
+    plt.subplot(712)
+    plt.plot(t, pm[:, 1:2], '-')
+    plt.plot(t, pmr[:, 1:2], '-')
+    plt.subplot(713)
+    plt.plot(t, pm[:, 2:3], '-')
+    plt.plot(t, pmr[:, 2:3], '-')
+    plt.subplot(714)
+    plt.plot(t, pm[:, 3:4], '-')
+    plt.plot(t, pmr[:, 3:4], '-')
+    plt.subplot(715)
+    plt.plot(t, pm[:, 4:5], '-')
+    plt.plot(t, pmr[:, 4:5], '-')
+    plt.subplot(716)
+    plt.plot(t, pm[:, 5:6], '-')
+    plt.plot(t, pmr[:, 5:6], '-')
+    plt.subplot(717)
+    plt.plot(t, pm[:, 6:7], '-')
+    plt.plot(t, pmr[:, 6:7], '-')
+    plt.show()
+
+
+
+
     # for idx, batch in enumerate(train_loader):
+    #     if idx % args.len_lb != 0:
+    #         continue
     #     # if idx >= 100:
     #     #     break
     #     print(f"{idx} \n")
     #     obs = batch["observation"]
     #
-    #     image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
-    #     cv2.imshow("asdf", image_g)
-    #     time.sleep(0.2)
-    #     key = cv2.waitKey(1)
-    #     if key == ord("q"):
-    #         break
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
     #
-    #     all_step_delta.append(batch["future_delta_seq"][:, 1])
-    #     all_step_pose.append(batch["future_pose_seq"][:, 1])
+    #     all_step_delta.append(batch["future_delta_seq"][0, 1:, :])
+    #     all_step_pose.append(batch["future_pose_seq"][0, 1:, :])
     #
-    # all_step = torch.concatenate(all_step_delta, dim=0)
+    #     recover_pose = recover_pose_from_relative_vel(batch["future_delta_seq"][0, 1:, :].detach().cpu().numpy(),
+    #                                                   batch["previous_pose_seq"][0, -1, :].detach().cpu().numpy(),
+    #                                                   vel_scale=0.015)
+    #     all_recover_pose.append(torch.from_numpy(recover_pose))
+    #
+    # all_step = torch.concatenate(all_step_pose, dim=0)
     # pm = all_step.detach().cpu().numpy()
+    # all_recover_pose = torch.concatenate(all_recover_pose, dim=0)
+    # pmr = all_recover_pose.detach().cpu().numpy()
+    # # pmr = torch.cat(all_step_delta, dim = 0).detach().cpu().numpy()
     # print(np.mean(pm, axis=0))
     # print(np.std(pm, axis=0))
     # print(np.max(pm, axis=0))
@@ -699,79 +763,85 @@ if __name__ == "__main__":
     # t = np.arange(all_step.shape[0])
     # plt.figure()
     # plt.subplot(711)
-    # tck = splrep(t, pm[:, :1], s=0.1)
-    # o = np.stack([pm[:, 0], BSpline(*tck)(t)], axis=1)
+    # o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
     # plt.plot(t, o, '-', )
     # plt.subplot(712)
-    # plt.plot(t, pm[:, 1:2], '-')
-    # # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
+    # o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.subplot(713)
-    # plt.plot(t, pm[:, 2:3], '-')
+    # o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.subplot(714)
-    # plt.plot(t, pm[:, 3:4], '-')
+    # o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.subplot(715)
-    # plt.plot(t, pm[:, 4:5], '-')
+    # o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.subplot(716)
-    # plt.plot(t, pm[:, 5:6], '-')
+    # o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.subplot(717)
-    # plt.plot(t, pm[:, 6:7], '-')
+    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # plt.plot(t, o, '-')
     # plt.show()
 
 
 
 
-    for idx, batch in enumerate(train_loader):
-        if idx % args.len_lb != 0:
-            continue
-        # if idx >= 100:
-        #     break
-        print(f"{idx} \n")
-        obs = batch["observation"]
 
-        # for image_g in obs[1][0]:
-        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-        # key = cv2.waitKey(1)
-        # if key == ord("q"):
-        #     break
-
-        all_step_delta.append(batch["future_delta_seq"][0, 1:, :])
-        all_step_pose.append(batch["future_pose_seq"][0, 1:, :])
-
-        # recover_pose = recover_pose_from_relative_vel(batch["future_delta_seq"][0, 1:, :].detach().cpu().numpy(),
-        #                                               batch["previous_pose_seq"][0, -1, :].detach().cpu().numpy(),
-        #                                               vel_scale=0.015)
-        # all_recover_pose.append(torch.from_numpy(recover_pose))
-
-    all_step = torch.concatenate(all_step_pose, dim=0)
-    pm = all_step.detach().cpu().numpy()
-    # all_recover_pose = torch.concatenate(all_recover_pose, dim=0)
-    # pmr = all_recover_pose.detach().cpu().numpy()
-    pmr = torch.cat(all_step_delta, dim = 0).detach().cpu().numpy()
-    print(np.mean(pm, axis=0))
-    print(np.std(pm, axis=0))
-    print(np.max(pm, axis=0))
-    print(np.min(pm, axis=0))
-    t = np.arange(all_step.shape[0])
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    # plt.subplot(717)
-    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # for idx, batch in enumerate(train_loader):
+    #     if idx % args.len_lb != 0:
+    #         continue
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
+    #
+    #     all_step_delta.append(batch["future_delta_seq"][0, 1:, :])
+    #     all_step_pose.append(batch["future_pose_seq"][0, 1:, :])
+    #
+    #     # recover_pose = recover_pose_from_relative_vel(batch["future_delta_seq"][0, 1:, :].detach().cpu().numpy(),
+    #     #                                               batch["previous_pose_seq"][0, -1, :].detach().cpu().numpy(),
+    #     #                                               vel_scale=0.015)
+    #     # all_recover_pose.append(torch.from_numpy(recover_pose))
+    #
+    # all_step = torch.concatenate(all_step_pose, dim=0)
+    # pm = all_step.detach().cpu().numpy()
+    #
+    # print(np.mean(pm, axis=0))
+    # print(np.std(pm, axis=0))
+    # print(np.max(pm, axis=0))
+    # print(np.min(pm, axis=0))
+    # t = np.arange(pm.shape[0])
+    #
+    # pmr = smooth_traj(pm, s=0.0005)
+    #
+    # plt.figure()
+    # plt.subplot(711)
+    # o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(712)
+    # o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
     # plt.plot(t, o, '-')
-    plt.show()
+    # plt.subplot(713)
+    # o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(714)
+    # o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(715)
+    # o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(716)
+    # o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # # plt.subplot(717)
+    # # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # # plt.plot(t, o, '-')
+    # plt.show()

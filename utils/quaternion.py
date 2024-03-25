@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.interpolate import splrep, BSpline
 
 """
 DEFINE QUATERNION COMPUTATIONS AND MAPPINGS
@@ -377,6 +378,18 @@ def compute_integral(delta, base):
     return np.concatenate([pos_p, pos_o])
 
 
+def compute_sequence_integral(delta, base):
+    pos_p = delta[:, :3] + base[None, :3]
+    pos_o = q_exp_map(delta[:, 3:].transpose(1, 0), base[3:]).transpose(1, 0)
+    return np.concatenate([pos_p, pos_o], axis=1)
+
+
+def compute_sequence_delta(pos, base):
+    delta_p = pos[:, :3] - base[None, :3]
+    delta_o = q_log_map(pos[:, 3:].transpose(1, 0), base[3:]).transpose(1, 0)
+    return np.concatenate([delta_p, delta_o], axis=1)
+
+
 def recover_pose_from_relative_vel(future_vel_seq: np.ndarray, base: np.ndarray, vel_scale=0.01):
     """
     base: [7,]
@@ -389,6 +402,22 @@ def recover_pose_from_relative_vel(future_vel_seq: np.ndarray, base: np.ndarray,
         base = out
         recover_pose[i] = out
     return recover_pose
+
+
+def smooth_traj(pm: np.ndarray, s: float) -> np.ndarray:
+    """
+    pm: input trajectory, with shape [N, 7]
+    """
+    pm_base = pm[0].copy()
+    t = np.arange(pm.shape[0])
+    pm_delta = compute_sequence_delta(pm.copy(), pm_base)
+    pmr_delta = []
+    for i in pm_delta.transpose(1, 0):
+        x = BSpline(*splrep(t, i, s=s))(t)
+        pmr_delta.append(x)
+    pmr_delta = np.stack(pmr_delta, axis=1)
+    pmr = compute_sequence_integral(pmr_delta, pm_base)
+    return pmr
 
 
 

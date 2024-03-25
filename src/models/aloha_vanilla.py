@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 import math
 from types import SimpleNamespace
 import copy
-from utils.quaternion import q_exp_map, q_log_map
+from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_relative_vel
 
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
@@ -742,19 +742,11 @@ class DETRVAE(nn.Module):
                 # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
         # loss_list.append(loss.reshape(1,))
         if a_hat.shape[-1] == 6:
-            a_hat = a_hat
-            out_delta = a_hat * v_scale
             base = qpos.squeeze(0).detach().cpu().numpy()
-            base_position = base[:3]
-            base_orientation = base[3:]
-            v = out_delta.squeeze(0).detach().cpu().numpy()
-            v_position = np.cumsum(v[:, :3], axis=0) + base_position[None, :].copy()
-            v_orientation = v[:, 3:]
-            out_position = torch.from_numpy(v_position)
-            # out_position = torch.tensor(np.expand_dims(base_position, axis=0) + v_position)
-            out_orientation = torch.tensor(q_exp_map(np.transpose(v_orientation, (1, 0)), base_orientation)).permute(1, 0)
-            v[:, :3] = v_position
-            out_chunk = v
+            v = a_hat.squeeze(0).detach().cpu().numpy()
+            out_chunk = recover_pose_from_relative_vel(v, base, v_scale)
+            out_position = torch.from_numpy(out_chunk[:, :3])
+            out_orientation = torch.from_numpy(out_chunk[:, 3:])
         elif a_hat.shape[-1] == 7:
             out_chunk = a_hat.detach().cpu().squeeze(0)
             out_position = out_chunk[:, :3]
