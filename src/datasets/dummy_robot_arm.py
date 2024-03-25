@@ -259,7 +259,7 @@ class DummyDataset(Dataset):
         ).squeeze(0)
 
     def __len__(self):
-        return self.num_frames
+        return self.num_frames - 10
 
     @staticmethod
     def get_relative_delta_sequence(pos_seq: np.ndarray, quaternion_seq: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -593,7 +593,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     Args:
         batch_size: batch size
         args: arguments for dataloader
-        data_folder: absolute path of directory "data"
+        data_folder: absolute path of directory "data"11
         drop_last: whether drop_last for train dataloader
         **kwargs: other arguments
 
@@ -737,15 +737,16 @@ if __name__ == "__main__":
         all_step_delta.append(batch["future_delta_seq"][0, 1:, :])
         all_step_pose.append(batch["future_pose_seq"][0, 1:, :])
 
-        recover_pose = recover_pose_from_relative_vel(batch["future_delta_seq"][0, 1:, :].detach().cpu().numpy(),
-                                                      batch["previous_pose_seq"][0, -1, :].detach().cpu().numpy(),
-                                                      vel_scale=0.015)
+        # recover_pose = recover_pose_from_relative_vel(batch["future_delta_seq"][0, 1:, :].detach().cpu().numpy(),
+        #                                               batch["previous_pose_seq"][0, -1, :].detach().cpu().numpy(),
+        #                                               vel_scale=0.015)
+        # all_recover_pose.append(torch.from_numpy(recover_pose))
 
-        all_recover_pose.append(torch.from_numpy(recover_pose))
     all_step = torch.concatenate(all_step_pose, dim=0)
     pm = all_step.detach().cpu().numpy()
-    all_recover_pose = torch.concatenate(all_recover_pose, dim=0)
-    pmr = all_recover_pose.detach().cpu().numpy()
+    # all_recover_pose = torch.concatenate(all_recover_pose, dim=0)
+    # pmr = all_recover_pose.detach().cpu().numpy()
+    pmr = torch.cat(all_step_delta, dim = 0).detach().cpu().numpy()
     print(np.mean(pm, axis=0))
     print(np.std(pm, axis=0))
     print(np.max(pm, axis=0))
@@ -770,7 +771,7 @@ if __name__ == "__main__":
     plt.subplot(716)
     o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
     plt.plot(t, o, '-')
-    plt.subplot(717)
-    o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
-    plt.plot(t, o, '-')
+    # plt.subplot(717)
+    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # plt.plot(t, o, '-')
     plt.show()
