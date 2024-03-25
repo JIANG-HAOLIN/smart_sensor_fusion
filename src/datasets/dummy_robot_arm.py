@@ -343,10 +343,10 @@ class DummyDataset(Dataset):
         output[f"{pre}future_pos_quat"] = torch.from_numpy(future_pos_quat).float()
         future_pos_ori = whole_source_glb_pos_ori[-self.len_lb - 1:, :]
         output[f"{pre}future_glb_pos_ori"] = torch.from_numpy(future_pos_ori).float()
-        output[f"{pre}future_real_delta_direct"] = torch.from_numpy(self.get_direct_real_delta_sequence(future_pos_ori)).float()
+        output[f"{pre}future_real_delta_direct"] = torch.from_numpy(self.get_direct_real_delta_sequence(future_pos_ori) * 10 / self.sampling_time).float()
         future_real_delta = self.get_real_delta_sequence(future_pos_quat)
         output[f"{pre}future_real_delta"] = torch.from_numpy(
-            (future_real_delta / self.sampling_time - mean) / std).float()  # m/s
+            (future_real_delta * 10 / self.sampling_time - mean) / std).float()  # m/s
         future_relative_delta = self.get_relative_delta_sequence(future_pos_quat)
         output[f"{pre}future_relative_delta"] = torch.from_numpy(future_relative_delta).float()
 
