@@ -23,8 +23,7 @@ from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPo
 from utils.quaternion import q_log_map, q_exp_map
 from omegaconf import OmegaConf, open_dict
 
-from utils.quaternion import compute_integral, compute_delta, recover_pose_from_relative_vel, \
-    compute_sequence_delta, compute_sequence_integral, smooth_traj
+from utils.quaternion import smooth_traj
 
 
 def get_pose_sequence(resampled_trajectory, lb_idx):
@@ -346,7 +345,7 @@ class DummyDataset(Dataset):
         output[f"{pre}future_real_delta_direct"] = torch.from_numpy(self.get_direct_real_delta_sequence(future_pos_ori) * 10 / self.sampling_time).float()
         future_real_delta = self.get_real_delta_sequence(future_pos_quat)
         output[f"{pre}future_real_delta"] = torch.from_numpy(
-            (future_real_delta * 10 / self.sampling_time - mean) / std).float()  # m/s
+            (future_real_delta * 10 / self.sampling_time - mean) / std).float()  # dm/s
         future_relative_delta = self.get_relative_delta_sequence(future_pos_quat)
         output[f"{pre}future_relative_delta"] = torch.from_numpy(future_relative_delta).float()
 

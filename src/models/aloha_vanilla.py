@@ -18,7 +18,7 @@ from typing import Dict, List, Optional
 import math
 from types import SimpleNamespace
 import copy
-from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_relative_vel
+from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_quat_real_delta, exp_map_seq, log_map_seq, exp_map
 
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 """
@@ -728,6 +728,7 @@ class DETRVAE(nn.Module):
                 t=None,
                 args=None,
                 v_scale=None,
+                inference_type=None,
                 **kwargs):
         output = self.forward(qpos,
                               multimod_inputs,
@@ -742,19 +743,35 @@ class DETRVAE(nn.Module):
                 # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
         # loss_list.append(loss.reshape(1,))
         if a_hat.shape[-1] == 6:
-            base = qpos.squeeze(0).detach().cpu().numpy()
-            v = a_hat.squeeze(0).detach().cpu().numpy()
-            out_chunk = recover_pose_from_relative_vel(v, base, v_scale)
-            out_position = torch.from_numpy(out_chunk[:, :3])
-            out_orientation = torch.from_numpy(out_chunk[:, 3:])
+            if inference_type == "real_delta":
+                base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
+
+            elif inference_type == "real_delta_direct":
+                base = qpos.squeeze(0).detach().cpu().numpy()
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                delta = np.cumsum(v, axis=0) + base
+                out_chunk = exp_map_seq(delta.copy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+
+            elif inference_type == "relative_delta":
+                base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy()
+                out_chunk = exp_map_seq(v, base)
+
+            elif inference_type == "position":
+                v = a_hat.squeeze(0).detach().cpu().numpy()
+                out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
+
         elif a_hat.shape[-1] == 7:
             out_chunk = a_hat.detach().cpu().squeeze(0)
             out_position = out_chunk[:, :3]
             out_orientation = out_chunk[:, 3:]
             out_orientation = out_orientation / np.linalg.norm(out_orientation, 2, axis=1, keepdims=True)
             out_chunk = np.concatenate([out_position, out_orientation], axis=1)
-            out_position = torch.from_numpy(out_chunk[:, :3])
-            out_orientation = torch.from_numpy(out_chunk[:, 3:])
+
+        out_position = torch.from_numpy(out_chunk[:, :3])
+        out_orientation = torch.from_numpy(out_chunk[:, 3:])
         all_time_orientation[[t], t:t + self.num_queries] = out_orientation.float().to(args.device)
         orientation_for_curr_step = all_time_orientation[:, t]
         actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)

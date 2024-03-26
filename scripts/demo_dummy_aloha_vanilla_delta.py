@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scatter_tnse_3d, scatter_tsne_selected
 from src.datasets.dummy_robot_arm import get_debug_loaders
-from utils.quaternion import q_exp_map, q_log_map
+from utils.quaternion import q_exp_map, q_log_map, exp_map_seq, log_map_seq
 import time
 
 
@@ -71,28 +71,44 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         start_time = time.time()
                         total_loss = 0
                         metrics = {}
+
+                        real_delta = batch["smooth_future_real_delta"]
+                        real_delta_direct = batch["smooth_future_real_delta_direct"]
+                        relative_delta = batch["smooth_future_relative_delta"]
+                        pose = batch["smooth_future_glb_pos_ori"]
+                        qpos = batch["smooth_previous_glb_pos_ori"][:, -1, :].to(args.device)
+                        # qpos = pose[:, 0, :].to(args.device)
+
                         inp_data = batch["observation"]
-                        delta = batch["future_delta_seq"]
-                        pose = batch["future_pose_seq"]
-                        qpos = batch["previous_pose_seq"][:, -1, :].to(args.device)
                         vf_inp, vg_inp = inp_data
                         multimod_inputs = {
                             "vision": vg_inp.to(args.device),
                         }
-                        actions = pose[:, 1:, :].to(args.device)
+                        inference_type = "real_delta_direct"
+                        if inference_type == "real_delta":
+                            actions = real_delta[:, 1:, :]
+                        elif inference_type == "position":
+                            actions = pose[:, 1:, :]
+                        elif inference_type == "relative_delta":
+                            actions = relative_delta[:, 1:, :]
+                        elif inference_type == "real_delta_direct":
+                            actions = real_delta_direct[:, 1:, :]
 
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
 
-                        all_action, raw_action, all_time_position, all_time_orientation = model.rollout(qpos,
-                                                                                                        multimod_inputs,
-                                                                                                        env_state=None,
-                                                                                                        actions=None,
-                                                                                                        is_pad=None,
-                                                                                                        all_time_position=all_time_position,
-                                                                                                        all_time_orientation=all_time_orientation,
-                                                                                                        t=t,
-                                                                                                        args=args,
-                                                                                                        v_scale=0.10 / 10)
+                        all_action, raw_action, all_time_position, all_time_orientation = model.rollout(
+                            qpos,
+                            multimod_inputs,
+                            env_state=None,
+                            actions=None,
+                            is_pad=None,
+                            all_time_position=all_time_position,
+                            all_time_orientation=all_time_orientation,
+                            t=t,
+                            args=args,
+                            v_scale=0.10 / 10,
+                            inference_type=inference_type
+                            )
                         # all_action = torch.from_numpy(all_action)
                         # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
                         # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
@@ -105,8 +121,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
                         # pm.append(delta[0, 1:query_frequency + 1, :])
                         # pmr.append(all_action[:query_frequency, :])
-
-                        pm.append(pose[0, 1:query_frequency + 1, :])
+                        pose = pose[0, 1:query_frequency + 1, :].detach().cpu().numpy()
+                        # pose = exp_map_seq(pose, np.array([0, 0, 0, 0, 1, 0, 0]))
+                        pm.append(pose)
+                        all_action = log_map_seq(all_action, np.array([0, 0, 0, 0, 1, 0, 0]))
                         pmr.append(all_action[:query_frequency, :])
 
                         inference_time.append(time.time() - start_time)
@@ -125,13 +143,12 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         #              trials_names, output_png_path+"_ct_output")
 
         # print(torch.cat(loss_list).mean())
-        pm = torch.cat(pm, dim=0).detach().cpu().numpy()
+        pm = np.concatenate(pm, axis=0)
         if isinstance(pmr, torch.Tensor):
             pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
         else:
             pmr = np.concatenate(pmr, axis=0)
 
-        pmr[:, 3:] = pmr[:, 3:] * -1
         t = np.arange(len(pm))
         tr = t.copy()
         plt.figure()
@@ -155,9 +172,9 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         plt.subplot(716)
         plt.plot(t, pm[:, 5:6], '.-')
         plt.plot(tr, pmr[:, 5:6], '-')
-        plt.subplot(717)
-        plt.plot(t, pm[:, 6:7], '.-')
-        plt.plot(tr, pmr[:, 6:7], '-')
+        # plt.subplot(717)
+        # plt.plot(t, pm[:, 6:7], '.-')
+        # plt.plot(tr, pmr[:, 6:7], '-')
         plt.show()
 
 
@@ -172,7 +189,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/name=alohaname=vae_vanillaaction=deltaname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-25-11:23:11')
+                        default='../checkpoints/dummy_aloha_vanilla_real_delta_direct_100/aloha_vae_vanilla_coswarmup/name=alohaname=vae_vanillaaction=real_delta_directname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-26-00:09:57')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
