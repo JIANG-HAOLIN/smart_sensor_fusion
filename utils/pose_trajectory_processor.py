@@ -449,16 +449,9 @@ class PoseTrajectoryProcessor:
         return processed_traj
 
 
-if __name__ == "__main__":
-    from utils.quaternion import log_map_seq
-
-    # file_names = ["/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_20/demo_2024-03-20T17-23-41-142189/source_robot_trajectory.json"]
-    # file_name_orig = file_names[1]
-    file_name_source = "/home/jin4rng/Documents/robot_demo_debug/demo_2024-03-27T11-34-03-475556" \
-                       "/source_robot_trajectory.json"
-    file_name_target = "/home/jin4rng/Documents/robot_demo_debug/demo_2024-03-27T11-34-03-475556" \
-                       "/target_robot_trajectory.json"
-
+def visualize_source_target(traj_folder_path):
+    file_name_source = os.path.join(traj_folder_path, "source_robot_trajectory.json")
+    file_name_target = os.path.join(traj_folder_path, "target_robot_trajectory.json")
     with open(file_name_source) as f:
         source_pose_trajectory = json.load(f)
         print("Trajectory loaded ...")
@@ -533,3 +526,12 @@ if __name__ == "__main__":
     plt.plot(tr, source_pmr[:, 5], '-')
     plt.plot(tr, target_pmr[:, 5], '--')
     plt.show()
+
+
+if __name__ == "__main__":
+    from utils.quaternion import log_map_seq
+
+    traj_folder_path = "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_27/demo_2024-03-27T14-17-01-141761"
+
+
+    visualize_source_target(traj_folder_path)

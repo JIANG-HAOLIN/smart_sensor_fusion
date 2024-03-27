@@ -20,7 +20,7 @@ from copy import deepcopy
 from PIL import Image
 from types import SimpleNamespace
 from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
-from utils.quaternion import q_log_map, q_exp_map
+from utils.quaternion import q_log_map, q_exp_map, exp_map_seq, recover_pose_from_quat_real_delta
 from omegaconf import OmegaConf, open_dict
 
 from utils.quaternion import smooth_traj
@@ -31,7 +31,7 @@ def get_pose_sequence(resampled_trajectory, lb_idx):
 
 
 class DummyDataset(Dataset):
-    def __init__(self, traj_path, args, train=True, norm=False):
+    def __init__(self, traj_path, args, train=True):
         super().__init__()
         """
         neg_ratio: ratio of silence audio clips to sample
@@ -66,19 +66,27 @@ class DummyDataset(Dataset):
         self._crop_height_v = int(self.resized_height_v * (1.0 - args.crop_percent))
         self._crop_width_v = int(self.resized_width_v * (1.0 - args.crop_percent))
 
-        (self.raw_source_trajectory,
-         self.resample_source_trajectory,
-         self.smooth_resample_source_trajectory
-         ) = self.get_episode(traj_path, ablation=args.ablation,
-                              sampling_time=args.sampling_time,
-                              json_name="source_robot_trajectory.json")
-
         (self.raw_target_trajectory,
          self.resample_target_trajectory,
          self.smooth_resample_target_trajectory
          ) = self.get_episode(traj_path, ablation=args.ablation,
                               sampling_time=args.sampling_time,
                               json_name="target_robot_trajectory.json")
+
+        if args.source:
+            (self.raw_source_trajectory,
+             self.resample_source_trajectory,
+             self.smooth_resample_source_trajectory
+             ) = self.get_episode(traj_path, ablation=args.ablation,
+                                  sampling_time=args.sampling_time,
+                                  json_name="source_robot_trajectory.json")
+        else:
+            (self.raw_source_trajectory,
+             self.resample_source_trajectory,
+             self.smooth_resample_source_trajectory
+             ) = self.get_episode(traj_path, ablation=args.ablation,
+                                  sampling_time=args.sampling_time,
+                                  json_name="target_robot_trajectory.json")
 
         assert len(self.resample_source_trajectory["relative_real_time_stamps"]) == len(
             self.resample_target_trajectory["relative_real_time_stamps"])
@@ -105,7 +113,7 @@ class DummyDataset(Dataset):
         self.sampling_time = args.sampling_time / 1000
         self.len_lb = args.len_lb
 
-        if norm:
+        if args.norm:
             self.p_mean = args.p_mean
             self.p_std = args.p_std
             self.o_mean = args.o_mean
@@ -775,7 +783,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     val_trajs_paths = trajs[num_train:]
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
-    train_trajs_paths = train_trajs_paths[6:7]
+    train_trajs_paths = train_trajs_paths[0:1]
     val_trajs_paths = val_trajs_paths[0:1]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
@@ -833,35 +841,91 @@ if __name__ == "__main__":
     args.resized_width_v = 640
     args.len_lb = 10
     args.sampling_time = 100
+    args.norm = False
     all_step_delta = []
     all_step_pose = []
     all_recover_pose = []
+    args.source = False
     train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                              drop_last=False)
-    print(len(train_loader))
+                                                    drop_last=False)
+######## show images ###################################################################
+    # print(len(train_loader))
+    #
+    # for idx, batch in enumerate(train_loader):
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     image_f = obs["fix"][0][-1].permute(1, 2, 0).numpy()
+    #     image_g = obs["gripper"][0][-1].permute(1, 2, 0).numpy()
+    #     image = np.concatenate([image_f, image_g], axis=0)
+    #     cv2.imshow("asdf", image)
+    #     time.sleep(0.2)
+    #     key = cv2.waitKey(1)
+    #     if key == ord("q"):
+    #         break
+    #
+    #     all_step_delta.append(batch["future_real_delta"][:, 1])
+    #     all_step_pose.append(batch["future_pos_quat"][:, 1])
+######## show images ###################################################################
 
+
+#######check source and target######################################################################3
+    all_step_source_pose = []
+    all_step_target_pose = []
     for idx, batch in enumerate(train_loader):
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        image_f = obs["fix"][0][-1].permute(1, 2, 0).numpy()
-        image_g = obs["gripper"][0][-1].permute(1, 2, 0).numpy()
-        image = np.concatenate([image_f, image_g], axis=0)
-        cv2.imshow("asdf", image)
-        time.sleep(0.2)
-        key = cv2.waitKey(1)
-        if key == ord("q"):
-            break
+        # for image_g in obs[1][0]:
+        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
 
-        all_step_delta.append(batch["future_real_delta"][:, 1])
-        all_step_pose.append(batch["future_pos_quat"][:, 1])
+        all_step_source_pose.append(batch["future_pos_quat"][0, 0:1, :])
+        all_step_target_pose.append(batch["previous_pos_quat"][0, -1:, :])
+
+    all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
+    pm = all_step_source_pose.detach().cpu().numpy()
+    all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
+    pmr = all_step_target_pose.detach().cpu().numpy()
+
+    print(np.mean(pm, axis=0))
+    print(np.std(pm, axis=0))
+    print(np.max(pm, axis=0))
+    print(np.min(pm, axis=0))
+    t = np.arange(all_step_source_pose.shape[0])
+    plt.figure()
+    plt.subplot(711)
+    o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
+    plt.plot(t, o, '-', )
+    plt.subplot(712)
+    o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(713)
+    o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(714)
+    o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(715)
+    o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(716)
+    o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(717)
+    o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    plt.plot(t, o, '-')
+    plt.show()
+#######check source and target######################################################################3
 
 
-
-
-
+#######check velocity compute######################################################################3
     # for idx, batch in enumerate(train_loader):
     #     if idx % args.len_lb != 0:
     #         continue
@@ -876,12 +940,10 @@ if __name__ == "__main__":
     #     # if key == ord("q"):
     #     #     break
     #
-    #     all_step_delta.append(batch["future_real_delta"][0, 1:, :])
     #     all_step_pose.append(batch["future_pos_quat"][0, 1:, :])
     #
-    #     recover_pose = recover_pose_from_relative_vel(batch["future_real_delta"][0, 1:, :].detach().cpu().numpy(),
-    #                                                   batch["previous_pos_quat"][0, -1, :].detach().cpu().numpy(),
-    #                                                   vel_scale=0.015)
+    #     recover_pose = recover_pose_from_quat_real_delta(batch["future_real_delta"][0, 1:, :].detach().cpu().numpy() * 0.01,
+    #                                batch["previous_pos_quat"][0, -1, :].detach().cpu().numpy(), )
     #     all_recover_pose.append(torch.from_numpy(recover_pose))
     #
     # all_step = torch.concatenate(all_step_pose, dim=0)
@@ -917,13 +979,10 @@ if __name__ == "__main__":
     # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
     # plt.plot(t, o, '-')
     # plt.show()
+#######check velocity compute######################################################################3
 
 
-
-
-
-
-
+#######check delta and velocity######################################################################3
     # all_step_smooth_delta = []
     # all_step_smooth_pose = []
     # all_step_glb_pos_ori = []
@@ -1069,3 +1128,4 @@ if __name__ == "__main__":
     # # o = np.stack([all_step_real_delta_direct[:, 6], all_step_smooth_real_delta_direct[:, 6]], axis=1)
     # # plt.plot(t, o, '-')
     # plt.show()
+#######check delta and velocity######################################################################3
