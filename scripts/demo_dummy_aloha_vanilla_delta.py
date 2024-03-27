@@ -84,6 +84,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         multimod_inputs = {
                             "vision": vg_inp.to(args.device),
                         }
+
                         inference_type = "real_delta_direct"
                         if inference_type == "real_delta":
                             actions = real_delta[:, 1:, :]

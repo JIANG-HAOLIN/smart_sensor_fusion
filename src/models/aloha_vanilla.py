@@ -660,8 +660,10 @@ class DETRVAE(nn.Module):
         image = multimod_inputs["vision"]
         # height = (image.shape[-2]) // 2
         # assert (image.shape[-2]) % 2 == 0, "image not dividable"
-        # image = torch.stack([image[:, -1, :, :height, :], image[:, -1, :, height:, :]], dim=1)
-        image = torch.stack([image[:, -1, :, :, :]], dim=1)
+        if isinstance(image, dict):
+            image = torch.stack([image["fix"][:, -1, :, :, :], image["gripper"][:, -1, :, :, :]], dim=1)
+        elif isinstance(image, torch.Tensor):
+            image = torch.stack([image[:, -1, :, :, :]], dim=1)
 
         is_training = actions is not None  # train or val
         bs, _ = qpos.shape
@@ -780,6 +782,7 @@ class DETRVAE(nn.Module):
         k = 0.01
         exp_weights = np.exp(-k * np.arange(len(orientation_for_curr_step)))
         exp_weights = exp_weights / exp_weights.sum()
+        exp_weights = (exp_weights[::-1]).copy()  # [::-1] could lead to negative strides
 
         weights = np.expand_dims(exp_weights, axis=0)
         raw_orientation = orientation_for_curr_step[0].detach().cpu().numpy()

@@ -85,10 +85,8 @@ class AlohaPolicy(pl.LightningModule):
         pose = batch["smooth_future_glb_pos_ori"]
         qpos = batch["smooth_previous_glb_pos_ori"][:, -1, :]
 
-        inp_data = batch["observation"]
-        vf_inp, vg_inp = inp_data
         multimod_inputs = {
-            "vision": vg_inp,
+            "vision": batch["observation"],
         }
 
         if self.action == "real_delta":

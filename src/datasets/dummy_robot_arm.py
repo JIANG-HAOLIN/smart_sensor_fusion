@@ -342,7 +342,8 @@ class DummyDataset(Dataset):
         output[f"{pre}future_pos_quat"] = torch.from_numpy(future_pos_quat).float()
         future_pos_ori = whole_source_glb_pos_ori[-self.len_lb - 1:, :]
         output[f"{pre}future_glb_pos_ori"] = torch.from_numpy(future_pos_ori).float()
-        output[f"{pre}future_real_delta_direct"] = torch.from_numpy(self.get_direct_real_delta_sequence(future_pos_ori) * 10 / self.sampling_time).float()
+        output[f"{pre}future_real_delta_direct"] = torch.from_numpy(
+            self.get_direct_real_delta_sequence(future_pos_ori) * 10 / self.sampling_time).float()
         future_real_delta = self.get_real_delta_sequence(future_pos_quat)
         output[f"{pre}future_real_delta"] = torch.from_numpy(
             (future_real_delta * 10 / self.sampling_time - mean) / std).float()  # dm/s
@@ -432,10 +433,8 @@ class DummyDataset(Dataset):
                                        ..., i_v: i_v + h_v, j_v: j_v + w_v
                                        ]
         output.update({
-            "observation": (
-                cam_fixed_framestack,
-                cam_gripper_framestack,
-            ),
+            "observation": {"fix": cam_fixed_framestack,
+                            "gripper": cam_gripper_framestack, },
             "start": start,
             "current": idx,
             "end": lb_end,
@@ -822,73 +821,46 @@ if __name__ == "__main__":
     import time
     import cv2
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_20'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_27'
     args = SimpleNamespace()
 
-    args.ablation = 'vg'
+    args.ablation = 'vf_vg'
     args.num_stack = 5
     args.frameskip = 5
     args.no_crop = True
     args.crop_percent = 0.0
-    args.resized_height_v = 120
-    args.resized_width_v = 160
+    args.resized_height_v = 480
+    args.resized_width_v = 640
     args.len_lb = 10
     args.sampling_time = 100
     all_step_delta = []
     all_step_pose = []
     all_recover_pose = []
     train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                                    drop_last=False)
+                                              drop_last=False)
     print(len(train_loader))
 
-    # for idx, batch in enumerate(train_loader):
-    #     # if idx >= 100:
-    #     #     break
-    #     print(f"{idx} \n")
-    #     obs = batch["observation"]
-    #
-    #     # image_g = obs[1][0][-1].permute(1, 2, 0).numpy()
-    #     # cv2.imshow("asdf", image_g)
-    #     # time.sleep(0.2)
-    #     # key = cv2.waitKey(1)
-    #     # if key == ord("q"):
-    #     #     break
-    #
-    #     all_step_delta.append(batch["future_real_delta"][:, 1])
-    #     all_step_pose.append(batch["future_pos_quat"][:, 1])
-    #
-    # all_step_pose = torch.concatenate(all_step_pose, dim=0)
-    # pm = all_step_pose.detach().cpu().numpy()
-    # all_step_delta = torch.concatenate(all_step_delta, dim=0)
-    # pmr = all_step_delta.detach().cpu().numpy()
-    # print(np.mean(pm, axis=0))
-    # print(np.std(pm, axis=0))
-    # print(np.max(pm, axis=0))
-    # print(np.min(pm, axis=0))
-    # t = np.arange(all_step_pose.shape[0])
-    # plt.figure()
-    # plt.subplot(711)
-    # plt.plot(t, pm[:, 0:1], '-', )
-    # plt.plot(t, pmr[:, 0:1], '-', )
-    # plt.subplot(712)
-    # plt.plot(t, pm[:, 1:2], '-')
-    # plt.plot(t, pmr[:, 1:2], '-')
-    # plt.subplot(713)
-    # plt.plot(t, pm[:, 2:3], '-')
-    # plt.plot(t, pmr[:, 2:3], '-')
-    # plt.subplot(714)
-    # plt.plot(t, pm[:, 3:4], '-')
-    # plt.plot(t, pmr[:, 3:4], '-')
-    # plt.subplot(715)
-    # plt.plot(t, pm[:, 4:5], '-')
-    # plt.plot(t, pmr[:, 4:5], '-')
-    # plt.subplot(716)
-    # plt.plot(t, pm[:, 5:6], '-')
-    # plt.plot(t, pmr[:, 5:6], '-')
-    # plt.subplot(717)
-    # plt.plot(t, pm[:, 6:7], '-')
-    # plt.plot(t, pmr[:, 6:7], '-')
-    # plt.show()
+    for idx, batch in enumerate(train_loader):
+        # if idx >= 100:
+        #     break
+        print(f"{idx} \n")
+        obs = batch["observation"]
+
+        image_f = obs["fix"][0][-1].permute(1, 2, 0).numpy()
+        image_g = obs["gripper"][0][-1].permute(1, 2, 0).numpy()
+        image = np.concatenate([image_f, image_g], axis=0)
+        cv2.imshow("asdf", image)
+        time.sleep(0.2)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
+
+        all_step_delta.append(batch["future_real_delta"][:, 1])
+        all_step_pose.append(batch["future_pos_quat"][:, 1])
+
+
+
+
 
     # for idx, batch in enumerate(train_loader):
     #     if idx % args.len_lb != 0:
@@ -946,151 +918,154 @@ if __name__ == "__main__":
     # plt.plot(t, o, '-')
     # plt.show()
 
-    all_step_smooth_delta = []
-    all_step_smooth_pose = []
-    all_step_glb_pos_ori = []
-    all_step_smooth_glb_pos_ori = []
-    all_step_real_delta_direct = []
-    all_step_smooth_real_delta_direct = []
-    for idx, batch in enumerate(val_loader):
-        if idx % args.len_lb != 0:
-            continue
 
-        print(f"{idx} \n")
-        obs = batch["observation"]
 
-        # for image_g in obs[1][0]:
-        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-        # key = cv2.waitKey(1)
-        # if key == ord("q"):
-        #     break
 
-        all_step_delta.append(batch["future_real_delta"][0, 1:, :])
-        all_step_pose.append(batch["future_pos_quat"][0, 1:, :])
-        all_step_glb_pos_ori.append(batch["future_glb_pos_ori"][0, 1:, :])
-        all_step_smooth_delta.append(batch["smooth_future_real_delta"][0, 1:, :])
-        all_step_smooth_pose.append(batch["smooth_future_pos_quat"][0, 1:, :])
-        all_step_smooth_glb_pos_ori.append(batch["smooth_future_glb_pos_ori"][0, 1:, :])
-        all_step_real_delta_direct.append(batch["future_real_delta_direct"][0, 1:, :])
-        all_step_smooth_real_delta_direct.append(batch["smooth_future_real_delta_direct"][0, 1:, :])
 
-    all_step = torch.concatenate(all_step_delta, dim=0)
-    pm = all_step.detach().cpu().numpy()
-    pmr = torch.concatenate(all_step_smooth_delta, dim=0).detach().cpu().numpy()
-    all_step_smooth_pose = torch.concatenate(all_step_smooth_pose, dim=0).detach().cpu().numpy()
-    all_step_pose = torch.concatenate(all_step_pose, dim=0).detach().cpu().numpy()
-    all_step_glb_pos_ori = torch.concatenate(all_step_glb_pos_ori, dim=0).detach().cpu().numpy()
-    all_step_smooth_glb_pos_ori = torch.concatenate(all_step_smooth_glb_pos_ori, dim=0).detach().cpu().numpy()
-    all_step_real_delta_direct = torch.concatenate(all_step_real_delta_direct, dim=0).detach().cpu().numpy()
-    all_step_smooth_real_delta_direct = torch.concatenate(all_step_smooth_real_delta_direct, dim=0).detach().cpu().numpy()
-    print(np.mean(pm, axis=0))
-    print(np.std(pm, axis=0))
-    print(np.max(pm, axis=0))
-    print(np.min(pm, axis=0))
 
-    print(np.mean(pmr, axis=0))
-    print(np.std(pmr, axis=0))
-    print(np.max(pmr, axis=0))
-    print(np.min(pmr, axis=0))
 
-    t = np.arange(pm.shape[0])
-
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([all_step_pose[:, 0], all_step_smooth_pose[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([all_step_pose[:, 1], all_step_smooth_pose[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([all_step_pose[:, 2], all_step_smooth_pose[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([all_step_pose[:, 3], all_step_smooth_pose[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([all_step_pose[:, 4], all_step_smooth_pose[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([all_step_pose[:, 5], all_step_smooth_pose[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(717)
-    o = np.stack([all_step_pose[:, 6], all_step_smooth_pose[:, 6]], axis=1)
-    plt.plot(t, o, '-')
-    plt.show()
-    
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    # plt.subplot(717)
-    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # all_step_smooth_delta = []
+    # all_step_smooth_pose = []
+    # all_step_glb_pos_ori = []
+    # all_step_smooth_glb_pos_ori = []
+    # all_step_real_delta_direct = []
+    # all_step_smooth_real_delta_direct = []
+    # for idx, batch in enumerate(val_loader):
+    #     if idx % args.len_lb != 0:
+    #         continue
+    #
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
+    #
+    #     all_step_delta.append(batch["future_real_delta"][0, 1:, :])
+    #     all_step_pose.append(batch["future_pos_quat"][0, 1:, :])
+    #     all_step_glb_pos_ori.append(batch["future_glb_pos_ori"][0, 1:, :])
+    #     all_step_smooth_delta.append(batch["smooth_future_real_delta"][0, 1:, :])
+    #     all_step_smooth_pose.append(batch["smooth_future_pos_quat"][0, 1:, :])
+    #     all_step_smooth_glb_pos_ori.append(batch["smooth_future_glb_pos_ori"][0, 1:, :])
+    #     all_step_real_delta_direct.append(batch["future_real_delta_direct"][0, 1:, :])
+    #     all_step_smooth_real_delta_direct.append(batch["smooth_future_real_delta_direct"][0, 1:, :])
+    #
+    # all_step = torch.concatenate(all_step_delta, dim=0)
+    # pm = all_step.detach().cpu().numpy()
+    # pmr = torch.concatenate(all_step_smooth_delta, dim=0).detach().cpu().numpy()
+    # all_step_smooth_pose = torch.concatenate(all_step_smooth_pose, dim=0).detach().cpu().numpy()
+    # all_step_pose = torch.concatenate(all_step_pose, dim=0).detach().cpu().numpy()
+    # all_step_glb_pos_ori = torch.concatenate(all_step_glb_pos_ori, dim=0).detach().cpu().numpy()
+    # all_step_smooth_glb_pos_ori = torch.concatenate(all_step_smooth_glb_pos_ori, dim=0).detach().cpu().numpy()
+    # all_step_real_delta_direct = torch.concatenate(all_step_real_delta_direct, dim=0).detach().cpu().numpy()
+    # all_step_smooth_real_delta_direct = torch.concatenate(all_step_smooth_real_delta_direct,
+    #                                                       dim=0).detach().cpu().numpy()
+    # print(np.mean(pm, axis=0))
+    # print(np.std(pm, axis=0))
+    # print(np.max(pm, axis=0))
+    # print(np.min(pm, axis=0))
+    #
+    # print(np.mean(pmr, axis=0))
+    # print(np.std(pmr, axis=0))
+    # print(np.max(pmr, axis=0))
+    # print(np.min(pmr, axis=0))
+    #
+    # t = np.arange(pm.shape[0])
+    #
+    # plt.figure()
+    # plt.subplot(711)
+    # o = np.stack([all_step_pose[:, 0], all_step_smooth_pose[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(712)
+    # o = np.stack([all_step_pose[:, 1], all_step_smooth_pose[:, 1]], axis=1)
     # plt.plot(t, o, '-')
-    plt.show()
-    
-    
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([all_step_glb_pos_ori[:, 0], all_step_smooth_glb_pos_ori[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([all_step_glb_pos_ori[:, 1], all_step_smooth_glb_pos_ori[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([all_step_glb_pos_ori[:, 2], all_step_smooth_glb_pos_ori[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([all_step_glb_pos_ori[:, 3], all_step_smooth_glb_pos_ori[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([all_step_glb_pos_ori[:, 4], all_step_smooth_glb_pos_ori[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([all_step_glb_pos_ori[:, 5], all_step_smooth_glb_pos_ori[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    # plt.subplot(717)
-    # o = np.stack([all_step_glb_pos_ori[:, 6], all_step_smooth_glb_pos_ori[:, 6]], axis=1)
+    # plt.subplot(713)
+    # o = np.stack([all_step_pose[:, 2], all_step_smooth_pose[:, 2]], axis=1)
     # plt.plot(t, o, '-')
-    plt.show()
-    
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([all_step_real_delta_direct[:, 0], all_step_smooth_real_delta_direct[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([all_step_real_delta_direct[:, 1], all_step_smooth_real_delta_direct[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([all_step_real_delta_direct[:, 2], all_step_smooth_real_delta_direct[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([all_step_real_delta_direct[:, 3], all_step_smooth_real_delta_direct[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([all_step_real_delta_direct[:, 4], all_step_smooth_real_delta_direct[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([all_step_real_delta_direct[:, 5], all_step_smooth_real_delta_direct[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    # plt.subplot(717)
-    # o = np.stack([all_step_real_delta_direct[:, 6], all_step_smooth_real_delta_direct[:, 6]], axis=1)
+    # plt.subplot(714)
+    # o = np.stack([all_step_pose[:, 3], all_step_smooth_pose[:, 3]], axis=1)
     # plt.plot(t, o, '-')
-    plt.show()
-    
-
-
+    # plt.subplot(715)
+    # o = np.stack([all_step_pose[:, 4], all_step_smooth_pose[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(716)
+    # o = np.stack([all_step_pose[:, 5], all_step_smooth_pose[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(717)
+    # o = np.stack([all_step_pose[:, 6], all_step_smooth_pose[:, 6]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.subplot(711)
+    # o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(712)
+    # o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(713)
+    # o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(714)
+    # o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(715)
+    # o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(716)
+    # o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # # plt.subplot(717)
+    # # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # # plt.plot(t, o, '-')
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.subplot(711)
+    # o = np.stack([all_step_glb_pos_ori[:, 0], all_step_smooth_glb_pos_ori[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(712)
+    # o = np.stack([all_step_glb_pos_ori[:, 1], all_step_smooth_glb_pos_ori[:, 1]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(713)
+    # o = np.stack([all_step_glb_pos_ori[:, 2], all_step_smooth_glb_pos_ori[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(714)
+    # o = np.stack([all_step_glb_pos_ori[:, 3], all_step_smooth_glb_pos_ori[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(715)
+    # o = np.stack([all_step_glb_pos_ori[:, 4], all_step_smooth_glb_pos_ori[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(716)
+    # o = np.stack([all_step_glb_pos_ori[:, 5], all_step_smooth_glb_pos_ori[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # # plt.subplot(717)
+    # # o = np.stack([all_step_glb_pos_ori[:, 6], all_step_smooth_glb_pos_ori[:, 6]], axis=1)
+    # # plt.plot(t, o, '-')
+    # plt.show()
+    #
+    # plt.figure()
+    # plt.subplot(711)
+    # o = np.stack([all_step_real_delta_direct[:, 0], all_step_smooth_real_delta_direct[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(712)
+    # o = np.stack([all_step_real_delta_direct[:, 1], all_step_smooth_real_delta_direct[:, 1]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(713)
+    # o = np.stack([all_step_real_delta_direct[:, 2], all_step_smooth_real_delta_direct[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(714)
+    # o = np.stack([all_step_real_delta_direct[:, 3], all_step_smooth_real_delta_direct[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(715)
+    # o = np.stack([all_step_real_delta_direct[:, 4], all_step_smooth_real_delta_direct[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(716)
+    # o = np.stack([all_step_real_delta_direct[:, 5], all_step_smooth_real_delta_direct[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # # plt.subplot(717)
+    # # o = np.stack([all_step_real_delta_direct[:, 6], all_step_smooth_real_delta_direct[:, 6]], axis=1)
+    # # plt.plot(t, o, '-')
+    # plt.show()
