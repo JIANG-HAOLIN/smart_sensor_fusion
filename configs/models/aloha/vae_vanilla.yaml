@@ -9,6 +9,7 @@ model:
     num_queries: 10
     state_dim: 7
     hidden_dim: 256
+    output_layer_index: 0
 
 
 inference:

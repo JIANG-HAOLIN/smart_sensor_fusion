@@ -607,7 +607,7 @@ def get_sinusoid_encoding_table(n_position, d_hid):
 class DETRVAE(nn.Module):
     """ This is the DETR module that performs object detection """
 
-    def __init__(self, backbones, transformer, encoder, state_dim, num_queries, camera_names):
+    def __init__(self, backbones, transformer, encoder, state_dim, num_queries, camera_names, output_layer_index):
         """ Initializes the model.
         Parameters:
             backbones: torch module of the backbone to be used. See backbone.py
@@ -649,6 +649,7 @@ class DETRVAE(nn.Module):
         # decoder extra parameters
         self.latent_out_proj = nn.Linear(self.latent_dim, hidden_dim)  # project latent sample to embedding
         self.additional_pos_embed = nn.Embedding(2, hidden_dim)  # learned position embedding for proprio and latent
+        self.output_layer_index = output_layer_index
 
     def forward(self, qpos, multimod_inputs, env_state, actions=None, is_pad=None, **kwargs):
         """
@@ -712,12 +713,12 @@ class DETRVAE(nn.Module):
             src = torch.cat(all_cam_features, axis=3)
             pos = torch.cat(all_cam_pos, axis=3)
             hs = self.transformer(src, None, self.query_embed.weight, pos, latent_input, proprio_input,
-                                  self.additional_pos_embed.weight)[0]
+                                  self.additional_pos_embed.weight)[self.output_layer_index]
         else:
             qpos = self.input_proj_robot_state(qpos)
             env_state = self.input_proj_env_state(env_state)
             transformer_input = torch.cat([qpos, env_state], axis=1)  # seq length = 2
-            hs = self.transformer(transformer_input, None, self.query_embed.weight, self.pos.weight)[0]
+            hs = self.transformer(transformer_input, None, self.query_embed.weight, self.pos.weight)[self.output_layer_index]
         a_hat = self.action_head(hs)
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
@@ -890,6 +891,7 @@ def build(replace_args):
         state_dim=state_dim,
         num_queries=args.num_queries,
         camera_names=args.camera_names,
+        output_layer_index=args.output_layer_index
     )
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
