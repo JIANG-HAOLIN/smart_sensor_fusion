@@ -30,7 +30,7 @@ hydra:
       datasets.dataloader.batch_size: 64
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
       pl_modules.pl_module.action: "real_delta_direct"
-      models.model.replace_args.state_dim: 6
+      models.model.replace_args.state_dim: 7
       optimizers.optimizer.weight_decay: 0.0001
       datasets.dataloader.args.resized_height_v: 240
       datasets.dataloader.args.resized_width_v: 320

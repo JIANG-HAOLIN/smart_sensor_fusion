@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: smart-sensor-fusion
+Version: 0.1
+Summary: Smart sensor fusion with transformers package
+Requires-Python: >=3.9

@@ -18,6 +18,7 @@ from typing import Dict, List, Optional
 import math
 from types import SimpleNamespace
 import copy
+import sys
 from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_quat_real_delta, exp_map_seq, log_map_seq, exp_map
 
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
@@ -629,11 +630,11 @@ class DETRVAE(nn.Module):
         if backbones is not None:
             self.input_proj = nn.Conv2d(backbones[0].num_channels, hidden_dim, kernel_size=1)
             self.backbones = nn.ModuleList(backbones)
-            self.input_proj_robot_state = nn.Linear(6, hidden_dim)
+            self.input_proj_robot_state = nn.Linear(7, hidden_dim)
         else:
             # input_dim = 7 + 7 # robot_state + env_state
-            self.input_proj_robot_state = nn.Linear(6, hidden_dim)
-            self.input_proj_env_state = nn.Linear(6, hidden_dim)
+            self.input_proj_robot_state = nn.Linear(7, hidden_dim)
+            self.input_proj_env_state = nn.Linear(7, hidden_dim)
             self.pos = torch.nn.Embedding(2, hidden_dim)
             self.backbones = None
 
@@ -641,7 +642,7 @@ class DETRVAE(nn.Module):
         self.latent_dim = 32  # final size of latent z # TODO tune
         self.cls_embed = nn.Embedding(1, hidden_dim)  # extra cls token embedding
         self.encoder_action_proj = nn.Linear(state_dim, hidden_dim)  # project action to embedding
-        self.encoder_joint_proj = nn.Linear(6, hidden_dim)  # project qpos to embedding
+        self.encoder_joint_proj = nn.Linear(7, hidden_dim)  # project qpos to embedding
         self.latent_proj = nn.Linear(hidden_dim, self.latent_dim * 2)  # project hidden state to latent std, var
         self.register_buffer('pos_table',
                              get_sinusoid_encoding_table(1 + 1 + num_queries, hidden_dim))  # [CLS], qpos, a_seq
@@ -662,7 +663,7 @@ class DETRVAE(nn.Module):
         # height = (image.shape[-2]) // 2
         # assert (image.shape[-2]) % 2 == 0, "image not dividable"
         if isinstance(image, dict):
-            image = torch.stack([image["fix"][:, -1, :, :, :], image["gripper"][:, -1, :, :, :]], dim=1)
+            image = torch.stack([image["v_fix"][:, -1, :, :, :], image["v_gripper"][:, -1, :, :, :]], dim=1)
         elif isinstance(image, torch.Tensor):
             image = torch.stack([image[:, -1, :, :, :]], dim=1)
 
@@ -732,6 +733,7 @@ class DETRVAE(nn.Module):
                 args=None,
                 v_scale=None,
                 inference_type=None,
+                num_queries=None,
                 **kwargs):
         output = self.forward(qpos,
                               multimod_inputs,
@@ -742,12 +744,18 @@ class DETRVAE(nn.Module):
                               task="repr",
                               mode="val",
                               env_state=None, )
+
         a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
-                # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
-        # loss_list.append(loss.reshape(1,))
+        a_hat, gripper = a_hat[:, :-1, :], a_hat[:, -1:, :]
+        a_hat = a_hat[:, :num_queries, :]
         if a_hat.shape[-1] == 6:
             if inference_type == "real_delta":
-                base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                if qpos.shape[1] == 7:
+                    base = qpos.squeeze(0).detach().cpu().numpy()
+                elif qpos.shape[1] == 6:
+                    base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                else:
+                    raise RuntimeError(f"invalide qpos shape: {qpos.shape}, should be either [1,3] or [1,4]")
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
@@ -772,10 +780,10 @@ class DETRVAE(nn.Module):
             out_orientation = out_chunk[:, 3:]
             out_orientation = out_orientation / np.linalg.norm(out_orientation, 2, axis=1, keepdims=True)
             out_chunk = np.concatenate([out_position, out_orientation], axis=1)
-
+        out_chunk = np.concatenate([out_chunk, gripper.detach().cpu().numpy()], axis=-1)
         out_position = torch.from_numpy(out_chunk[:, :3])
         out_orientation = torch.from_numpy(out_chunk[:, 3:])
-        all_time_orientation[[t], t:t + self.num_queries] = out_orientation.float().to(args.device)
+        all_time_orientation[[t], t:t + num_queries] = out_orientation.float().to(args.device)
         orientation_for_curr_step = all_time_orientation[:, t]
         actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
         orientation_for_curr_step = orientation_for_curr_step[actions_populated]
@@ -793,7 +801,7 @@ class DETRVAE(nn.Module):
             tangent_space_vector = np.sum(tangent_space_vector * weights, axis=1, keepdims=True)
             raw_orientation = q_exp_map(tangent_space_vector, raw_orientation)[:, 0]
 
-        all_time_position[[t], t:t + self.num_queries] = out_position.float().to(args.device)
+        all_time_position[[t], t:t + num_queries] = out_position.float().to(args.device)
         position_for_curr_step = all_time_position[:, t]
         actions_populated = torch.all(position_for_curr_step != 0, axis=1)
         position_for_curr_step = position_for_curr_step[actions_populated]

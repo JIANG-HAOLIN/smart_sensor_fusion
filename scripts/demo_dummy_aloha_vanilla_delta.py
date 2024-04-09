@@ -35,7 +35,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'last' in p and p.split('.')[-1] == 'ckpt':
+        if 'best' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -55,7 +55,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
         max_timesteps = 1000
         num_queries = 10
-        query_frequency = 10
+        query_frequency = 5
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 3]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
@@ -80,12 +80,14 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         # qpos = pose[:, 0, :].to(args.device)
 
                         inp_data = batch["observation"]
-                        vf_inp, vg_inp = inp_data
+
+                        for key, value in inp_data.items():
+                            inp_data[key] = value.to(args.device)
                         multimod_inputs = {
-                            "vision": vg_inp.to(args.device),
+                            "vision": inp_data,
                         }
 
-                        inference_type = "real_delta_direct"
+                        inference_type = "relative_delta"
                         if inference_type == "real_delta":
                             actions = real_delta[:, 1:, :]
                         elif inference_type == "position":
@@ -108,7 +110,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             t=t,
                             args=args,
                             v_scale=0.10 / 10,
-                            inference_type=inference_type
+                            inference_type=inference_type,
+                            num_queries=num_queries,
                             )
                         # all_action = torch.from_numpy(all_action)
                         # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
@@ -178,6 +181,19 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         # plt.plot(tr, pmr[:, 6:7], '-')
         plt.show()
 
+        np.save("example_traj.npy", pm)
+
+        x = pm[:, 0]
+        y = pm[:, 1]
+        z = pm[:, 2]
+
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+        markerline, stemlines, baseline = ax.stem(
+            x, y, z, linefmt='none', markerfmt='.', orientation='z', )
+        # markerline.set_markerfacecolor('none')
+        ax.set_aspect('equal')
+
+        plt.show()
 
     else:
         print(f'pretrained Model at {checkpoints_path} not found')
@@ -190,7 +206,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/dummy_aloha_vanilla_real_delta_direct_100/aloha_vae_vanilla_coswarmup/name=alohaname=vae_vanillaaction=real_delta_directname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256_03-26-00:09:57')
+                        default="../checkpoints/name=alohaname=vae_vanillaaction=relative_deltaname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=256output_layer_index=0source=True_03-31-06:05:53")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

@@ -354,3 +354,87 @@ class TransformerForDiffusion(nn.Module):
         # (B,T,n_out)
 
         return {"pred": x, "obs_encoder_out": obs_encoder_out}
+
+    def conditional_sample(self,
+                           condition_data, condition_mask,
+                           multimod_inputs=None, generator=None,
+                           # keyword arguments to scheduler.step
+                           **kwargs
+                           ):
+        scheduler = self.noise_scheduler
+
+        trajectory = torch.randn(
+            size=condition_data.shape,
+            dtype=condition_data.dtype,
+            device=condition_data.device,
+            generator=generator)
+
+        # set step values
+        scheduler.set_timesteps(self.num_inference_steps)
+
+        for t in scheduler.timesteps:
+            # 1. apply conditioning
+            trajectory[condition_mask] = condition_data[condition_mask]
+
+            # 2. predict model output
+            model_output = self.forward(sample=trajectory,
+                                 timestep=t,
+                                 multimod_inputs=multimod_inputs,
+                                 mask=None,
+                                 task="imitation",
+                                 mode="val", )
+            pred = model_output["pred"]
+            # 3. compute previous image: x_t -> x_t-1
+            trajectory = scheduler.step(
+                pred, t, trajectory,
+                generator=generator,
+            ).prev_sample
+
+        # finally make sure conditioning is enforced
+        trajectory[condition_mask] = condition_data[condition_mask]
+
+        return trajectory
+
+    def predict_action(self, batch) -> Dict[str, torch.Tensor]:
+
+        t_p = self.t_p
+        Da = self.action_dim
+
+        device = self.device
+        dtype = self.dtype
+
+        inp_data = batch["observation"]
+        delta = batch["target_delta_seq"][:, 1:]
+        pose = batch["target_pose_seq"]
+        vf_inp, vg_inp, _, _ = inp_data
+        multimod_inputs = {
+            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
+        }
+
+        batch_size = delta.shape[0]
+        To = self.n_obs_steps
+        shape = (batch_size, t_p, Da)
+
+        cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
+        cond_mask = torch.zeros_like(cond_data, dtype=torch.bool)
+
+        # run sampling
+        nsample = self.conditional_sample(
+            cond_data,
+            cond_mask,
+            multimod_inputs=multimod_inputs,
+            **self.kwargs)
+
+        # unnormalize prediction
+        naction_pred = nsample[..., :Da]
+        action_pred = naction_pred
+
+        start = To - 1
+        end = start + self.n_action_steps
+        action_reduced_horizon = action_pred[:, start:end]
+
+        result = {
+            'action': action_reduced_horizon,
+            'action_pred': action_pred
+        }
+        return result

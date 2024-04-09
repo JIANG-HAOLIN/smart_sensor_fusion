@@ -421,16 +421,203 @@ def smooth_traj(pm: np.ndarray, s: tuple) -> (np.ndarray, np.ndarray):
     return pmr, pm_delta, pmr_delta
 
 
-# q1 = np.array([1,2,3,4])/np.linalg.norm([1,2,3,4],2)
-# q2 = np.array([2,3,4,5])/np.linalg.norm([2,3,4,5],2)
-# q3 = np.array([3,4,5,6])/np.linalg.norm([3,4,5,6],2)
-# v12 = q_log_map(q2, q1)
-# v23 = q_log_map(q3, q2)
-#
-# v1 = q_log_map(q1)
-# v2 = q_log_map(q2)
-# v3 = q_log_map(q3)
-# v12_ = v2 - v1
-# v23_ = v3 - v2
-# print(v12 - v12_)
-# print(v23 - v23_)
+if __name__ == "__main__":
+    # q1 = np.array([1,2,3,4])/np.linalg.norm([1,2,3,4],2)
+    # q2 = np.array([2,3,4,5])/np.linalg.norm([2,3,4,5],2)
+    # q3 = np.array([3,4,5,6])/np.linalg.norm([3,4,5,6],2)
+    # v12 = q_log_map(q2, q1)
+    # v23 = q_log_map(q3, q2)
+    #
+    # v1 = q_log_map(q1)
+    # v2 = q_log_map(q2)
+    # v3 = q_log_map(q3)
+    # v12_ = v2 - v1
+    # v23_ = v3 - v2
+    # print(v12 - v12_)
+    # print(v23 - v23_)
+
+
+    import numpy as np
+    from scipy.spatial.transform import Rotation as R
+
+    # Represent initial and final orientations as quaternions
+    q_initial = np.array([
+                0.012322934256336735,
+                0.9786744566129287,
+                0.19673342223481813,
+                -0.057796271671211055
+            ])
+    q_final = np.array([
+                0.005934300385392491,
+                0.9879155098505336,
+                0.14772539998482817,
+                -0.04652894347449135
+            ])
+
+    # q_initial = np.array([0., 0., 1., 0.])
+    # q_final = np.array([0., 1., 0., 0.])
+
+    out1 = q_log_map(q_final, q_initial)
+
+    out1_ = q_log_map(q_final) - q_log_map(q_initial)
+
+    q_initial = np.concatenate([q_initial[1:], q_initial[0:1]])
+    q_final = np.concatenate([q_final[1:], q_final[0:1]])
+    q_initial_rot = R.from_quat(q_initial)
+    q_final_rot = R.from_quat(q_final)
+    q_rel = q_final_rot.inv() * q_initial_rot  # ? ?
+    print(q_final_rot.as_matrix())
+    print(q_final_rot.inv().as_matrix())
+    print(q_initial_rot.as_matrix())
+    q_rel = q_rel.as_quat()
+
+    # Convert relative quaternion to axis-angle representation
+    angle = 2 * np.arccos(q_rel[-1])  # Angle of rotation
+    axis = q_rel[:-1] / np.sqrt(1 - q_rel[-1] ** 2)
+    out2 = angle * axis
+    print(out1 / out2)
+    del()
+
+    ## [0.99867253 0.00698209 0.01221408 0.04955053]
+    ## [-0.00698209 -0.01221408 -0.04955053  0.99867252]
+
+    def quat2mat(quaternion):
+        import math
+        """
+        Converts given quaternion to matrix.
+
+        Args:
+            quaternion (np.array): (x,y,z,w) vec4 float angles
+
+        Returns:
+            np.array: 3x3 rotation matrix
+        """
+        # awkward semantics for use with numba
+        inds = np.array([3, 0, 1, 2])
+        q = np.asarray(quaternion).copy().astype(np.float32)[inds]
+
+        n = np.dot(q, q)
+        if n < 1e-8:
+            return np.identity(3)
+        q *= math.sqrt(2.0 / n)
+        q2 = np.outer(q, q)
+        return np.array(
+            [
+                [1.0 - q2[2, 2] - q2[3, 3], q2[1, 2] - q2[3, 0], q2[1, 3] + q2[2, 0]],
+                [q2[1, 2] + q2[3, 0], 1.0 - q2[1, 1] - q2[3, 3], q2[2, 3] - q2[1, 0]],
+                [q2[1, 3] - q2[2, 0], q2[2, 3] + q2[1, 0], 1.0 - q2[1, 1] - q2[2, 2]],
+            ]
+        )
+
+    q_init = quat2mat(q_initial)
+    q_fin = quat2mat(q_final)
+    # goal_orientation = np.dot(rotation_mat_error, current_orientation)
+    # rotation_mat_error = goal_orientation * current_orientation.inv()
+    q_err = np.dot(q_fin.transpose(), q_init)
+
+
+    def mat2quat(rmat):
+        """
+        Converts given rotation matrix to quaternion.
+
+        Args:
+            rmat (np.array): 3x3 rotation matrix
+
+        Returns:
+            np.array: (x,y,z,w) float quaternion angles
+        """
+        M = np.asarray(rmat).astype(np.float32)[:3, :3]
+
+        m00 = M[0, 0]
+        m01 = M[0, 1]
+        m02 = M[0, 2]
+        m10 = M[1, 0]
+        m11 = M[1, 1]
+        m12 = M[1, 2]
+        m20 = M[2, 0]
+        m21 = M[2, 1]
+        m22 = M[2, 2]
+        # symmetric matrix K
+        K = np.array(
+            [
+                [m00 - m11 - m22, np.float32(0.0), np.float32(0.0), np.float32(0.0)],
+                [m01 + m10, m11 - m00 - m22, np.float32(0.0), np.float32(0.0)],
+                [m02 + m20, m12 + m21, m22 - m00 - m11, np.float32(0.0)],
+                [m21 - m12, m02 - m20, m10 - m01, m00 + m11 + m22],
+            ]
+        )
+        K /= 3.0
+        # quaternion is Eigen vector of K that corresponds to largest eigenvalue
+        w, V = np.linalg.eigh(K)
+        inds = np.array([3, 0, 1, 2])
+        q1 = V[inds, np.argmax(w)]
+        if q1[0] < 0.0:
+            np.negative(q1, q1)
+        inds = np.array([1, 2, 3, 0])
+        return q1[inds]
+
+    q_err = mat2quat(q_err)
+
+
+    def quat2axisangle(quat):
+        import math
+        """
+        Converts quaternion to axis-angle format.
+        Returns a unit vector direction scaled by its angle in radians.
+
+        Args:
+            quat (np.array): (x,y,z,w) vec4 float angles
+
+        Returns:
+            np.array: (ax,ay,az) axis-angle exponential coordinates
+        """
+        # clip quaternion
+        if quat[3] > 1.0:
+            quat[3] = 1.0
+        elif quat[3] < -1.0:
+            quat[3] = -1.0
+
+        den = np.sqrt(1.0 - quat[3] * quat[3])
+        if math.isclose(den, 0.0):
+            # This is (close to) a zero degree rotation, immediately return
+            return np.zeros(3)
+
+        return (quat[:3] * 2.0 * math.acos(quat[3])) / den
+
+    delta = quat2axisangle(q_err)
+
+    print(delta / out1)
+
+
+    def axisangle2quat(vec):
+        import math
+        """
+        Converts scaled axis-angle to quat.
+
+        Args:
+            vec (np.array): (ax,ay,az) axis-angle exponential coordinates
+
+        Returns:
+            np.array: (x,y,z,w) vec4 float angles
+        """
+        # Grab angle
+        angle = np.linalg.norm(vec)
+
+        # handle zero-rotation case
+        if math.isclose(angle, 0.0):
+            return np.array([0.0, 0.0, 0.0, 1.0])
+
+        # make sure that axis is a unit vector
+        axis = vec / angle
+
+        q = np.zeros(4)
+        q[3] = np.cos(angle / 2.0)
+        q[:3] = axis * np.sin(angle / 2.0)
+        return q
+
+
+    quat_error = axisangle2quat(delta)
+    rotation_mat_error = quat2mat(quat_error)
+    goal_orientation = np.dot(rotation_mat_error, q_init)
+    print((q_fin - goal_orientation)/goal_orientation)
+

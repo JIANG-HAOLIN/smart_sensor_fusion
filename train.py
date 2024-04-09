@@ -50,7 +50,7 @@ def train(cfg: DictConfig) -> None:
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
-    log.info(f"current multi-run outp1ut path: {multirun_dir_path}")
+    log.info(f"current multi-run output path: {multirun_dir_path}")
 
     from utils.hydra_utils import extract_sweeper_output_label
     label = extract_sweeper_output_label(cfg, hydra_cfg_og.runtime.choices)

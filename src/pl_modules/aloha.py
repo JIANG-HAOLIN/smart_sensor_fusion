@@ -83,7 +83,12 @@ class AlohaPolicy(pl.LightningModule):
         real_delta_direct = batch["smooth_future_real_delta_direct"]
         relative_delta = batch["smooth_future_relative_delta"]
         pose = batch["smooth_future_glb_pos_ori"]
+        pose_gripper = batch["smooth_future_gripper"]
+
         qpos = batch["smooth_previous_glb_pos_ori"][:, -1, :]
+        qpos_gripper = batch["smooth_previous_gripper"][:, -1, :]
+        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
+
 
         multimod_inputs = {
             "vision": batch["observation"],
@@ -97,12 +102,11 @@ class AlohaPolicy(pl.LightningModule):
             action = relative_delta[:, 1:, :]
         elif self.action == "real_delta_direct":
             action = real_delta_direct[:, 1:, :]
+        action = torch.cat([action, pose_gripper[:, 1:, :]], dim=-1)
         task = self.train_tasks.split("+")
 
         # Perform prediction and calculate loss and accuracy
         if action is not None:  # training time
-
-
             is_pad = torch.zeros([action.shape[0], action.shape[1]], device=qpos.device).bool()
             out = self.mdl(qpos,
                            multimod_inputs,

@@ -6,7 +6,6 @@ import random
 
 from PIL import Image
 import numpy as np
-import torch
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import pandas as pd
@@ -19,7 +18,7 @@ import torchvision.transforms as T
 from copy import deepcopy
 from PIL import Image
 from types import SimpleNamespace
-from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedPoseTrajectory
+from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedRobotTrajectory
 from utils.quaternion import q_log_map, q_exp_map, exp_map_seq, recover_pose_from_quat_real_delta
 from omegaconf import OmegaConf, open_dict
 
@@ -50,7 +49,7 @@ class DummyDataset(Dataset):
         self.num_stack = args.num_stack
         self.frameskip = args.frameskip
         self.len_obs = (self.num_stack - 1) * self.frameskip
-        self.fps = 10
+        self.fps = int(1000 / args.sampling_time)
         self.resolution = (
                 self.sr // self.fps
         )
@@ -68,7 +67,7 @@ class DummyDataset(Dataset):
 
         (self.raw_target_trajectory,
          self.resample_target_trajectory,
-         self.smooth_resample_target_trajectory
+         self.smooth_resample_target_trajectory,
          ) = self.get_episode(traj_path, ablation=args.ablation,
                               sampling_time=args.sampling_time,
                               json_name="target_robot_trajectory.json")
@@ -132,6 +131,7 @@ class DummyDataset(Dataset):
             self.smooth_o_mean = 0
             self.smooth_o_std = 1
 
+        self.a_g, self.a_h = self.load_audio(traj_path, ablation=args.ablation)
         pass
 
     def get_episode(self, traj_path, ablation="", sampling_time=150, json_name=None):
@@ -142,14 +142,6 @@ class DummyDataset(Dataset):
             audio tracks
             number of frames in episode
         """
-        modes = ablation.split("_")
-
-        def load(file):
-            fullpath = os.path.join(traj_path, file)
-            if os.path.exists(fullpath):
-                return sf.read(fullpath)[0]
-            else:
-                return None
 
         def omit_nan(traj):
             last_t = 0.0
@@ -171,7 +163,7 @@ class DummyDataset(Dataset):
                 robot_trajectory = omit_nan(robot_trajectory)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
             json_path = os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")
-            resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
+            resampled_trajectory = ProcessedRobotTrajectory.from_path(json_path)
         else:
             json_path = os.path.join(traj_path, json_name)
             with open(json_path) as ts:
@@ -193,7 +185,7 @@ class DummyDataset(Dataset):
         raw_position_histroy = []
         raw_orientation_history = []
         raw_absolute_real_time_stamps = []
-
+        raw_gripper_pos = []
         last_t = 0.0
         for idx, (i, v) in enumerate(robot_trajectory.items()):
             current_t = v["time"]
@@ -204,6 +196,7 @@ class DummyDataset(Dataset):
             raw_position_histroy.append(v["pose"][:3])
             raw_orientation_history.append(v["pose"][3:])
             raw_absolute_real_time_stamps.append(v["time"])
+            raw_gripper_pos.append(v["gripper"])
             last_t = current_t
 
         # get all resampled info
@@ -228,6 +221,7 @@ class DummyDataset(Dataset):
 
         raw_traj = {
             "pos_quat": np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1),
+            "gripper": np.array(raw_gripper_pos),
             "absolute_real_time_stamps": np.array(raw_absolute_real_time_stamps),
             "relative_real_time_stamps": np.array(pose_trajectory.time_stamps),
         }
@@ -235,6 +229,8 @@ class DummyDataset(Dataset):
         resample_traj = {
             "pos_quat": np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)],
                                        axis=1),
+            # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
+            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
             "glb_pos_ori": global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
@@ -242,14 +238,50 @@ class DummyDataset(Dataset):
 
         smooth_resample_traj = {
             "pos_quat": np.concatenate([smoothed_traj[:, :3], smoothed_traj[:, 3:]], axis=1),
+            # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
+            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
             "glb_pos_ori": smoothed_global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
         }
+
         return (
             raw_traj,
             resample_traj,
-            smooth_resample_traj
+            smooth_resample_traj,
+        )
+
+    @staticmethod
+    def load_audio(traj_path, ablation):
+        modes = ablation.split("_")
+
+        def load(file):
+            fullpath = os.path.join(traj_path, file)
+            if os.path.exists(fullpath):
+                return sf.read(fullpath)[0]
+            else:
+                return None
+
+        if "ag" in modes:
+            audio_gripper = load("gripper_mic.wav")
+            audio_gripper = [
+                x for x in [audio_gripper] if x is not None
+            ]
+            audio_gripper = torch.as_tensor(np.stack(audio_gripper, 0))
+        else:
+            audio_gripper = None
+        if "ah" in modes:
+            audio_holebase = load("mic.wav")
+            audio_holebase = [
+                x for x in [audio_holebase] if x is not None
+            ]
+            audio_holebase = torch.as_tensor(np.stack(audio_holebase, 0))
+        else:
+            audio_holebase = None
+
+        return (
+            audio_gripper,
+            audio_holebase
         )
 
     @staticmethod
@@ -342,10 +374,15 @@ class DummyDataset(Dataset):
         output = {}
         whole_source_pos_quat = source_trajectory["pos_quat"][seq_idx]
         whole_source_glb_pos_ori = source_trajectory["glb_pos_ori"][seq_idx]
+        whole_source_gripper = source_trajectory["gripper"][seq_idx]
         whole_target_pos_quat = target_trajectory["pos_quat"][seq_idx]
         whole_target_glb_pos_ori = target_trajectory["glb_pos_ori"][seq_idx]
+        whole_target_gripper = target_trajectory["gripper"][seq_idx]
+
         output[f"{pre}previous_pos_quat"] = torch.from_numpy(whole_target_pos_quat[:-self.len_lb, :]).float()
         output[f"{pre}previous_glb_pos_ori"] = torch.from_numpy(whole_target_glb_pos_ori[:-self.len_lb, :]).float()
+        output[f"{pre}previous_gripper"] = torch.from_numpy(whole_target_gripper[:-self.len_lb, 0:1]).float()
+
         future_pos_quat = whole_source_pos_quat[-self.len_lb - 1:, :]
         output[f"{pre}future_pos_quat"] = torch.from_numpy(future_pos_quat).float()
         future_pos_ori = whole_source_glb_pos_ori[-self.len_lb - 1:, :]
@@ -358,9 +395,11 @@ class DummyDataset(Dataset):
         future_relative_delta = self.get_relative_delta_sequence(future_pos_quat)
         output[f"{pre}future_relative_delta"] = torch.from_numpy(future_relative_delta).float()
 
+        output[f"{pre}future_gripper"] = torch.from_numpy(whole_source_gripper[-self.len_lb - 1:, 0:1]).float()
         return output
 
     def __getitem__(self, idx):
+        # print("idx", idx)
         start = idx - self.len_obs
         # compute which frames to use
         frame_idx = np.arange(start, idx + 1, self.frameskip)
@@ -440,12 +479,34 @@ class DummyDataset(Dataset):
                 cam_fixed_framestack = cam_fixed_framestack[
                                        ..., i_v: i_v + h_v, j_v: j_v + w_v
                                        ]
+
+        # load audio
+        # if idx == 88:
+        #     print(idx)
+        audio_end = idx * self.resolution
+        audio_start = audio_end - self.audio_len  # why self.sr // 2, and start + sr
+        if self.a_g is not None:
+            audio_clip_g = self.clip_resample(
+                self.a_g, audio_start, audio_end
+            ).float()
+        else:
+            audio_clip_g = 0
+        if self.a_h is not None:
+            audio_clip_h = self.clip_resample(
+                self.a_h, audio_start, audio_end
+            ).float()
+        else:
+            audio_clip_h = 0
+
         output.update({
-            "observation": {"fix": cam_fixed_framestack,
-                            "gripper": cam_gripper_framestack, },
+            "observation": {"v_fix": cam_fixed_framestack,
+                            "v_gripper": cam_gripper_framestack,
+                            "a_holebase": audio_clip_h,
+                            "a_gripper": audio_clip_g},
             "start": start,
             "current": idx,
             "end": lb_end,
+            "traj_idx": self.traj_path,
         })
         return output
 
@@ -540,7 +601,7 @@ class Normalizer(torch.nn.Module):
                 robot_trajectory = omit_nan(robot_trajectory)
                 pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
             json_path = os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")
-            resampled_trajectory = ProcessedPoseTrajectory.from_path(json_path)
+            resampled_trajectory = ProcessedRobotTrajectory.from_path(json_path)
         else:
             json_path = os.path.join(traj_path, json_name)
             with open(json_path) as ts:
@@ -622,7 +683,7 @@ class Normalizer(torch.nn.Module):
         )
 
     def __len__(self):
-        return self.num_frames
+        return self.num_frames - self.len_lb
 
     @staticmethod
     def get_relative_delta_sequence(pos_seq: np.ndarray, quaternion_seq: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -776,7 +837,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
 
     """
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
-    num_train = int(len(trajs) * 0.9)
+    num_train = int(len(trajs) * 0.8)
 
     train_trajs_paths = trajs[:num_train]
     print(f"number of training trajectories: {len(train_trajs_paths)}")
@@ -784,7 +845,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
     train_trajs_paths = train_trajs_paths[0:1]
-    val_trajs_paths = val_trajs_paths[0:1]
+    val_trajs_paths = val_trajs_paths[1:2]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
 
@@ -829,7 +890,7 @@ if __name__ == "__main__":
     import time
     import cv2
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_27'
+    data_folder_path = '/home/jin4rng/Documents/cuponplate_robot_demos'
     args = SimpleNamespace()
 
     args.ablation = 'vf_vg'
@@ -840,88 +901,95 @@ if __name__ == "__main__":
     args.resized_height_v = 480
     args.resized_width_v = 640
     args.len_lb = 10
-    args.sampling_time = 100
+    args.sampling_time = 250
     args.norm = False
     all_step_delta = []
     all_step_pose = []
     all_recover_pose = []
-    args.source = False
+    args.source = True
     train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
                                                     drop_last=False)
-######## show images ###################################################################
-    # print(len(train_loader))
-    #
-    # for idx, batch in enumerate(train_loader):
-    #     # if idx >= 100:
-    #     #     break
-    #     print(f"{idx} \n")
-    #     obs = batch["observation"]
-    #
-    #     image_f = obs["fix"][0][-1].permute(1, 2, 0).numpy()
-    #     image_g = obs["gripper"][0][-1].permute(1, 2, 0).numpy()
-    #     image = np.concatenate([image_f, image_g], axis=0)
-    #     cv2.imshow("asdf", image)
-    #     time.sleep(0.2)
-    #     key = cv2.waitKey(1)
-    #     if key == ord("q"):
-    #         break
-    #
-    #     all_step_delta.append(batch["future_real_delta"][:, 1])
-    #     all_step_pose.append(batch["future_pos_quat"][:, 1])
-######## show images ###################################################################
+    ######## show images ###################################################################
+    print(len(train_loader))
 
-
-#######check source and target######################################################################3
-    all_step_source_pose = []
-    all_step_target_pose = []
     for idx, batch in enumerate(train_loader):
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        # for image_g in obs[1][0]:
-        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-        # key = cv2.waitKey(1)
-        # if key == ord("q"):
-        #     break
+        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+        image = np.concatenate([image_f, image_g], axis=0)
+        cv2.imshow("asdf", image)
+        time.sleep(0.2)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
 
-        all_step_source_pose.append(batch["future_pos_quat"][0, 0:1, :])
-        all_step_target_pose.append(batch["previous_pos_quat"][0, -1:, :])
+        all_step_delta.append(batch["future_real_delta"][:, 1])
+        all_step_pose.append(batch["future_pos_quat"][:, 1])
+    ######## show images ###################################################################
 
-    all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
-    pm = all_step_source_pose.detach().cpu().numpy()
-    all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
-    pmr = all_step_target_pose.detach().cpu().numpy()
-
-    print(np.mean(pm, axis=0))
-    print(np.std(pm, axis=0))
-    print(np.max(pm, axis=0))
-    print(np.min(pm, axis=0))
-    t = np.arange(all_step_source_pose.shape[0])
-    plt.figure()
-    plt.subplot(711)
-    o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
-    plt.plot(t, o, '-', )
-    plt.subplot(712)
-    o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(713)
-    o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(714)
-    o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(715)
-    o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(716)
-    o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
-    plt.plot(t, o, '-')
-    plt.subplot(717)
-    o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
-    plt.plot(t, o, '-')
-    plt.show()
+#######check source and target######################################################################3
+    # all_step_source_pose = []
+    # all_step_target_pose = []
+    # all_step_source_gripper = []
+    # all_step_target_gripper = []
+    # for idx, batch in enumerate(val_loader):
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
+    #
+    #     all_step_source_pose.append(batch["future_pos_quat"][0, 0:1, :])
+    #     all_step_target_pose.append(batch["previous_pos_quat"][0, -1:, :])
+    #     all_step_source_gripper.append(batch["future_gripper"][0, 0:1, :])
+    #     all_step_target_gripper.append(batch["previous_gripper"][0, -1:, :])
+    #
+    # all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
+    # pm = all_step_source_pose.detach().cpu().numpy()
+    # all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
+    # pmr = all_step_target_pose.detach().cpu().numpy()
+    # all_step_target_gripper = torch.cat(all_step_target_gripper, dim=0).detach().cpu().numpy()
+    # all_step_source_gripper = torch.cat(all_step_source_gripper, dim=0).detach().cpu().numpy()
+    # print(np.mean(pm, axis=0))
+    # print(np.std(pm, axis=0))
+    # print(np.max(pm, axis=0))
+    # print(np.min(pm, axis=0))
+    # t = np.arange(all_step_source_pose.shape[0])
+    # plt.figure()
+    # plt.subplot(811)
+    # o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
+    # plt.plot(t, o, '-', )
+    # plt.subplot(812)
+    # o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(813)
+    # o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(814)
+    # o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(815)
+    # o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(816)
+    # o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(817)
+    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.subplot(818)
+    # o = np.stack([all_step_source_gripper[:, 0], all_step_target_gripper[:, 0]], axis=1)
+    # plt.plot(t, o, '-')
+    # plt.show()
 #######check source and target######################################################################3
 
 
