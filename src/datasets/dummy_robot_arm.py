@@ -374,7 +374,7 @@ class DummyDataset(Dataset):
         output = {}
         whole_source_pos_quat = source_trajectory["pos_quat"][seq_idx]
         whole_source_glb_pos_ori = source_trajectory["glb_pos_ori"][seq_idx]
-        whole_source_gripper = source_trajectory["gripper"][seq_idx]
+        whole_source_gripper = target_trajectory["gripper"][seq_idx]
         whole_target_pos_quat = target_trajectory["pos_quat"][seq_idx]
         whole_target_glb_pos_ori = target_trajectory["glb_pos_ori"][seq_idx]
         whole_target_gripper = target_trajectory["gripper"][seq_idx]
@@ -910,86 +910,86 @@ if __name__ == "__main__":
     train_loader, val_loader, _ = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
                                                     drop_last=False)
     ######## show images ###################################################################
-    print(len(train_loader))
-
-    for idx, batch in enumerate(train_loader):
-        # if idx >= 100:
-        #     break
-        print(f"{idx} \n")
-        obs = batch["observation"]
-
-        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
-        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
-        image = np.concatenate([image_f, image_g], axis=0)
-        cv2.imshow("asdf", image)
-        time.sleep(0.2)
-        key = cv2.waitKey(1)
-        if key == ord("q"):
-            break
-
-        all_step_delta.append(batch["future_real_delta"][:, 1])
-        all_step_pose.append(batch["future_pos_quat"][:, 1])
-    ######## show images ###################################################################
-
-#######check source and target######################################################################3
-    # all_step_source_pose = []
-    # all_step_target_pose = []
-    # all_step_source_gripper = []
-    # all_step_target_gripper = []
-    # for idx, batch in enumerate(val_loader):
+    # print(len(train_loader))
+    #
+    # for idx, batch in enumerate(train_loader):
     #     # if idx >= 100:
     #     #     break
     #     print(f"{idx} \n")
     #     obs = batch["observation"]
     #
-    #     # for image_g in obs[1][0]:
-    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-    #     # key = cv2.waitKey(1)
-    #     # if key == ord("q"):
-    #     #     break
+    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+    #     image = np.concatenate([image_f, image_g], axis=0)
+    #     cv2.imshow("asdf", image)
+    #     time.sleep(0.2)
+    #     key = cv2.waitKey(1)
+    #     if key == ord("q"):
+    #         break
     #
-    #     all_step_source_pose.append(batch["future_pos_quat"][0, 0:1, :])
-    #     all_step_target_pose.append(batch["previous_pos_quat"][0, -1:, :])
-    #     all_step_source_gripper.append(batch["future_gripper"][0, 0:1, :])
-    #     all_step_target_gripper.append(batch["previous_gripper"][0, -1:, :])
-    #
-    # all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
-    # pm = all_step_source_pose.detach().cpu().numpy()
-    # all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
-    # pmr = all_step_target_pose.detach().cpu().numpy()
-    # all_step_target_gripper = torch.cat(all_step_target_gripper, dim=0).detach().cpu().numpy()
-    # all_step_source_gripper = torch.cat(all_step_source_gripper, dim=0).detach().cpu().numpy()
-    # print(np.mean(pm, axis=0))
-    # print(np.std(pm, axis=0))
-    # print(np.max(pm, axis=0))
-    # print(np.min(pm, axis=0))
-    # t = np.arange(all_step_source_pose.shape[0])
-    # plt.figure()
-    # plt.subplot(811)
-    # o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
-    # plt.plot(t, o, '-', )
-    # plt.subplot(812)
-    # o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(813)
-    # o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(814)
-    # o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(815)
-    # o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(816)
-    # o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(817)
-    # o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.subplot(818)
-    # o = np.stack([all_step_source_gripper[:, 0], all_step_target_gripper[:, 0]], axis=1)
-    # plt.plot(t, o, '-')
-    # plt.show()
+    #     all_step_delta.append(batch["future_real_delta"][:, 1])
+    #     all_step_pose.append(batch["future_pos_quat"][:, 1])
+    ######## show images ###################################################################
+
+#######check source and target######################################################################3
+    all_step_source_pose = []
+    all_step_target_pose = []
+    all_step_source_gripper = []
+    all_step_target_gripper = []
+    for idx, batch in enumerate(val_loader):
+        # if idx >= 100:
+        #     break
+        print(f"{idx} \n")
+        obs = batch["observation"]
+
+        # for image_g in obs[1][0]:
+        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
+
+        all_step_source_pose.append(batch["future_pos_quat"][0, 0:1, :])
+        all_step_target_pose.append(batch["previous_pos_quat"][0, -1:, :])
+        all_step_source_gripper.append(batch["future_gripper"][0, 0:1, :])
+        all_step_target_gripper.append(batch["previous_gripper"][0, -1:, :])
+
+    all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
+    pm = all_step_source_pose.detach().cpu().numpy()
+    all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
+    pmr = all_step_target_pose.detach().cpu().numpy()
+    all_step_target_gripper = torch.cat(all_step_target_gripper, dim=0).detach().cpu().numpy()
+    all_step_source_gripper = torch.cat(all_step_source_gripper, dim=0).detach().cpu().numpy()
+    print(np.mean(pm, axis=0))
+    print(np.std(pm, axis=0))
+    print(np.max(pm, axis=0))
+    print(np.min(pm, axis=0))
+    t = np.arange(all_step_source_pose.shape[0])
+    plt.figure()
+    plt.subplot(811)
+    o = np.stack([pm[:, 0], pmr[:, 0]], axis=1)
+    plt.plot(t, o, '-', )
+    plt.subplot(812)
+    o = np.stack([pm[:, 1], pmr[:, 1]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(813)
+    o = np.stack([pm[:, 2], pmr[:, 2]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(814)
+    o = np.stack([pm[:, 3], pmr[:, 3]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(815)
+    o = np.stack([pm[:, 4], pmr[:, 4]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(816)
+    o = np.stack([pm[:, 5], pmr[:, 5]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(817)
+    o = np.stack([pm[:, 6], pmr[:, 6]], axis=1)
+    plt.plot(t, o, '-')
+    plt.subplot(818)
+    o = np.stack([all_step_source_gripper[:, 0], all_step_target_gripper[:, 0]], axis=1)
+    plt.plot(t, o, '-')
+    plt.show()
 #######check source and target######################################################################3
 
 
