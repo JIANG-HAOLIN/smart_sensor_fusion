@@ -663,7 +663,7 @@ class DETRVAE(nn.Module):
         # height = (image.shape[-2]) // 2
         # assert (image.shape[-2]) % 2 == 0, "image not dividable"
         if isinstance(image, dict):
-            image = torch.stack([image["v_fix"][:, -1, :, :, :], image["v_gripper"][:, -1, :, :, :]], dim=1)
+            image = torch.stack([image["v_fix"][:, -1, :, :, :]], dim=1)
         elif isinstance(image, torch.Tensor):
             image = torch.stack([image[:, -1, :, :, :]], dim=1)
 
@@ -721,6 +721,7 @@ class DETRVAE(nn.Module):
             transformer_input = torch.cat([qpos, env_state], axis=1)  # seq length = 2
             hs = self.transformer(transformer_input, None, self.query_embed.weight, self.pos.weight)[self.output_layer_index]
         a_hat = self.action_head(hs)
+        a_hat = F.tanh(a_hat)
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
                 "obs_encoder_out": {"ssl_losses": {}},

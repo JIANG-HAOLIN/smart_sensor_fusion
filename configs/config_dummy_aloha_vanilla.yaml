@@ -16,7 +16,7 @@ variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
 results_dir: '/home/jin4rng/Documents/code/smart_sensor_fusion/results'
-data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robodemo_3_27'
+data_folder_path: '/home/jin4rng/Documents/cuponplate1_robot_demos/'
 
 hydra:
   sweeper:
@@ -27,9 +27,9 @@ hydra:
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
       datasets.dataloader.args.len_lb: 10
-      datasets.dataloader.batch_size: 64
+      datasets.dataloader.batch_size: 128
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
-      pl_modules.pl_module.action: "real_delta_direct"
+      pl_modules.pl_module.action: "direct_vel"
       models.model.replace_args.state_dim: 7
       optimizers.optimizer.weight_decay: 0.0001
       datasets.dataloader.args.resized_height_v: 240

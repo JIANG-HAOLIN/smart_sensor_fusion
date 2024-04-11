@@ -5,11 +5,10 @@ model:
   replace_args:
     camera_names:
       - 'vf'
-      - 'vg'
     num_queries: 10
     state_dim: 7
-    hidden_dim: 256
-    output_layer_index: 0
+    hidden_dim: 512
+    output_layer_index: -1
 
 
 inference:

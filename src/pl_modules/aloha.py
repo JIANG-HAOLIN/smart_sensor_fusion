@@ -79,14 +79,15 @@ class AlohaPolicy(pl.LightningModule):
         metrics = {}
 
         # Fetch data and transform categories to one-hot vectors
-        real_delta = batch["smooth_future_real_delta"]
-        real_delta_direct = batch["smooth_future_real_delta_direct"]
-        relative_delta = batch["smooth_future_relative_delta"]
-        pose = batch["smooth_future_glb_pos_ori"]
-        pose_gripper = batch["smooth_future_gripper"]
+        real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
+        real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
+        direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
+        pose = batch["traj"]["source_glb_pos_ori"]["action"][:, :, :].float()
 
-        qpos = batch["smooth_previous_glb_pos_ori"][:, -1, :]
-        qpos_gripper = batch["smooth_previous_gripper"][:, -1, :]
+        pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
+
+        qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
+        qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
         qpos = torch.cat([qpos, qpos_gripper], dim=-1)
 
 
@@ -94,17 +95,17 @@ class AlohaPolicy(pl.LightningModule):
             "vision": batch["observation"],
         }
 
-        if self.action == "real_delta":
-            action = real_delta[:, 1:, :]
+        if self.action == "real_delta_target":
+            action = real_delta
         elif self.action == "position":
-            action = pose[:, 1:, :]
-        elif self.action == "relative_delta":
-            action = relative_delta[:, 1:, :]
-        elif self.action == "real_delta_direct":
-            action = real_delta_direct[:, 1:, :]
-        action = torch.cat([action, pose_gripper[:, 1:, :]], dim=-1)
+            action = pose[:, :, :]
+        elif self.action == "real_delta_source":
+            action = real_delta_source[:, :, :]
+        elif self.action == "direct_vel":
+            action = direct_vel
+        action = torch.cat([action, pose_gripper[:, :, :1]], dim=-1)
         task = self.train_tasks.split("+")
-
+        print(qpos.shape)
         # Perform prediction and calculate loss and accuracy
         if action is not None:  # training time
             is_pad = torch.zeros([action.shape[0], action.shape[1]], device=qpos.device).bool()

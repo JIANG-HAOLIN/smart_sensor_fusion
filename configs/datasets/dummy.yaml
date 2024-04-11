@@ -8,7 +8,7 @@ dataloader:
   drop_last: True
 
   args:
-    ablation: 'vg_vf'
+    ablation: 'vf'
     num_stack: 10
     frameskip: 5
     no_crop: True
@@ -16,10 +16,17 @@ dataloader:
     resized_height_v: 240
     resized_width_v: 320
     len_lb: 20
-    norm: False
     p_mean: 0
     p_std: 0
     o_mean: 0
     o_std: 0
     sampling_time: 100
     source: True
+    norm: "limit"
+    smooth_factor:
+      - 1e-5
+      - 1e-5
+      - 1e-5
+      - 1e-5
+      - 1e-5
+      - 1e-5
