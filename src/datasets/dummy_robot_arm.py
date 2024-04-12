@@ -116,7 +116,7 @@ class DummyDataset(Dataset):
             self.transform_cam = [
                 T.Resize((self.resized_height_v, self.resized_width_v), antialias=None),
                 T.ColorJitter(brightness=0.2, contrast=0.02, saturation=0.02),
-                T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+                # T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
             ]
             self.transform_cam = T.Compose(self.transform_cam)
 
@@ -125,7 +125,7 @@ class DummyDataset(Dataset):
                 [
                     T.Resize((self.resized_height_v, self.resized_width_v), antialias=None),
                     T.CenterCrop((self._crop_height_v, self._crop_width_v)),
-                    T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+                    # T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
                 ]
             )
         self.len_lb = args.len_lb
@@ -973,8 +973,8 @@ if __name__ == "__main__":
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        image_f = (obs["v_fix"][0][-1].permute(1, 2, 0).numpy() + 1) / 2
-        image_g = (obs["v_gripper"][0][-1].permute(1, 2, 0).numpy() + 1) / 2
+        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
         image = np.concatenate([image_f, image_g], axis=0)
         cv2.imshow("asdf", image)
         time.sleep(0.2)
@@ -1042,7 +1042,7 @@ if __name__ == "__main__":
     all_step_pose = []
     all_recover_real_delta_pose = []
     all_recover_direct_vel_pose = []
-    for idx, batch in enumerate(train_loader):
+    for idx, batch in enumerate(val_loader):
         if idx % args.len_lb != 0:
             continue
         # if idx >= 100:
