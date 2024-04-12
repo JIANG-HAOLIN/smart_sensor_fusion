@@ -392,6 +392,28 @@ def scatter_pca_3d(data: list, mods: list, names: list, out_path: Optional[str] 
     plt.close('all')
 
 
+def plot_tensors(l, name):
+    for idx, i in enumerate(l):
+        l[idx] = i.detach().cpu().numpy()
+    for arr, n in zip(l, name):
+        print(f"{name} max = {np.max(arr, axis=0)}")
+        print(f"{name} min = {np.min(arr, axis=0)}")
+        print(f"{name} mean = {np.mean(arr, axis=0)}")
+        print(f"{name} std = {np.std(arr, axis=0)}")
+    arr = np.stack(l, axis=-1).transpose([1, 2, 0])
+    num_channels = arr.shape[0]
+    len = arr.shape[2]
+    fig, axs = plt.subplots(num_channels, 1, figsize=(len, num_channels))
+
+    t = np.arange(len)
+
+    for idx in range(num_channels):
+        for i in range(arr.shape[1]):
+            axs[idx].plot(t, arr[idx][i], '-', label=name[i])
+    plt.legend()
+    plt.show()
+
+
 if __name__ == '__main__':
     data = [np.random.rand(10, 3, 512), np.random.rand(7, 3, 512), np.random.rand(12, 3, 512),
             np.random.rand(13, 3, 512)]

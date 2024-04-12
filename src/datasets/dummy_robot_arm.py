@@ -116,6 +116,7 @@ class DummyDataset(Dataset):
             self.transform_cam = [
                 T.Resize((self.resized_height_v, self.resized_width_v), antialias=None),
                 T.ColorJitter(brightness=0.2, contrast=0.02, saturation=0.02),
+                T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
             ]
             self.transform_cam = T.Compose(self.transform_cam)
 
@@ -124,6 +125,7 @@ class DummyDataset(Dataset):
                 [
                     T.Resize((self.resized_height_v, self.resized_width_v), antialias=None),
                     T.CenterCrop((self._crop_height_v, self._crop_width_v)),
+                    T.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
                 ]
             )
         self.len_lb = args.len_lb
@@ -327,7 +329,7 @@ class DummyDataset(Dataset):
         #     if key == ord("q"):
         #         break
         # image.show()
-        image = torch.as_tensor(image).float().permute(2, 0, 1) / 255 * 2 - 1
+        image = torch.as_tensor(image).float().permute(2, 0, 1) / 255
         return image
 
     @staticmethod
@@ -771,7 +773,7 @@ class Normalizer(Dataset):
             "pos_quat": np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)],
                                        axis=1),
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
+            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers)[..., :1],
             "glb_pos_ori": global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
@@ -780,7 +782,7 @@ class Normalizer(Dataset):
         smooth_resample_traj = {
             "pos_quat": np.concatenate([smoothed_traj[:, :3], smoothed_traj[:, 3:]], axis=1),
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
+            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers)[..., :1],
             "glb_pos_ori": smoothed_global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
@@ -870,8 +872,8 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     val_trajs_paths = trajs[num_train:]
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
-    train_trajs_paths = train_trajs_paths[0:10]
-    val_trajs_paths = val_trajs_paths[2:3]
+    train_trajs_paths = train_trajs_paths[1:2]
+    val_trajs_paths = val_trajs_paths[3:4]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
 
@@ -912,7 +914,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=False, drop_last=True, )
     train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
-    return train_loader, val_loader, train_inference_loader, args
+    return train_loader, val_loader, train_inference_loader
 
 
 if __name__ == "__main__":
@@ -940,7 +942,7 @@ if __name__ == "__main__":
         plt.legend()
         plt.show()
 
-    data_folder_path = '/home/jin4rng/Documents/cuponplate1_robot_demos'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos'
     args = SimpleNamespace()
 
     args.ablation = 'vf_vg'
@@ -959,41 +961,90 @@ if __name__ == "__main__":
     args.norm = "limit"
     args.smooth_factor = (1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5)
 
-    train_loader, val_loader, _, args = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
+    train_loader, val_loader, _, = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
                                                     drop_last=False)
+    norm_state = train_loader.dataset.datasets[0].norm_state
     ######## show images ###################################################################
-    # print(len(train_loader))
-    #
+    print(len(train_loader))
+
+    for idx, batch in enumerate(train_loader):
+        # if idx >= 100:
+        #     break
+        print(f"{idx} \n")
+        obs = batch["observation"]
+
+        image_f = (obs["v_fix"][0][-1].permute(1, 2, 0).numpy() + 1) / 2
+        image_g = (obs["v_gripper"][0][-1].permute(1, 2, 0).numpy() + 1) / 2
+        image = np.concatenate([image_f, image_g], axis=0)
+        cv2.imshow("asdf", image)
+        time.sleep(0.2)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
+
+    ######## show images ###################################################################
+
+    #######check pose and vel######################################################################3
+    # all_step_source_pose = []
+    # all_step_target_pose = []
+    # all_step_gripper = []
+    # all_step_source_pos_ori = []
+    # all_step_target_pos_ori = []
+    # 
+    # all_step_source_real_delta = []
+    # all_step_target_real_delta = []
+    # all_step_direct_vel = []
+    # 
+    # 
     # for idx, batch in enumerate(train_loader):
     #     # if idx >= 100:
     #     #     break
     #     print(f"{idx} \n")
     #     obs = batch["observation"]
-    #
-    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
-    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
-    #     image = np.concatenate([image_f, image_g], axis=0)
-    #     cv2.imshow("asdf", image)
-    #     time.sleep(0.2)
-    #     key = cv2.waitKey(1)
-    #     if key == ord("q"):
-    #         break
+    # 
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
+    #     all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:, -1:])
+    # 
+    #     all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
+    #     all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
+    # 
+    #     all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
+    #     all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
+    #     all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
+    # 
+    #     all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
+    #     all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
+    # 
+    # 
+    # all_step_gripper = torch.cat(all_step_gripper, dim=0)
+    # 
+    # all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
+    # all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
+    # plot_2arr([torch.cat([all_step_target_pose, all_step_gripper], dim=-1), torch.cat([all_step_source_pose, all_step_gripper], dim=-1)],
+    #           ["target", "source"])
+    # 
+    # all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
+    # all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
+    # plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1), torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)],
+    #           ["source", "target"])
+    # 
+    # all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
+    # all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
+    # all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)
+    # plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["direct", "target", "source"])
+    #######check pos and vel######################################################################3
 
-    ######## show images ###################################################################
-
-    #######check pose and vel######################################################################3
-    all_step_source_pose = []
-    all_step_target_pose = []
-    all_step_gripper = []
-    all_step_source_pos_ori = []
-    all_step_target_pos_ori = []
-
-    all_step_source_real_delta = []
-    all_step_target_real_delta = []
-    all_step_direct_vel = []
-
-
+    #######check pose recover######################################################################3
+    all_step_pose = []
+    all_recover_real_delta_pose = []
+    all_recover_direct_vel_pose = []
     for idx, batch in enumerate(train_loader):
+        if idx % args.len_lb != 0:
+            continue
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
@@ -1004,63 +1055,22 @@ if __name__ == "__main__":
         # key = cv2.waitKey(1)
         # if key == ord("q"):
         #     break
-        all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:, -1:])
 
-        all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
-        all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
+        all_step_pose.append(batch["traj"]["target_pos_quat"]["action"][0, :, :])
 
-        all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
-        all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
-        all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
+        recover_real_delta_pose = recover_pose_from_quat_real_delta((batch["traj"]["target_real_delta"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["target_real_delta"]["max"] - norm_state["resample"]["target_real_delta"]["min"]) + norm_state["resample"]["target_real_delta"]["min"],
+                                   batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
+        
+        recover_direct_vel_pose = recover_pose_from_quat_real_delta((batch["traj"]["direct_vel"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["direct_vel"]["max"] - norm_state["resample"]["direct_vel"]["min"]) + norm_state["resample"]["direct_vel"]["min"],
+                                   batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
+        all_recover_real_delta_pose.append(torch.from_numpy(recover_real_delta_pose))
+        all_recover_direct_vel_pose.append(torch.from_numpy(recover_direct_vel_pose))
 
-        all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
-        all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
+    all_step_pose = torch.concatenate(all_step_pose, dim=0)
+    all_recover_real_delta_pose = torch.concatenate(all_recover_real_delta_pose, dim=0)
+    all_recover_direct_vel_pose = torch.cat(all_recover_direct_vel_pose, dim=0)
 
-
-    all_step_gripper = torch.cat(all_step_gripper, dim=0)
-
-    all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
-    all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
-    plot_2arr([torch.cat([all_step_target_pose, all_step_gripper], dim=-1), torch.cat([all_step_source_pose, all_step_gripper], dim=-1)],
-              ["target", "source"])
-
-    all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
-    all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
-    plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1), torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)],
-              ["source", "target"])
-
-    all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
-    all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
-    all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)
-    plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["direct", "target", "source"])
-    #######check pos and vel######################################################################3
-
-    #######check pose recover######################################################################3
-    # for idx, batch in enumerate(train_loader):
-    #     if idx % args.len_lb != 0:
-    #         continue
-    #     # if idx >= 100:
-    #     #     break
-    #     print(f"{idx} \n")
-    #     obs = batch["observation"]
-    #
-    #     # for image_g in obs[1][0]:
-    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-    #     # key = cv2.waitKey(1)
-    #     # if key == ord("q"):
-    #     #     break
-    #
-    #     all_step_pose.append(batch["traj"]["target_pos_quat"]["action"][0, :, :])
-    #
-    #     recover_pose = recover_pose_from_quat_real_delta((batch["traj"]["target_real_delta"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (args.norm_state["resample"]["target_real_delta"]["max"] - args.norm_state["resample"]["target_real_delta"]["min"]) + args.norm_state["resample"]["target_real_delta"]["min"],
-    #                                batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
-    #     all_recover_pose.append(torch.from_numpy(recover_pose))
-    #
-    # all_step_pose = torch.concatenate(all_step_pose, dim=0)
-    # all_recover_pose = torch.concatenate(all_recover_pose, dim=0)
-    #
-    #
-    # plot_2arr([all_step_pose, all_recover_pose], ["og", "recover"])
+    plot_2arr([all_step_pose, all_recover_real_delta_pose, all_recover_direct_vel_pose], ["og", "recover_target_real_delta", "direct_vel"])
     #######check pose recover######################################################################3
 
     #######check delta and velocity######################################################################3

@@ -735,6 +735,9 @@ class DETRVAE(nn.Module):
                 v_scale=None,
                 inference_type=None,
                 num_queries=None,
+                action_norm_state=None,
+                qpos_norm_state=None,
+                gripper_norm_state=None,
                 **kwargs):
         output = self.forward(qpos,
                               multimod_inputs,
@@ -745,45 +748,45 @@ class DETRVAE(nn.Module):
                               task="repr",
                               mode="val",
                               env_state=None, )
+        denormalize = lambda x, arr: (x + 1) / 2 * (torch.from_numpy(arr["max"]).to(qpos.device) - torch.from_numpy(arr["min"]).to(qpos.device)) + torch.from_numpy(arr["min"]).to(qpos.device)
 
         a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
-        a_hat, gripper = a_hat[:, :-1, :], a_hat[:, -1:, :]
-        a_hat = a_hat[:, :num_queries, :]
+        og_a_hat = a_hat
+        a_hat, gripper = a_hat[:, :, :-1], a_hat[:, :, -1:]
+        a_hat = denormalize(a_hat[:, :num_queries, :], action_norm_state)
+        gripper = denormalize(gripper[:, :num_queries, :], gripper_norm_state)
+
+        denormed_qpos = denormalize(qpos[:, :-1], qpos_norm_state)
+        denormed_gripper = denormalize(qpos[:, -1:], gripper_norm_state)
+        qpos = torch.cat([denormed_qpos, denormed_gripper], dim=-1)
+
+        gripper = gripper.squeeze(0).detach().cpu().numpy()
         if a_hat.shape[-1] == 6:
-            if inference_type == "real_delta":
-                if qpos.shape[1] == 7:
-                    base = qpos.squeeze(0).detach().cpu().numpy()
-                elif qpos.shape[1] == 6:
-                    base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
-                else:
-                    raise RuntimeError(f"invalide qpos shape: {qpos.shape}, should be either [1,3] or [1,4]")
+            if inference_type == "real_delta_target":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
-            elif inference_type == "real_delta_direct":
-                base = qpos.squeeze(0).detach().cpu().numpy()
+            elif inference_type == "real_delta_source":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
-                delta = np.cumsum(v, axis=0) + base
-                out_chunk = exp_map_seq(delta.copy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
 
-            elif inference_type == "relative_delta":
-                base = exp_map(qpos.squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
-                v = a_hat.squeeze(0).detach().cpu().numpy()
-                out_chunk = exp_map_seq(v, base)
+            elif inference_type == "direct_vel":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "position":
                 v = a_hat.squeeze(0).detach().cpu().numpy()
                 out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
 
-        elif a_hat.shape[-1] == 7:
-            out_chunk = a_hat.detach().cpu().squeeze(0)
-            out_position = out_chunk[:, :3]
-            out_orientation = out_chunk[:, 3:]
-            out_orientation = out_orientation / np.linalg.norm(out_orientation, 2, axis=1, keepdims=True)
-            out_chunk = np.concatenate([out_position, out_orientation], axis=1)
-        out_chunk = np.concatenate([out_chunk, gripper.detach().cpu().numpy()], axis=-1)
-        out_position = torch.from_numpy(out_chunk[:, :3])
-        out_orientation = torch.from_numpy(out_chunk[:, 3:])
+        else:
+            raise RuntimeError("action has only 6 dim, no gripper dim!")
+
+        out_chunk = np.concatenate([gripper, out_chunk, ], axis=-1)
+        out_position = torch.from_numpy(out_chunk[:, :4])
+        out_orientation = torch.from_numpy(out_chunk[:, 4:])
         all_time_orientation[[t], t:t + num_queries] = out_orientation.float().to(args.device)
         orientation_for_curr_step = all_time_orientation[:, t]
         actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
@@ -809,7 +812,7 @@ class DETRVAE(nn.Module):
         weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
         raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
         raw_position = raw_action.squeeze(0).cpu().numpy()
-        return out_chunk, np.concatenate([raw_position, raw_orientation]), all_time_position, all_time_orientation
+        return out_chunk, np.concatenate([raw_position, raw_orientation]), all_time_position, all_time_orientation, og_a_hat
 
 
 
