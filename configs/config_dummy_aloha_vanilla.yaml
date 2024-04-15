@@ -27,7 +27,7 @@ hydra:
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
       datasets.dataloader.args.len_lb: 10
-      datasets.dataloader.batch_size: 16
+      datasets.dataloader.batch_size: 128
       pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
       pl_modules.pl_module.action: "direct_vel"
       models.model.replace_args.state_dim: 7
