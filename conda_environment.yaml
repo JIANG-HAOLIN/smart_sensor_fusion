@@ -6,8 +6,8 @@ channels:
 dependencies:
   - python=3.9
   - pip=22.2.2
-  - cudatoolkit=11.7.0      #only install those when there is no cuda/cudnn installed
-  - cudatoolkit-dev=11.7.0  #those 2 should not be installed on cluster. use module load cuda/cudnn with respect to pytorch suffix instead!
+#  - cudatoolkit=11.7.0      #only install those when there is no cudatoolkit installed
+#  - cudatoolkit-dev=11.7.0  #those 2 should not be installed on cluster. use module load cuda/cudnn with respect to pytorch suffix instead!
   - pytorch==2.2.0
   - torchaudio==2.2.0
   - torchvision==0.17.0

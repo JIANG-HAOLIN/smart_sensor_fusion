@@ -79,7 +79,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if 'last' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -108,7 +108,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []

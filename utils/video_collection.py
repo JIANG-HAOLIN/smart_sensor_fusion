@@ -4,11 +4,13 @@ import cv2
 from cv2 import VideoWriter
 from datetime import datetime
 import os
-
-
+from multiprocessing import Process
+import wave
+import pyaudio
+import numpy as np
 def collect_from_webcam():
     fs = []
-    webcam = cv2.VideoCapture(4)  # 0 for hd cam 2 for ir cam 4 for logi cam
+    webcam = cv2.VideoCapture(0)  # 0 for hd cam 2 for ir cam 4 for logi cam
 
     while True:
         stream_ok, frame = webcam.read()
@@ -37,6 +39,43 @@ def save_video(frequency, folder_name, frame_list, parent_path="./"):
     out.release()
 
 
+mic_idx = 6
+sr = 44100
+fps = 30
+CHUNK = int(sr / fps)
+p = pyaudio.PyAudio()
+audio_stream = p.open(format=pyaudio.paInt16,
+                      channels=1,
+                      rate=sr,
+                      input=True,
+                      input_device_index=mic_idx,  # Corrected variable name to microphone_index
+                      frames_per_buffer=CHUNK)
+
+
+def record_audio():
+    mic_frame_list = []
+    while True:
+        audio_frames = audio_stream.read(CHUNK, exception_on_overflow=False)
+        mic_frame_list.append(audio_frames)
+
+        cv2.imshow("test_cam_save", np.zeros((1, 1)))
+        if cv2.waitKey(1) == ord("q"):
+            cv2.destroyAllWindows()
+            break
+
+    wf = wave.open("/tmp/dummy/" + "mic.wav", 'wb')
+    wf.setnchannels(1)
+    # print(audio.get_format_from_width(FORMAT).size)
+    wf.setsampwidth(2)
+    wf.setframerate(44100)
+    wf.writeframes(b''.join(mic_frame_list))
+    wf.close()
+
 if __name__ == "__main__":
     fs = collect_from_webcam()
-    save_video(30, "test_cam_save", fs)
+    a = Process(target=save_video, args=(30, "test_cam_save", fs))
+    b = Process(target=record_audio, args=())
+    # a.start()
+    b.start()
+    # a.join()
+    # b.join()

@@ -872,7 +872,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
     val_trajs_paths = trajs[num_train:]
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
-    train_trajs_paths = train_trajs_paths[1:2]
+    train_trajs_paths = train_trajs_paths[0:1]
     val_trajs_paths = val_trajs_paths[3:4]
 
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
