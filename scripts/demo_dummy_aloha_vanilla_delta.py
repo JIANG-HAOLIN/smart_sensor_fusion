@@ -108,7 +108,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
         with torch.no_grad():
-            for idx1, loader in enumerate([train_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
