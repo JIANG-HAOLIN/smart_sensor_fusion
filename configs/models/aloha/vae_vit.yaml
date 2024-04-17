@@ -1,4 +1,4 @@
-name: 'vae'
+name: 'vae_vit'
 
 model:
   _target_: src.models.aloha.build_detrvae

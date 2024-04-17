@@ -1,4 +1,4 @@
-name: 'vae'
+name: 'vae_resnet'
 
 model:
   _target_: src.models.aloha.build_detrvae
