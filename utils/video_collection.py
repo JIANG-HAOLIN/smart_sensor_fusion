@@ -39,20 +39,21 @@ def save_video(frequency, folder_name, frame_list, parent_path="./"):
     out.release()
 
 
-mic_idx = 6
-sr = 44100
-fps = 30
-CHUNK = int(sr / fps)
-p = pyaudio.PyAudio()
-audio_stream = p.open(format=pyaudio.paInt16,
-                      channels=1,
-                      rate=sr,
-                      input=True,
-                      input_device_index=mic_idx,  # Corrected variable name to microphone_index
-                      frames_per_buffer=CHUNK)
+
 
 
 def record_audio():
+    mic_idx = 6
+    sr = 44100
+    fps = 30
+    CHUNK = int(sr / fps)
+    p = pyaudio.PyAudio()
+    audio_stream = p.open(format=pyaudio.paInt16,
+                          channels=1,
+                          rate=sr,
+                          input=True,
+                          input_device_index=mic_idx,  # Corrected variable name to microphone_index
+                          frames_per_buffer=CHUNK)
     mic_frame_list = []
     while True:
         audio_frames = audio_stream.read(CHUNK, exception_on_overflow=False)
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     fs = collect_from_webcam()
     a = Process(target=save_video, args=(30, "test_cam_save", fs))
     b = Process(target=record_audio, args=())
-    # a.start()
+    a.start()
     b.start()
-    # a.join()
-    # b.join()
+    a.join()
+    b.join()

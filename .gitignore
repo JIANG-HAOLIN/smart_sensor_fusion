@@ -1,3 +1,11 @@
+**/*.avi
+**/*.mp4
+*.avi
+*.mp4
+
+**/test_cam_save/
+*test_cam_save/
+
 **/*.DS_Store
 .DS_Store
 .venv

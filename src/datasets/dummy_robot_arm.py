@@ -946,12 +946,12 @@ if __name__ == "__main__":
     args = SimpleNamespace()
 
     args.ablation = 'vf_vg'
-    args.num_stack = 3
-    args.frameskip = 2
+    args.num_stack = 10
+    args.frameskip = 4
     args.no_crop = True
     args.crop_percent = 0.0
-    args.resized_height_v = 480
-    args.resized_width_v = 640
+    args.resized_height_v = 240
+    args.resized_width_v = 320
     args.len_lb = 10
     args.sampling_time = 100
 
@@ -965,9 +965,9 @@ if __name__ == "__main__":
                                                     drop_last=False)
     norm_state = train_loader.dataset.datasets[0].norm_state
     ######## show images ###################################################################
-    print(len(train_loader))
+    print(len(val_loader))
 
-    for idx, batch in enumerate(train_loader):
+    for idx, batch in enumerate(val_loader):
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
@@ -1039,38 +1039,38 @@ if __name__ == "__main__":
     #######check pos and vel######################################################################3
 
     #######check pose recover######################################################################3
-    all_step_pose = []
-    all_recover_real_delta_pose = []
-    all_recover_direct_vel_pose = []
-    for idx, batch in enumerate(val_loader):
-        if idx % args.len_lb != 0:
-            continue
-        # if idx >= 100:
-        #     break
-        print(f"{idx} \n")
-        obs = batch["observation"]
-
-        # for image_g in obs[1][0]:
-        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-        # key = cv2.waitKey(1)
-        # if key == ord("q"):
-        #     break
-
-        all_step_pose.append(batch["traj"]["target_pos_quat"]["action"][0, :, :])
-
-        recover_real_delta_pose = recover_pose_from_quat_real_delta((batch["traj"]["target_real_delta"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["target_real_delta"]["max"] - norm_state["resample"]["target_real_delta"]["min"]) + norm_state["resample"]["target_real_delta"]["min"],
-                                   batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
-        
-        recover_direct_vel_pose = recover_pose_from_quat_real_delta((batch["traj"]["direct_vel"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["direct_vel"]["max"] - norm_state["resample"]["direct_vel"]["min"]) + norm_state["resample"]["direct_vel"]["min"],
-                                   batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
-        all_recover_real_delta_pose.append(torch.from_numpy(recover_real_delta_pose))
-        all_recover_direct_vel_pose.append(torch.from_numpy(recover_direct_vel_pose))
-
-    all_step_pose = torch.concatenate(all_step_pose, dim=0)
-    all_recover_real_delta_pose = torch.concatenate(all_recover_real_delta_pose, dim=0)
-    all_recover_direct_vel_pose = torch.cat(all_recover_direct_vel_pose, dim=0)
-
-    plot_2arr([all_step_pose, all_recover_real_delta_pose, all_recover_direct_vel_pose], ["og", "recover_target_real_delta", "direct_vel"])
+    # all_step_pose = []
+    # all_recover_real_delta_pose = []
+    # all_recover_direct_vel_pose = []
+    # for idx, batch in enumerate(val_loader):
+    #     if idx % args.len_lb != 0:
+    #         continue
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     # for image_g in obs[1][0]:
+    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+    #     # key = cv2.waitKey(1)
+    #     # if key == ord("q"):
+    #     #     break
+    #
+    #     all_step_pose.append(batch["traj"]["target_pos_quat"]["action"][0, :, :])
+    #
+    #     recover_real_delta_pose = recover_pose_from_quat_real_delta((batch["traj"]["target_real_delta"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["target_real_delta"]["max"] - norm_state["resample"]["target_real_delta"]["min"]) + norm_state["resample"]["target_real_delta"]["min"],
+    #                                batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
+    #
+    #     recover_direct_vel_pose = recover_pose_from_quat_real_delta((batch["traj"]["direct_vel"]["action"][0, :, :].detach().cpu().numpy() + 1) / 2 * (norm_state["resample"]["direct_vel"]["max"] - norm_state["resample"]["direct_vel"]["min"]) + norm_state["resample"]["direct_vel"]["min"],
+    #                                batch["traj"]["target_pos_quat"]["obs"][0, -1, :].detach().cpu().numpy(), )
+    #     all_recover_real_delta_pose.append(torch.from_numpy(recover_real_delta_pose))
+    #     all_recover_direct_vel_pose.append(torch.from_numpy(recover_direct_vel_pose))
+    #
+    # all_step_pose = torch.concatenate(all_step_pose, dim=0)
+    # all_recover_real_delta_pose = torch.concatenate(all_recover_real_delta_pose, dim=0)
+    # all_recover_direct_vel_pose = torch.cat(all_recover_direct_vel_pose, dim=0)
+    #
+    # plot_2arr([all_step_pose, all_recover_real_delta_pose, all_recover_direct_vel_pose], ["og", "recover_target_real_delta", "direct_vel"])
     #######check pose recover######################################################################3
 
     #######check delta and velocity######################################################################3

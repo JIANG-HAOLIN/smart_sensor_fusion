@@ -387,6 +387,7 @@ class DETRVAE(nn.Module):
                 mask_type="input_mask",
                 task="imitation",
                 mode="train",
+                env_state=None,
                 ):
         """
         qpos: batch, qpos_dim
@@ -430,6 +431,7 @@ class DETRVAE(nn.Module):
         # proprioception features
         proprio_input = self.input_proj_robot_state(qpos)
         # fold camera dimension into width dimension
+        multi_mod_input["vision"] = multi_mod_input["vision"]["v_fix"]
         output = self.transformer(
                                 multi_mod_input=multi_mod_input,
                                 mask=mask,
@@ -472,7 +474,7 @@ def build_detrvae(style_encoder: DictConfig,
                   action_decoder: DictConfig,
                   obs_encoder: DictConfig,
                   action_dim: int,
-                  pose_dim: int):
+                  pose_dim: int,):
 
     # From state
     # backbone = None # from state for now, no need for conv nets

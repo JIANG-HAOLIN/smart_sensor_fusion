@@ -3,7 +3,7 @@
 
 defaults:
 - datasets: dummy
-- models: aloha/vae
+- models: aloha/vae_vit
 - optimizers: adam_cosine
 - pl_modules: aloha/aloha
 - trainers: dummy
@@ -16,20 +16,23 @@ variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
 results_dir: '/home/jin4rng/Documents/code/smart_sensor_fusion/results'
-data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/robot_demo'
+data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/'
 
 hydra:
   sweeper:
     params:
       trainers.launch_trainer.repeat_trial: 1
-      trainers.launch_trainer.max_epochs: 2
+      trainers.launch_trainer.max_epochs: 200
       trainers.launch_trainer.monitor:  "val_vae_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
-      datasets.dataloader.args.len_lb: 30
-      models.model.action_decoder.num_queries: 30
-      datasets.dataloader.batch_size: 16
-      pl_modules.pl_module.num_stack: ${datasets.dataloader.args.num_stack}
+      datasets.dataloader.args.frameskip: 4
+      datasets.dataloader.args.len_lb: 10
+      datasets.dataloader.batch_size: 64
+      pl_modules.pl_module.action: "direct_vel"
+      optimizers.optimizer.weight_decay: 0.0001
+      datasets.dataloader.args.resized_height_v: 240
+      datasets.dataloader.args.resized_width_v: 320
 
   sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/" \\ if add timestamp: _${now:%m-%d-%H:%M:%S}
     dir: ${results_dir}/${task_name}/${datasets.name}/${output_name}/${pl_modules.name}_${models.name}_${optimizers.name}/

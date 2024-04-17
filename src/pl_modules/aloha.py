@@ -33,7 +33,7 @@ class AlohaPolicy(pl.LightningModule):
     def __init__(self, mdl: nn.Module, optimizer, scheduler,
                  train_loader, val_loader, test_loader,
                  train_tasks, mask_type,
-                 weight, t_p, action,
+                 weight, action,
                  **kwargs):
         """ The pytorch lighting module that configures the model and its training configuration.
 
@@ -52,14 +52,12 @@ class AlohaPolicy(pl.LightningModule):
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.test_loader = test_loader
-        self.num_stack = kwargs['num_stack']
         self.validation_epoch_outputs = []
         self.validation_preds = []
         self.loss_cce = torch.nn.CrossEntropyLoss()
         self.train_tasks = train_tasks
         self.mask_type = mask_type
         self.weight = weight
-        self.t_p = t_p
         self.action = action
         self.automatic_optimization = False
 

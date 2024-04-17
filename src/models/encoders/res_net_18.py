@@ -43,6 +43,15 @@ class Encoder(nn.Module):
             x: input tensor of shape [Bx(num_stacks), C, H, W]
         Return: tensor of shape [Bx(num_stacks), 1, out_dim]
         """
+        if len(x.shape) == 5:
+            seq = True
+            _, _, c, h, w = x.shape
+            x = x.reshape(-1, c, h, w)
+        elif len(x.shape) == 4:
+            seq = False
+            b, c, h, w = x.shape
+        else:
+            raise RuntimeError("input size wrong")
         x = self.coord_conv(x)
         x = self.feature_extractor(x)
         assert len(x.values()) == 1
@@ -50,7 +59,8 @@ class Encoder(nn.Module):
         x = self.maxpool(x)
         if self.fc is not None:
             x = self.fc(x)
-        return torch.flatten(x, start_dim=1).unsqueeze(1)
+        x = torch.flatten(x, start_dim=1).unsqueeze(1)
+        return x
 
 
 def make_audio_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):

@@ -18,7 +18,7 @@ def load_checkpoints(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if 'last' in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):

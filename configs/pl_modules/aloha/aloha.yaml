@@ -2,10 +2,8 @@ name: "aloha"
 
 pl_module:
   _target_: src.pl_modules.aloha.AlohaPolicy
-  num_stack: 10
-  t_p: 10
-  action: "real_delta"
-  train_tasks: imitation
+  action: "real_delta_target"
+  train_tasks: bind+order+recover+imitation
   mask_type: latent_mask
   weight:
     cr_m_nce_loss: 1.0
@@ -15,3 +13,5 @@ pl_module:
     recover_loss: 1.0
     fom_loss: 1.0
     kl_divergence: 10
+
+

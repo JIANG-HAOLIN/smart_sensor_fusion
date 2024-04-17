@@ -14,9 +14,36 @@ import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scatter_tnse_3d, scatter_tsne_selected
 from src.datasets.dummy_robot_arm import get_debug_loaders, get_loaders
-from utils.quaternion import q_exp_map, q_log_map, exp_map_seq, log_map_seq
+from utils.quaternion import q_exp_map, q_log_map, exp_map_seq, log_map_seq, q_to_rotation_matrix, q_from_rot_mat
 import time
 from utils.visualizations import plot_tensors
+
+
+POSE_OFFSET = np.array([0.0, 0.0, -0.05, 1.0, 0.0, 0.0, 0.0])  # wxyz
+
+
+def apply_offset(pose, pose_offset):
+    # Computes T_pose * T_pose_offset => pose_new
+    # Assuming quaternions are in wxyz format
+    t = pose[:3]
+    R = q_to_rotation_matrix(pose[3:])
+
+    to = pose_offset[:3]
+    Ro = q_to_rotation_matrix(pose_offset[3:])
+
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t
+
+    To = np.eye(4)
+    To[:3, :3] = Ro
+    To[:3, 3] = to
+
+    T_new = np.matmul(T, To)
+    pose_new = np.zeros((7,))
+    pose_new[:3] = T_new[:3, 3]
+    pose_new[3:] = q_from_rot_mat(T_new[:3, :3])
+    return pose_new
 
 
 def set_random_seed(seed):
@@ -79,7 +106,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'last' in p and p.split('.')[-1] == 'ckpt':
+        if "best" in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -103,10 +130,9 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         l = len(train_loaders)
 
         max_timesteps = 1000
-        num_queries = 10
         query_frequency = 10
-        all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
-        all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
+        all_time_position = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
+        all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
         with torch.no_grad():
             for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
@@ -139,15 +165,23 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             "vision": inp_data,
                         }
 
-                        inference_type = "real_delta_target"
+                        inference_type = "direct_vel"
                         if inference_type == "real_delta_target":
                             actions = real_delta
+                            action_norm_state = norm_state["resample"]["target_real_delta"]
+
                         elif inference_type == "position":
                             actions = pose[:, :, :]
+                            action_norm_state = norm_state["resample"]["source_glb_pos_ori"]
+
                         elif inference_type == "real_delta_source":
                             actions = real_delta_source[:, :, :]
+                            action_norm_state = norm_state["resample"]["source_real_delta"]
+
                         elif inference_type == "direct_vel":
                             actions = direct_vel
+                            action_norm_state = norm_state["resample"]["direct_vel"]
+
                         actions = torch.cat([actions, pose_gripper], dim=-1).to(args.device)
 
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
@@ -162,10 +196,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             all_time_orientation=all_time_orientation,
                             t=t,
                             args=args,
-                            v_scale=1,
+                            v_scale=0.1,
                             inference_type=inference_type,
-                            num_queries=num_queries,
-                            action_norm_state=norm_state["resample"]["target_real_delta"],
+                            num_queries=query_frequency,
+                            action_norm_state= action_norm_state,
                             qpos_norm_state=norm_state["resample"]["target_glb_pos_ori"],
                             gripper_norm_state=norm_state["resample"]["gripper"]
                             )
@@ -184,10 +218,15 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
                         gripper = all_action[:, :1]
                         all_action = all_action[:, 1:]
+                        if inference_type == "position":
+                            for l in range(all_action.shape[0]):
+                                all_action[l] = apply_offset(all_action[l], POSE_OFFSET)
                         pose = denormalize(pose[0, :query_frequency, :], pos_stat)
                         pose_gripper = denormalize(pose_gripper[0, :query_frequency, :], norm_state["resample"]["gripper"])
                         pm.append(torch.cat([pose, pose_gripper], dim=-1))
                         all_action = log_map_seq(all_action, np.array([0, 0, 0, 0, 1, 0, 0]))
+
+
                         pmr.append(torch.from_numpy(np.concatenate([all_action[:query_frequency, :], gripper[:query_frequency, :]], axis=-1)))
 
                         inference_time.append(time.time() - start_time)
@@ -241,7 +280,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=real_delta_targetname=coswarmuplr=0.0001weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-12-09:33:48")
+                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=direct_velname=coswarmuplr=1e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-21:57:38")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
