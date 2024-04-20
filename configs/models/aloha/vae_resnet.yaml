@@ -34,7 +34,7 @@ model:
         - vision
     main_mod: vision
     model_dim: 512
-    num_stack: 10  # num_frame / short_window_len
+    num_stack: 5  # num_frame / short_window_len
 
     nce_args:
       norm: batch

@@ -25,10 +25,10 @@ hydra:
       trainers.launch_trainer.max_epochs: 200
       trainers.launch_trainer.monitor:  "val_vae_loss"
       datasets.dataloader.data_folder: ${data_folder_path}
-      datasets.dataloader.args.num_stack: 10
-      datasets.dataloader.args.frameskip: 4
+      datasets.dataloader.args.num_stack: 5
+      datasets.dataloader.args.frameskip: 5
       datasets.dataloader.args.len_lb: 10
-      datasets.dataloader.batch_size: 4
+      datasets.dataloader.batch_size: 64
       pl_modules.pl_module.action: "direct_vel"
       optimizers.optimizer.weight_decay: 0.0001
       datasets.dataloader.args.resized_height_v: 240
