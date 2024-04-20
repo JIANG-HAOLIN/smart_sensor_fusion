@@ -8,6 +8,7 @@ import json
 import os
 from tqdm import tqdm
 
+
 @dataclass
 class Translation:
     x: float
@@ -35,6 +36,7 @@ class Translation:
     @classmethod
     def from_vec(cls, vec):
         return cls(vec[0], vec[1], vec[2])
+
 
 @dataclass
 class Displacement:
@@ -64,6 +66,7 @@ class Displacement:
     def from_vec(cls, vec):
         return cls(vec[0], vec[1], vec[2])
 
+
 @dataclass
 class Quaternion:
     x: float
@@ -86,7 +89,7 @@ class Quaternion:
         return cls(1, 0, 0, 0)
 
     def __post_init__(self):
-        norm = (self.x**2 + self.y**2 + self.z ** 2 + self.w**2) ** .5
+        norm = (self.x ** 2 + self.y ** 2 + self.z ** 2 + self.w ** 2) ** .5
         if abs(norm - 1.0) > 1e-5:
             raise ValueError(f"Quaternion not unit norm: {norm:.5f}!")
 
@@ -126,6 +129,7 @@ class Quaternion:
     def flip_sign(self):
         self.x, self.y, self.z, self.w = -self.x, -self.y, -self.z, -self.w
 
+
 @dataclass
 class QuaternionVelocity:
     """ The S3 velocity in the tangent space of base """
@@ -138,6 +142,7 @@ class QuaternionVelocity:
 
     def vec(self):
         return self.vel.vec()
+
 
 @dataclass
 class Pose:
@@ -166,6 +171,7 @@ class Pose:
     def flip_quaternion_sign(self):
         self.orientation.flip_sign()
 
+
 @dataclass
 class PoseVelocity:
     pos_vel: Displacement
@@ -179,6 +185,7 @@ class PoseVelocity:
 
     def vec(self):
         return np.concatenate((self.pos_vel.vec(), self.quat_vel.vec()), axis=0)
+
 
 @dataclass
 class RobotTrajectory:
@@ -235,7 +242,6 @@ class RobotTrajectory:
             d[i] = d_loc
         return d
 
-
     def save_to_file(self, file_name):
         d = self._to_dict()
         with open(file_name, 'w') as f:
@@ -269,6 +275,7 @@ class RobotTrajectory:
 
         return cls(pose_list, gripper_list, time_stamps)
 
+
 @dataclass
 class ProcessedRobotTrajectory:
     """ Ordered trajectory with preset sampling time """
@@ -279,7 +286,7 @@ class ProcessedRobotTrajectory:
     def __len__(self):
         return len(self.pose_trajectory.poses)
 
-    def forward_integrate(self, dt: Optional[float]=None, p0: Optional[Pose]=None) -> RobotTrajectory:
+    def forward_integrate(self, dt: Optional[float] = None, p0: Optional[Pose] = None) -> RobotTrajectory:
         assert len(self.velocity_trajectory) > 0
         if p0 is None:
             p0: Pose = pose_trajectory.poses[0]
@@ -305,13 +312,13 @@ class ProcessedRobotTrajectory:
             q_vel_base = q_vel.base.vec_wxyz()
             q_curr = p_new.orientation.vec_wxyz()
             q_vel_curr = quaternion.q_parallel_transport(q_vel.vel.vec(), q_vel_base, q_curr)
-            q_new_vec = quaternion.q_exp_map(dt* q_vel_curr, q_curr)
+            q_new_vec = quaternion.q_exp_map(dt * q_vel_curr, q_curr)
             p_new.orientation = Quaternion.from_vec_wxyz(q_new_vec)
 
             p_curr = p_new
 
             pose_list.append(p_curr)
-            time_list.append((i+1)*dt)
+            time_list.append((i + 1) * dt)
 
         return RobotTrajectory(pose_list, self.pose_trajectory.grippers, time_list)
 
@@ -331,7 +338,7 @@ class ProcessedRobotTrajectory:
                 pose_vec = self.pose_trajectory.poses[i].vec(quat_order=quat_order).tolist()
                 d_loc['pose'] = pose_vec
                 d_loc['gripper'] = self.pose_trajectory.grippers[i]
-            if has_vel and i < N-1:  # we have one less velocity
+            if has_vel and i < N - 1:  # we have one less velocity
                 vel_vec = self.velocity_trajectory[i].vec().tolist()
                 d_loc['vel'] = vel_vec
             d[i] = d_loc
@@ -364,10 +371,11 @@ class ProcessedRobotTrajectory:
             pose = Pose.from_vec(pose_vec, quat_order=quat_order)
             pose_list.append(pose)
             gripper_list.append(gripper)
-            time_stamps.append(i*sampling_time)
-            if "vel" in dat.keys() and i < N-1:
+            time_stamps.append(i * sampling_time)
+            if "vel" in dat.keys() and i < N - 1:
                 vel_vec = dat['vel']
-                vel = PoseVelocity.from_vec(vel_vec, quat_order=quat_order, quat_base=pose.orientation.vec(quat_order=quat_order))
+                vel = PoseVelocity.from_vec(vel_vec, quat_order=quat_order,
+                                            quat_base=pose.orientation.vec(quat_order=quat_order))
                 vel_list.append(vel)
 
         pose_traj = RobotTrajectory(pose_list, gripper_list, time_stamps)
@@ -416,11 +424,10 @@ class PoseTrajectoryProcessor:
 
         return RobotTrajectory(pose_list, gripper_list, time_stamps)
 
-
     def process_pose_trajectory(self, trajectory: RobotTrajectory, sampling_time: float) -> ProcessedRobotTrajectory:
         print("Interpolating trajectory ...")
         time_stamps = np.array(trajectory.time_stamps)
-        print(f"Average recording frequency: {1.0/np.mean(np.diff(time_stamps)):.1f} Hz")
+        print(f"Average recording frequency: {1.0 / np.mean(np.diff(time_stamps)):.1f} Hz")
         final_time_step = time_stamps[-1]
         num_time_steps = int(final_time_step // sampling_time) + 1
         sample_time_stamps = np.array([sampling_time * i for i in range(num_time_steps)])
@@ -453,7 +460,7 @@ class PoseTrajectoryProcessor:
         for i in pbar:
             # find closes sampling point
             curr_interpolation_time = i * sampling_time
-            demo_ix = np.argmin((time_stamps - curr_interpolation_time)**2)
+            demo_ix = np.argmin((time_stamps - curr_interpolation_time) ** 2)
 
             # Choose this quaternion as the basis for smooth local interpolation
             q0 = pm[demo_ix, 3:7]
@@ -472,18 +479,18 @@ class PoseTrajectoryProcessor:
             v_loc = np.array([qvx[i], qvy[i], qvz[i]])
             q_loc = quaternion.q_exp_map(v_loc, q0)[:, 0]
             if i > 0:
-                if np.dot(q_loc, q_interp[i-1, :]) < 0.0:
+                if np.dot(q_loc, q_interp[i - 1, :]) < 0.0:
                     q_loc *= -1.0
             q_interp[i, :] = q_loc
 
         q_interp[num_time_steps, :] = pm[-1, 3:7]
 
         # generate absolute velocities
-        pose_velocity = np.zeros((num_time_steps+1, 6))
+        pose_velocity = np.zeros((num_time_steps + 1, 6))
         pv_list = []
         for i in range(num_time_steps):
-            pose_velocity[i, :3] = (p_interp[i+1, :] - p_interp[i, :])/sampling_time
-            pose_velocity[i, 3:] = quaternion.q_log_map(q_interp[i+1, :], q_interp[i, :])/sampling_time
+            pose_velocity[i, :3] = (p_interp[i + 1, :] - p_interp[i, :]) / sampling_time
+            pose_velocity[i, 3:] = quaternion.q_log_map(q_interp[i + 1, :], q_interp[i, :]) / sampling_time
             pv = PoseVelocity.from_vec(pose_velocity[i, :], quat_base=q_interp[i, :])
             pv_list.append(pv)
 
@@ -498,9 +505,7 @@ class PoseTrajectoryProcessor:
         return processed_traj
 
 
-
 if __name__ == "__main__":
-
     file_names = ["C:/Users/kup2rng/Downloads/traj_recordings/demo_02_13_2024_14_05_50.json",
                   "C:/Users/kup2rng/Downloads/traj_recordings/demo_02_13_2024_14_07_15.json"]
     file_name_orig = file_names[0]
@@ -508,7 +513,6 @@ if __name__ == "__main__":
     with open(file_name_orig) as f:
         pose_trajectory = json.load(f)
         print("Trajectory loaded ...")
-
 
     processor = PoseTrajectoryProcessor()
     pose_trajectory = processor.preprocess_trajectory(pose_trajectory)
@@ -529,4 +533,3 @@ if __name__ == "__main__":
     plt.plot(tr, pmr[:, 3:], 'x--')
     plt.plot(tfwd, pmfwd[:, 3:], 'd-')
     plt.show()
-

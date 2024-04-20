@@ -9,6 +9,7 @@ from torchvision.models.feature_extraction import (
 
 class CoordConv(nn.Module):
     """Add coordinates in [0,1] to an image, like CoordConv paper."""
+
     def forward(self, x):
         # needs N,C,H,W inputs
         assert x.ndim == 4
@@ -29,6 +30,7 @@ class CoordConv(nn.Module):
 
 class Encoder(nn.Module):
     """Feature Extractor using Resnet-18"""
+
     def __init__(self, feature_extractor, in_dim=256, out_dim=None):
         super().__init__()
         self.feature_extractor = feature_extractor
@@ -85,7 +87,7 @@ def make_vision_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
     return Encoder(audio_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
 
 
-def make_tactile_encoder(out_dim=None,  out_layer="layer4.1.relu_1", **kwargs):
+def make_tactile_encoder(out_dim=None, out_layer="layer4.1.relu_1", **kwargs):
     tactile_extractor = resnet18(weights='DEFAULT')
     tactile_extractor.conv1 = nn.Conv2d(
         5, 64, kernel_size=7, stride=1, padding=3, bias=False
@@ -96,6 +98,4 @@ def make_tactile_encoder(out_dim=None,  out_layer="layer4.1.relu_1", **kwargs):
         "layer4.1.relu_1": 512,
     }
     return Encoder(tactile_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
-
-
 

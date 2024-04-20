@@ -1,0 +1,494 @@
+{
+    "traj_folder_path": [
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-28-59-521869",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-30-31-446515",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-31-25-596096",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-32-11-518048",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-33-04-628317",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-33-34-431255",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-34-01-536571",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-34-31-601233",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-35-48-772582",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-38-06-443836",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-38-43-215988",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-39-18-638492",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-39-55-159184",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-40-24-287382",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-40-52-564848",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-41-16-855014",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-41-43-176153",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-42-45-400423",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-44-30-714627",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-45-16-793687",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-45-54-205906",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-46-29-927502",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-46-58-424511",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-47-32-756698",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-47-57-746657",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-48-22-888077",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-48-52-380820",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-49-23-889321",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-49-51-705889",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-50-32-933504",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-50-57-362172",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-53-05-647645",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-53-37-315134",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-54-03-816156",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-54-37-158873",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-55-16-008015",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-55-42-708528",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-56-13-912271",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-56-41-429509",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-57-08-198816",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-57-32-735226",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-57-59-031076",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-58-24-785211",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-58-52-155205",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T11-59-17-167526",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-01-32-841111",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-02-00-213064",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-03-23-034025",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-03-54-898068",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-04-22-359619",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-04-54-055847",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-05-28-149941",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-05-54-274068",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-06-19-089894",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-06-52-601852",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-07-22-360612",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-08-12-207004",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-08-39-212955",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-09-50-817016",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-10-24-394554",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T12-11-02-399012",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-13-29-202534",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-15-05-452775",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-15-34-019261",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-15-59-331052",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-17-01-731612",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-17-29-589491",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-18-00-127651",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-18-34-366823",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-19-04-771473",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-19-36-845086",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-20-04-653568",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-20-30-859782",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-20-58-694106",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-21-31-455271",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-22-14-604586",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-22-44-786424",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-24-28-573532",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-25-10-441237",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-26-25-208662",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-26-50-157146",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-27-15-995582",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-27-45-177959",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-28-14-439081",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-28-42-978515",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-29-10-344617",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-29-42-475810",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-30-06-788548",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-30-38-219402",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-31-11-463659",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-31-37-277247",
+        "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos/demo_2024-04-11T13-32-49-449688"
+    ],
+    "args": {
+        "ablation": "vf_vg",
+        "num_stack": 10,
+        "frameskip": 4,
+        "no_crop": true,
+        "crop_percent": 0.0,
+        "resized_height_v": 240,
+        "resized_width_v": 320,
+        "len_lb": 10,
+        "sampling_time": 100,
+        "source": true,
+        "smooth_factor": [
+            1e-05,
+            1e-05,
+            1e-05,
+            1e-05,
+            1e-05,
+            1e-05
+        ],
+        "catg": "resample",
+        "norm_type": "limit",
+        "save_json": "save_json_test"
+    },
+    "pose_traj_processor": {},
+    "norm_state": {
+        "resample": {
+            "target_real_delta": {
+                "max": [
+                    0.01833076846798981,
+                    0.014715580721165772,
+                    0.014190771188704376,
+                    0.009017800515754246,
+                    0.007678976792093514,
+                    0.014995675249164148
+                ],
+                "min": [
+                    -0.011373161743653881,
+                    -0.014534832323470304,
+                    -0.01489500833368057,
+                    -0.006187642530839382,
+                    -0.009649064968213666,
+                    -0.018074593031801468
+                ],
+                "mean": [
+                    0.0003134970635695851,
+                    0.0004333424941069837,
+                    -0.0010819906427849467,
+                    4.006904901801049e-05,
+                    -0.0002471884435223627,
+                    0.0002914898644619523
+                ],
+                "std": [
+                    0.002577141446874504,
+                    0.002844482879483144,
+                    0.0027103975264465216,
+                    0.0010101008361402119,
+                    0.0015439380733220684,
+                    0.0019471080346064671
+                ]
+            },
+            "target_glb_pos_ori": {
+                "max": [
+                    0.6079956729668409,
+                    0.24106479492557253,
+                    0.3745042432656606,
+                    0.10115965323316471,
+                    0.04896517514080116,
+                    0.17713494912588518
+                ],
+                "min": [
+                    0.2931140860509197,
+                    -0.06481589258355386,
+                    0.08938818586231334,
+                    -0.029682550179058,
+                    -0.10085377873403281,
+                    -0.15162727045212063
+                ],
+                "mean": [
+                    0.4560542784822889,
+                    0.08565440767612986,
+                    0.17431100286288642,
+                    0.024619566533744575,
+                    -0.03768245981585553,
+                    0.01832523401338074
+                ],
+                "std": [
+                    0.06835799773756078,
+                    0.07183607539918484,
+                    0.07078429912738118,
+                    0.020244540367750488,
+                    0.022900953595515208,
+                    0.048249652053393446
+                ]
+            },
+            "source_real_delta": {
+                "max": [
+                    0.05323320534922232,
+                    0.041560635948776806,
+                    -0.011511911547635034,
+                    0.044481525275028536,
+                    0.0543566285918716,
+                    0.03082125463477067
+                ],
+                "min": [
+                    -0.055356340688106465,
+                    -0.04399006676892972,
+                    -0.08517261561536471,
+                    -0.035857219921785345,
+                    -0.04552806192378011,
+                    -0.03912531903537556
+                ],
+                "mean": [
+                    -0.00534912568205953,
+                    0.002883551549396952,
+                    -0.055143986423327664,
+                    0.0020867993550824043,
+                    0.010278222639871834,
+                    0.0016252288552261263
+                ],
+                "std": [
+                    0.016298525434368064,
+                    0.011536595566371181,
+                    0.012001458321187649,
+                    0.01321739466734902,
+                    0.014725491483408376,
+                    0.008342851900816697
+                ]
+            },
+            "source_glb_pos_ori": {
+                "max": [
+                    0.6058924637872799,
+                    0.24761381336895996,
+                    0.3294541892380502,
+                    0.11862382361768749,
+                    0.06972952161984085,
+                    0.18319289508193295
+                ],
+                "min": [
+                    0.2776694959444939,
+                    -0.06622958046356621,
+                    0.03222788462903212,
+                    -0.028012480791832182,
+                    -0.09814694788620358,
+                    -0.15366501794722234
+                ],
+                "mean": [
+                    0.4504150975666585,
+                    0.0881048797361613,
+                    0.12027499236355074,
+                    0.026174676392286454,
+                    -0.027166695933672914,
+                    0.020046631684851695
+                ],
+                "std": [
+                    0.06902871361791083,
+                    0.07362573861835688,
+                    0.071558667386955,
+                    0.023784116789229898,
+                    0.021396698218899383,
+                    0.04946909206773259
+                ]
+            },
+            "gripper": {
+                "max": [
+                    0.030669288709759712
+                ],
+                "min": [
+                    0.0014597700210288167
+                ],
+                "mean": [
+                    0.01886992148812636
+                ],
+                "std": [
+                    0.013723819816845216
+                ]
+            },
+            "direct_vel": {
+                "max": [
+                    0.04288793491816384,
+                    0.03173504283792003,
+                    -0.018131390629816724,
+                    0.04065352936537165,
+                    0.04867867596860451,
+                    0.01843010135874225
+                ],
+                "min": [
+                    -0.04977977474121775,
+                    -0.03515093191860846,
+                    -0.07595439303281151,
+                    -0.031353692887342945,
+                    -0.040407316292226055,
+                    -0.02396019401140129
+                ],
+                "mean": [
+                    -0.00563918091562957,
+                    0.002450472060031596,
+                    -0.05403601049933522,
+                    0.0020045692302914832,
+                    0.010392449019056928,
+                    0.001306178765904531
+                ],
+                "std": [
+                    0.013908340032687856,
+                    0.008960499233501045,
+                    0.009620109985914659,
+                    0.012805170977390696,
+                    0.01413280251395193,
+                    0.0070320534793254725
+                ]
+            }
+        },
+        "smooth": {
+            "target_real_delta": {
+                "max": [
+                    0.017690360978724395,
+                    0.01410254037841173,
+                    0.01244026098076248,
+                    0.007213671419158351,
+                    0.006606515271359817,
+                    0.015074447528896188
+                ],
+                "min": [
+                    -0.010343241091267386,
+                    -0.014333038995035519,
+                    -0.012959109019169662,
+                    -0.005803956494018934,
+                    -0.008499821746484231,
+                    -0.017398654346538218
+                ],
+                "mean": [
+                    0.0003135508011789037,
+                    0.00043316146772081325,
+                    -0.0010819722243836833,
+                    4.081316227342026e-05,
+                    -0.0002482040610496598,
+                    0.0002914122803233088
+                ],
+                "std": [
+                    0.0025379514147145905,
+                    0.002805123832247835,
+                    0.002664226461805005,
+                    0.000965244878759702,
+                    0.0014999362140000244,
+                    0.001896671602589149
+                ]
+            },
+            "target_glb_pos_ori": {
+                "max": [
+                    0.607829459518636,
+                    0.24107972214464712,
+                    0.3745357446514321,
+                    0.10093856929063562,
+                    0.04868670938381863,
+                    0.1774575731302991
+                ],
+                "min": [
+                    0.2931763093458957,
+                    -0.06488244458515079,
+                    0.08923991126058801,
+                    -0.029881283625257098,
+                    -0.10058426718393924,
+                    -0.15150303194842854
+                ],
+                "mean": [
+                    0.4560542784822863,
+                    0.08565440767613022,
+                    0.1743110028628866,
+                    0.024619566533744346,
+                    -0.037682459815855586,
+                    0.018325234013380706
+                ],
+                "std": [
+                    0.06835724596949079,
+                    0.0718354111888521,
+                    0.07078368617439584,
+                    0.020241705161438802,
+                    0.022898834127522655,
+                    0.048248707401483446
+                ]
+            },
+            "source_real_delta": {
+                "max": [
+                    0.053345803014261395,
+                    0.040518424109272574,
+                    -0.011752079010404218,
+                    0.043516907686584075,
+                    0.0540789615326847,
+                    0.030382135585520845
+                ],
+                "min": [
+                    -0.055611193619763966,
+                    -0.04391568953105479,
+                    -0.08456834435212798,
+                    -0.034807596635888456,
+                    -0.04496127238558152,
+                    -0.0389846413046834
+                ],
+                "mean": [
+                    -0.005349197799270342,
+                    0.002883253776778869,
+                    -0.05514396512027863,
+                    0.002086660306846876,
+                    0.01027813597530408,
+                    0.0016253649048599962
+                ],
+                "std": [
+                    0.016289692517026153,
+                    0.011527277607094969,
+                    0.011992205007570736,
+                    0.013206299049260073,
+                    0.014715782420983406,
+                    0.008327738160617344
+                ]
+            },
+            "source_glb_pos_ori": {
+                "max": [
+                    0.6058006248193584,
+                    0.247574675743819,
+                    0.3292378658620853,
+                    0.11831453185761646,
+                    0.06992805227067445,
+                    0.18337859580617902
+                ],
+                "min": [
+                    0.2780003463269225,
+                    -0.06643748055427762,
+                    0.03202077549171923,
+                    -0.028108724921174392,
+                    -0.0980657275332592,
+                    -0.15393453880625618
+                ],
+                "mean": [
+                    0.45041509756666015,
+                    0.08810487973616113,
+                    0.12027499236355091,
+                    0.026174676392286628,
+                    -0.027166695933672953,
+                    0.020046631684851657
+                ],
+                "std": [
+                    0.06902800520569942,
+                    0.07362509956029355,
+                    0.0715579829182361,
+                    0.02378189579152295,
+                    0.021394353865841733,
+                    0.04946812231683982
+                ]
+            },
+            "gripper": {
+                "max": [
+                    0.030669288709759712
+                ],
+                "min": [
+                    0.0014597700210288167
+                ],
+                "mean": [
+                    0.01886992148812636
+                ],
+                "std": [
+                    0.013723819816845216
+                ]
+            },
+            "direct_vel": {
+                "max": [
+                    0.04246886120919652,
+                    0.031448619572577,
+                    -0.01852505277627499,
+                    0.040258677453578244,
+                    0.04797958891206606,
+                    0.017929633939745754
+                ],
+                "min": [
+                    -0.049557555453820124,
+                    -0.03480148967899982,
+                    -0.07592206027607823,
+                    -0.03116204716511689,
+                    -0.03996206225544992,
+                    -0.024027542947148647
+                ],
+                "mean": [
+                    -0.005639180915629498,
+                    0.0024504720600316,
+                    -0.05403601049933487,
+                    0.0020045592984113234,
+                    0.010392438250298695,
+                    0.001306222416904028
+                ],
+                "std": [
+                    0.013901936060256208,
+                    0.008951572046346336,
+                    0.009611244008087378,
+                    0.012797753571356816,
+                    0.014127460090206864,
+                    0.007021965783695885
+                ]
+            }
+        }
+    }
+}

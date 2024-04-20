@@ -15,14 +15,14 @@ dataloader:
     crop_percent: 0.0
     resized_height_v: 240
     resized_width_v: 320
-    len_lb: 20
+    len_lb: 10
     p_mean: 0
     p_std: 0
     o_mean: 0
     o_std: 0
     sampling_time: 100
     source: True
-    norm: "limit"
+    norm_type: "limit"
     smooth_factor:
       - 1e-5
       - 1e-5
@@ -30,3 +30,4 @@ dataloader:
       - 1e-5
       - 1e-5
       - 1e-5
+    catg: resample

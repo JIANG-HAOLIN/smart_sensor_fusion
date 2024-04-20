@@ -21,7 +21,7 @@ from types import SimpleNamespace
 from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedRobotTrajectory
 from utils.quaternion import q_log_map, q_exp_map, exp_map_seq, log_map_seq, recover_pose_from_quat_real_delta, log_map, \
     exp_map
-from omegaconf import OmegaConf, open_dict
+from omegaconf import OmegaConf, open_dict, ListConfig
 
 from utils.quaternion import smooth_traj
 
@@ -37,7 +37,7 @@ class DummyDataset(Dataset):
         neg_ratio: ratio of silence audio clips to sample
         """
         self.traj_path = traj_path
-        self.norm = args.norm if args.norm is not None else None
+        self.norm = args.norm_type if args.norm_type is not None else None
         self.norm_state = args.norm_state
         self.sampling_time = args.sampling_time / 1000
         self.smooth_factor = args.smooth_factor
@@ -255,7 +255,8 @@ class DummyDataset(Dataset):
 
     def compute_real_delta(self, target_pos_quat, source_pos_quat):
         target_real_delta = self.get_real_delta_sequence(target_pos_quat)
-        source_real_delta = self.get_real_delta_sequence_direct(target_pos_quat, np.concatenate([source_pos_quat[1:], source_pos_quat[-1:]], axis=0))
+        source_real_delta = self.get_real_delta_sequence_direct(target_pos_quat, np.concatenate(
+            [source_pos_quat[1:], source_pos_quat[-1:]], axis=0))
         direct_vel = self.get_real_delta_sequence_direct(target_pos_quat, source_pos_quat)
         return target_real_delta, source_real_delta, direct_vel
 
@@ -402,7 +403,7 @@ class DummyDataset(Dataset):
         output["source_pos_quat"] = source_trajectory["pos_quat"][seq_idx]
         output["source_glb_pos_ori"] = source_trajectory["glb_pos_ori"][seq_idx]
         output["source_real_delta"] = source_trajectory["real_delta"][delta_idx]
-        
+
         output["target_pos_quat"] = target_trajectory["pos_quat"][seq_idx]
         output["target_glb_pos_ori"] = target_trajectory["glb_pos_ori"][seq_idx]
         output["target_real_delta"] = target_trajectory["real_delta"][delta_idx]
@@ -410,8 +411,9 @@ class DummyDataset(Dataset):
         output["gripper"] = target_trajectory["gripper"][seq_idx]
         output["direct_vel"] = target_trajectory["direct_vel"][delta_idx]
 
-        output = {key: torch.tensor(self.normalize(value, state=norm_state[key]) if "quat" not in key else value) for key, value in output.items() }
-        output = {key: {"obs": value[:-self.len_lb], "action": value[-self.len_lb:]} for key, value in output.items() }
+        output = {key: torch.tensor(self.normalize(value, state=norm_state[key]) if "quat" not in key else value) for
+                  key, value in output.items()}
+        output = {key: {"obs": value[:-self.len_lb], "action": value[-self.len_lb:]} for key, value in output.items()}
         return output
 
     def __getitem__(self, idx):
@@ -435,18 +437,18 @@ class DummyDataset(Dataset):
         delta_idx = copy.deepcopy(delta_lb_idx)
 
         traj_info = self.get_traj_info(
-                                 self.resample_source_trajectory,
-                                 self.resample_target_trajectory,
-                                 pose_idx,
-                                 delta_idx,
-                                self.norm_state["resample"])
+            self.resample_source_trajectory,
+            self.resample_target_trajectory,
+            pose_idx,
+            delta_idx,
+            self.norm_state["resample"])
 
         smooth_traj_info = self.get_traj_info(
-                                           self.smooth_resample_source_trajectory,
-                                           self.smooth_resample_target_trajectory,
-                                           pose_idx,
-                                           delta_idx,
-                                self.norm_state["smooth"])
+            self.smooth_resample_source_trajectory,
+            self.smooth_resample_target_trajectory,
+            pose_idx,
+            delta_idx,
+            self.norm_state["smooth"])
 
         # 2i_images
         # to speed up data loading, do not load img if not using
@@ -534,41 +536,25 @@ class DummyDataset(Dataset):
 
 
 class Normalizer(Dataset):
-    def __init__(self, traj_folder_path, args, train=True):
+    def __init__(self, traj_folder_path, args, norm_state=None, **kwargs):
         super().__init__()
         """
         neg_ratio: ratio of silence audio clips to sample
         """
-        self.traj_path = traj_folder_path
-        self.sampling_time = args.sampling_time / 1000
-        self.smooth_factor = args.smooth_factor
-
-        # self.fix_cam_path = os.path.join(traj_folder_path, "camera", "220322060186", "rgb")
-        # self.gripper_cam_path = os.path.join(traj_path, "camera", "838212074210", "rgb")
+        self.traj_folder_path = traj_folder_path
+        self.args = args
         self.pose_traj_processor = PoseTrajectoryProcessor()
-        self.sr = 44100
-        self.streams = [
-            "cam_gripper_color",
-            "cam_fixed_color",
 
-        ]
-        self.train = train
-        self.num_stack = args.num_stack
-        self.frameskip = args.frameskip
-        self.len_obs = (self.num_stack - 1) * self.frameskip
-        self.fps = int(1000 / args.sampling_time)
-        self.resolution = (
-                self.sr // self.fps
-        )
+        if norm_state is None:
+            state, smooth_state = self.get_all_traj_state(args)
+            norm_state = self.get_state(state)
+            smooth_norm_state = self.get_state(smooth_state)
+            self.norm_state = {"resample": norm_state, "smooth": smooth_norm_state}
+        else:
+            self.norm_state = norm_state
 
-        self.audio_len = self.num_stack * self.frameskip * self.resolution
 
-        # augmentation parameters
-        self.EPS = 1e-8
-
-        self.resized_height_v = args.resized_height_v
-        self.resized_width_v = args.resized_width_v
-
+    def get_all_traj_state(self, args):
         target_real_delta = []
         target_glb_pos_ori = []
         smooth_target_real_delta = []
@@ -583,14 +569,13 @@ class Normalizer(Dataset):
         direct_vel = []
         smooth_direct_vel = []
 
-        for traj in traj_folder_path:
+        for traj in self.traj_folder_path:
             (raw_target_trajectory,
              resample_target_trajectory,
              smooth_resample_target_trajectory,
              ) = self.get_episode(traj, ablation=args.ablation,
                                   sampling_time=args.sampling_time,
                                   json_name="target_robot_trajectory.json")
-
 
             if args.source:
                 (raw_source_trajectory,
@@ -618,7 +603,6 @@ class Normalizer(Dataset):
                 self.compute_real_delta(smooth_resample_target_trajectory["pos_quat"],
                                         smooth_resample_source_trajectory["pos_quat"])
 
-
             source_glb_pos_ori.append(resample_source_trajectory["glb_pos_ori"])
             source_real_delta.append(resample_source_trajectory["real_delta"])
 
@@ -635,7 +619,6 @@ class Normalizer(Dataset):
             smooth_target_real_delta.append(smooth_resample_target_trajectory["real_delta"])
 
             smooth_direct_vel.append(smooth_resample_target_trajectory["direct_vel"])
-
 
         state = {}
 
@@ -654,25 +637,73 @@ class Normalizer(Dataset):
         smooth_state["gripper"] = np.concatenate(gripper, axis=0)
         smooth_state["direct_vel"] = np.concatenate(smooth_direct_vel, axis=0)
 
+        return state, smooth_state
 
+    def save_json(self, save_json_path):
+        def to_json(non_json):
+            if isinstance(non_json, np.ndarray):
+                return non_json.tolist()
+            elif isinstance(non_json, PoseTrajectoryProcessor):
+                return non_json.__dict__
+            elif isinstance(non_json, SimpleNamespace):
+                return non_json.__dict__
+            elif isinstance(non_json, ListConfig):
+                return list(non_json)
 
-        norm_state = self.get_state(state)
-        smooth_norm_state = self.get_state(smooth_state)
-        self.norm_state = {"resample": norm_state, "smooth": smooth_norm_state}
+            else:
+                return non_json
 
+        state_dict = json.dumps(self.__dict__, default=to_json, indent=4)
 
+        save_json_path = os.path.join(save_json_path, "normalizer_config.json")
+        with open(save_json_path, 'w') as json_file:
+            json_file.write(state_dict)
+        return
 
-        pass
+    @classmethod
+    def from_json(cls, json_str):
 
+        def dict_values_to_np_arrays(input_dict):
+            """
+            Transforms every value inside the dictionary to NumPy arrays.
 
+            Parameters:
+            - input_dict (dict): Input dictionary
+
+            Returns:
+            - dict: Dictionary with values transformed to NumPy arrays
+            """
+            output_dict = {}
+            for key, value in input_dict.items():
+                if isinstance(value, dict):
+                    output_dict[key] = dict_values_to_np_arrays(value)  # Recursively handle nested dictionaries
+                elif isinstance(value, (list, tuple)):
+                    output_dict[key] = np.array(value)  # Convert lists/tuples to NumPy arrays
+                elif isinstance(value, np.ndarray):
+                    output_dict[key] = value  # No need to convert if already a NumPy array
+                else:
+                    output_dict[key] = np.array([value])  # Convert other types to 1D NumPy arrays
+            return output_dict
+
+        with open(json_str, 'r') as j:
+            data = json.loads(j.read())
+
+        norm_state = dict_values_to_np_arrays(data["norm_state"])
+
+        data["norm_state"] = norm_state
+
+        print(norm_state)
+
+        data["args"] = SimpleNamespace(**data["args"])
+
+        return cls(**data)
 
     def compute_real_delta(self, target_pos_quat, source_pos_quat):
         target_real_delta = DummyDataset.get_real_delta_sequence(target_pos_quat)
-        source_real_delta = DummyDataset.get_real_delta_sequence_direct(target_pos_quat, np.concatenate([source_pos_quat[1:], source_pos_quat[-1:]], axis=0))
+        source_real_delta = DummyDataset.get_real_delta_sequence_direct(target_pos_quat, np.concatenate(
+            [source_pos_quat[1:], source_pos_quat[-1:]], axis=0))
         direct_vel = DummyDataset.get_real_delta_sequence_direct(target_pos_quat, source_pos_quat)
         return target_real_delta, source_real_delta, direct_vel
-
-
 
     def get_episode(self, traj_path, ablation="", sampling_time=150, json_name=None):
         """
@@ -757,7 +788,7 @@ class Normalizer(Dataset):
         #     print(f"nan detected in resampled ori histroy {json_name}")
         smoothed_traj, global_delta, smoothed_global_delta = smooth_traj(
             np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)], axis=1),
-            self.smooth_factor)
+            self.args.smooth_factor)
 
         raw_traj = {
             "pos_quat": np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1),
@@ -804,10 +835,20 @@ class Normalizer(Dataset):
     def get_state(self, state):
         return {key: self.compute_max_min_mean_std(value) for key, value in state.items()}
 
+    def denormalize(self, x, var_name):
+        statistic = copy.deepcopy(self.norm_state[self.args.catg][var_name])
+        if isinstance(x, torch.Tensor):
+            for k, v in statistic.items():
+                statistic[k] = torch.from_numpy(v).to(x.device)
+        if self.args.norm_type == "limit":
+            return (x + 1) / 2 * (statistic["max"] - statistic["min"]) + statistic["min"]
+        elif self.args.norm_type == "gaussian":
+            return x * statistic["std"] + statistic["mean"]
+        else:
+            raise TypeError("norm type unrecognized")
 
 
-
-def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwargs):
+def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, **kwargs):
     """
 
     Args:
@@ -821,74 +862,25 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, **kwar
 
     """
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
+    args.save_json = save_json
+
     trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
     num_train = int(len(trajs) * 0.95)
 
     train_trajs_paths = trajs[:num_train]
-    print(f"number of training trajectories: {len(train_trajs_paths)}")
     val_trajs_paths = trajs[num_train:]
+    if debug:
+        train_trajs_paths = train_trajs_paths[1:2]
+        val_trajs_paths = val_trajs_paths[2:3]
+
+    print(f"number of training trajectories: {len(train_trajs_paths)}")
     print(f"number of validation trajectories: {len(val_trajs_paths)}")
 
-    normalizer = Normalizer(train_trajs_paths, args, True)
-
+    normalizer = Normalizer(train_trajs_paths, args)
+    if save_json is not None:
+        normalizer.save_json(save_json)
     args.norm_state = normalizer.norm_state
     print(args.norm_state)
-    train_set = torch.utils.data.ConcatDataset(
-        [
-            DummyDataset(traj, args, )
-            for i, traj in enumerate(train_trajs_paths)
-        ]
-    )
-    val_set = torch.utils.data.ConcatDataset(
-        [
-            DummyDataset(traj, args, False)
-            for i, traj in enumerate(val_trajs_paths)
-        ]
-    )
-
-    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=drop_last, )
-    val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
-    return train_loader, val_loader, None
-
-
-def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
-    """
-
-    Args:
-        batch_size: batch size
-        args: arguments for dataloader
-        data_folder: absolute path of directory "data"
-        drop_last: whether drop_last for train dataloader
-        **kwargs: other arguments
-
-    Returns: training loader and validation loader
-
-    """
-    trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
-    num_train = int(len(trajs) * 0.95)
-
-    train_trajs_paths = trajs[:num_train]
-    print(f"number of training trajectories: {len(train_trajs_paths)}")
-    val_trajs_paths = trajs[num_train:]
-    print(f"number of validation trajectories: {len(val_trajs_paths)}")
-
-    train_trajs_paths = train_trajs_paths[1:2]
-    val_trajs_paths = val_trajs_paths[2:3]
-
-    args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
-
-    # args.p_mean = np.array([[0.00092885, 0.0003142, - 0.00077551]])
-    # args.p_std = np.array([[0.16040024, 0.05464929, 0.1340441]])
-    # args.o_mean = np.array([[-0.00018653, 0.00027793, - 0.0004129]])
-    # args.o_std = np.array([[0.00741913, 0.03305291, 0.07000328]])
-    # args.smooth_p_mean = np.array([[0.000947, 0.000333, - 0.00076833]])
-    # args.smooth_p_std = np.array([[0.16021389, 0.05383626, 0.13407138]])
-    # args.smooth_o_mean = np.array([[-0.00019119, 0.00028462, - 0.00039579]])
-    # args.smooth_o_std = np.array([[0.00488407, 0.03090227, 0.06972235]])
-
-    normalizer = Normalizer(train_trajs_paths, args, True)
-
-    args.norm_state = normalizer.norm_state
 
     train_set = torch.utils.data.ConcatDataset(
         [
@@ -911,7 +903,7 @@ def get_debug_loaders(batch_size: int, args, data_folder: str, **kwargs):
         ]
     )
 
-    train_loader = DataLoader(train_set, 1, num_workers=8, shuffle=False, drop_last=True, )
+    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=drop_last, )
     train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     return train_loader, val_loader, train_inference_loader
@@ -921,6 +913,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import time
     import cv2
+
 
     def plot_2arr(l, name):
 
@@ -938,9 +931,10 @@ if __name__ == "__main__":
 
         for idx in range(num_channels):
             for i in range(arr.shape[1]):
-                axs[idx].plot(t, arr[idx][i], '-', label = name[i])
+                axs[idx].plot(t, arr[idx][i], '-', label=name[i])
         plt.legend()
         plt.show()
+
 
     data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos'
     args = SimpleNamespace()
@@ -955,15 +949,18 @@ if __name__ == "__main__":
     args.len_lb = 10
     args.sampling_time = 100
 
-
     args.source = True
 
-    args.norm = "limit"
     args.smooth_factor = (1e-5, 1e-5, 1e-5, 1e-5, 1e-5, 1e-5)
 
-    train_loader, val_loader, _, = get_debug_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                                    drop_last=False)
+    args.catg = "resample"
+    args.norm_type = "limit"
+
+    train_loader, val_loader, _, = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
+                                               drop_last=False, debug=False, save_json="save_json_test")
     norm_state = train_loader.dataset.datasets[0].norm_state
+
+    normalizer = Normalizer.from_json("save_json_test")
     ######## show images ###################################################################
     print(len(val_loader))
 

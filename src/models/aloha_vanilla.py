@@ -735,9 +735,7 @@ class DETRVAE(nn.Module):
                 v_scale=None,
                 inference_type=None,
                 num_queries=None,
-                action_norm_state=None,
-                qpos_norm_state=None,
-                gripper_norm_state=None,
+                normalizer=None,
                 **kwargs):
         output = self.forward(qpos,
                               multimod_inputs,
@@ -748,36 +746,37 @@ class DETRVAE(nn.Module):
                               task="repr",
                               mode="val",
                               env_state=None, )
-        denormalize = lambda x, arr: (x + 1) / 2 * (torch.from_numpy(arr["max"]).to(qpos.device) - torch.from_numpy(arr["min"]).to(qpos.device)) + torch.from_numpy(arr["min"]).to(qpos.device)
-
         a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
         og_a_hat = a_hat
         a_hat, gripper = a_hat[:, :, :-1], a_hat[:, :, -1:]
-        a_hat = denormalize(a_hat[:, :num_queries, :], action_norm_state)
-        gripper = denormalize(gripper[:, :num_queries, :], gripper_norm_state)
+        qpos = normalizer.denormalize(qpos[:, :-1], "target_glb_pos_ori").float()
+        qpos_gripper = normalizer.denormalize(qpos[:, -1:], "gripper").float()
+        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
+        gripper = normalizer.denormalize(gripper[:, :num_queries, :], "gripper")
 
-        denormed_qpos = denormalize(qpos[:, :-1], qpos_norm_state)
-        denormed_gripper = denormalize(qpos[:, -1:], gripper_norm_state)
-        qpos = torch.cat([denormed_qpos, denormed_gripper], dim=-1)
 
         gripper = gripper.squeeze(0).detach().cpu().numpy()
         if a_hat.shape[-1] == 6:
             if inference_type == "real_delta_target":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "target_real_delta")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "real_delta_source":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_real_delta")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "direct_vel":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "direct_vel")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "position":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_glb_pos_ori")
                 v = a_hat.squeeze(0).detach().cpu().numpy()
                 out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
 

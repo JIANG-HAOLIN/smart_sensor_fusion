@@ -27,6 +27,7 @@ import numpy as np
 
 import time
 
+from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_quat_real_delta, exp_map_seq, log_map_seq, exp_map
 
 class Transformer(nn.Module):
 
@@ -451,6 +452,88 @@ class DETRVAE(nn.Module):
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
                 "obs_encoder_out": output["obs_encoder_out"],
                 }
+
+    def rollout(self, qpos, multimod_inputs, env_state, actions=None, is_pad=None,
+                all_time_position=None,
+                all_time_orientation=None,
+                t=None,
+                args=None,
+                v_scale=None,
+                inference_type=None,
+                num_queries=None,
+                normalizer=None,
+                **kwargs):
+        output = self.forward(qpos,
+                              multimod_inputs,
+                              actions=actions,
+                              is_pad=is_pad,
+                              mask=None,
+                              mask_type="None",
+                              task="repr",
+                              mode="val",
+                              env_state=None, )
+        a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
+        og_a_hat = a_hat
+        a_hat, gripper = a_hat[:, :, :-1], a_hat[:, :, -1:]
+        qpos = normalizer.denormalize(qpos[:, :-1], "target_glb_pos_ori").float()
+        qpos_gripper = normalizer.denormalize(qpos[:, -1:], "gripper").float()
+        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
+        gripper = normalizer.denormalize(gripper[:, :num_queries, :], "gripper")
+
+
+        gripper = gripper.squeeze(0).detach().cpu().numpy()
+        if a_hat.shape[-1] == 6:
+            if inference_type == "real_delta_target":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
+
+            elif inference_type == "real_delta_source":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
+
+            elif inference_type == "direct_vel":
+                base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
+                v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
+                out_chunk = recover_pose_from_quat_real_delta(v, base)
+
+            elif inference_type == "position":
+                v = a_hat.squeeze(0).detach().cpu().numpy()
+                out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
+
+        else:
+            raise RuntimeError("action has only 6 dim, no gripper dim!")
+
+        out_chunk = np.concatenate([gripper, out_chunk, ], axis=-1)
+        out_position = torch.from_numpy(out_chunk[:, :4])
+        out_orientation = torch.from_numpy(out_chunk[:, 4:])
+        all_time_orientation[[t], t:t + num_queries] = out_orientation.float().to(args.device)
+        orientation_for_curr_step = all_time_orientation[:, t]
+        actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
+        orientation_for_curr_step = orientation_for_curr_step[actions_populated]
+
+        k = 0.01
+        exp_weights = np.exp(-k * np.arange(len(orientation_for_curr_step)))
+        exp_weights = exp_weights / exp_weights.sum()
+        exp_weights = (exp_weights[::-1]).copy()  # [::-1] could lead to negative strides
+
+        weights = np.expand_dims(exp_weights, axis=0)
+        raw_orientation = orientation_for_curr_step[0].detach().cpu().numpy()
+        orientation = orientation_for_curr_step.permute(1, 0).detach().cpu().numpy()
+        for i in range(5):
+            tangent_space_vector = q_log_map(orientation, raw_orientation)
+            tangent_space_vector = np.sum(tangent_space_vector * weights, axis=1, keepdims=True)
+            raw_orientation = q_exp_map(tangent_space_vector, raw_orientation)[:, 0]
+
+        all_time_position[[t], t:t + num_queries] = out_position.float().to(args.device)
+        position_for_curr_step = all_time_position[:, t]
+        actions_populated = torch.all(position_for_curr_step != 0, axis=1)
+        position_for_curr_step = position_for_curr_step[actions_populated]
+        weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
+        raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
+        raw_position = raw_action.squeeze(0).cpu().numpy()
+        return out_chunk, np.concatenate([raw_position, raw_orientation]), all_time_position, all_time_orientation, og_a_hat
 
 
 def build_encoder(args):

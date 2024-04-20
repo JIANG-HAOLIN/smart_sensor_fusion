@@ -22,7 +22,7 @@ hydra:
   sweeper:
     params:
       trainers.launch_trainer.repeat_trial: 1
-      trainers.launch_trainer.max_epochs: 2
+      trainers.launch_trainer.max_epochs: 200
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 10
       datasets.dataloader.args.len_lb: 10

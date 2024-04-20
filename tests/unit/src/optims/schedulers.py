@@ -76,7 +76,7 @@ class TestSchedulers(unittest.TestCase):
 
             lr_scheduler = hydra.utils.instantiate(cfg.scheduler, optimizer=optimizer)
             # Plotting
-            epochs = list(range(2500))
+            epochs = list(range(5000))
             plt.figure(figsize=(8, 3))
             lrs = []
             for e in epochs:
@@ -99,7 +99,7 @@ class TestSchedulers(unittest.TestCase):
 
             lr_scheduler = hydra.utils.instantiate(cfg.scheduler, optimizer=optimizer)
             # Plotting
-            epochs = list(range(2500))
+            epochs = list(range(5000))
             plt.figure(figsize=(8, 3))
             lrs = []
             for e in epochs:

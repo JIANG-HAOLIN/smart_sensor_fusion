@@ -28,7 +28,7 @@ hydra:
       datasets.dataloader.args.num_stack: 10
       datasets.dataloader.args.frameskip: 4
       datasets.dataloader.args.len_lb: 10
-      datasets.dataloader.batch_size: 64
+      datasets.dataloader.batch_size: 4
       pl_modules.pl_module.action: "direct_vel"
       optimizers.optimizer.weight_decay: 0.0001
       datasets.dataloader.args.resized_height_v: 240
