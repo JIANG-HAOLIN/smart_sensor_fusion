@@ -1,7 +1,7 @@
 import logging
 import hydra
 from hydra.core.hydra_config import HydraConfig
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig, OmegaConf, open_dict
 import os
 import sys
 import torch.nn as nn
@@ -46,7 +46,6 @@ def train(cfg: DictConfig) -> None:
         log.info(f"Cuda version:{torch.version.cuda}")
     else:
         log.info(f'no Cuda detected, using CPU instead !!')
-    log.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     log.info(f"Current Project path: {project_path}")
@@ -59,19 +58,27 @@ def train(cfg: DictConfig) -> None:
     if not os.path.exists(out_dir_path):
         os.makedirs(out_dir_path)
     log.info(f"current experiment output path: {out_dir_path}")
-    with open(os.path.join(out_dir_path, "config.yaml"), "w") as f:
-        OmegaConf.save(cfg, f)
 
     model: nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to('cuda')
     log.info(f"model trainable params:{sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     log.info(f"model non-trainable params:{sum(p.numel() for p in model.parameters() if not p.requires_grad)}")
-    optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
-    lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path,
                                                                     save_json=out_dir_path)
+
+    optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
+
+
+    with open_dict(cfg):
+        cfg.optimizers.scheduler.num_training_steps = len(train_loader) * cfg.trainers.launch_trainer.max_epochs
+        cfg.optimizers.scheduler.num_warmup_steps = int(len(train_loader) * cfg.trainers.launch_trainer.max_epochs * 0.1)
+    lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,
                                         train_loader, val_loader, test_loader, _recursive_=False)
+
+    with open(os.path.join(out_dir_path, "config.yaml"), "w") as f:
+        OmegaConf.save(cfg, f)
+    log.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
 
     launch_trainer(pl_module, out_dir_path=out_dir_path, label=label, hydra_conf=cfg,
                    model_name=cfg.models.name, dataset_name=cfg.datasets.name, task_name=cfg.task_name,

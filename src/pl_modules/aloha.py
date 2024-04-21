@@ -103,7 +103,7 @@ class AlohaPolicy(pl.LightningModule):
             action = direct_vel
         action = torch.cat([action, pose_gripper[:, :, :1]], dim=-1)
         task = self.train_tasks.split("+")
-        print(qpos.shape)
+        # print(qpos.shape)
         # Perform prediction and calculate loss and accuracy
         if action is not None:  # training time
             is_pad = torch.zeros([action.shape[0], action.shape[1]], device=qpos.device).bool()

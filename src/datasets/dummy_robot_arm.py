@@ -107,7 +107,7 @@ class DummyDataset(Dataset):
         assert len(self.resample_source_trajectory["relative_real_time_stamps"]) == len(
             self.resample_target_trajectory["relative_real_time_stamps"])
         self.num_frames = len(self.resample_source_trajectory["relative_real_time_stamps"])
-        print(self.num_frames)
+        print(f"{self.num_frames} of resampled frames from traj {traj_path}")
 
         self.modalities = args.ablation.split("_")
         self.no_crop = args.no_crop
@@ -692,7 +692,7 @@ class Normalizer(Dataset):
 
         data["norm_state"] = norm_state
 
-        print(norm_state)
+        # print(norm_state)
 
         data["args"] = SimpleNamespace(**data["args"])
 
@@ -873,14 +873,11 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
         train_trajs_paths = train_trajs_paths[1:2]
         val_trajs_paths = val_trajs_paths[2:3]
 
-    print(f"number of training trajectories: {len(train_trajs_paths)}")
-    print(f"number of validation trajectories: {len(val_trajs_paths)}")
-
     normalizer = Normalizer(train_trajs_paths, args)
     if save_json is not None:
         normalizer.save_json(save_json)
     args.norm_state = normalizer.norm_state
-    print(args.norm_state)
+    print("normalization state:", args.norm_state)
 
     train_set = torch.utils.data.ConcatDataset(
         [
@@ -904,8 +901,11 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
     )
 
     train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=drop_last, )
+    print(f"number of training trajectories: {len(train_trajs_paths)} \n train loader length: {len(train_loader)} \n "
+          f"batch size: {batch_size} \n in total {batch_size * len(train_loader)} training samples", )
     train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
+    print(f"number of validation trajectories: {len(val_trajs_paths)} \n validation loader length: {len(val_loader)} \n",)
     return train_loader, val_loader, train_inference_loader
 
 
