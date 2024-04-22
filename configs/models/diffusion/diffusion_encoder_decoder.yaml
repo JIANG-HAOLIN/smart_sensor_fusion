@@ -1,15 +1,15 @@
-name: "TransformerDiffusion"
+name: "DiffusionPolicy"
 model:
-  _target_: src.models.diffusion_encoder_decoder.TransformerForDiffusion
+  _target_: src.models.diffusion_encoder_decoder.DiffusionTransformerHybridImagePolicy
   action_decoder:
-    input_dim: 6
+    input_dim: 7
     output_dim: ${models.model.action_decoder.input_dim}
-    t_p: 20
-    n_obs_steps: 10
+    t_p: 16
+    n_obs_steps: 5
     cond_dim: 512
     n_layer: 8
     n_head: 4
-    n_emb: 256
+    n_emb: 512
     p_drop_emb: 0.3
     p_drop_attn: 0.0
     causal_attn: True
@@ -17,13 +17,45 @@ model:
     obs_as_cond: True
     n_cond_layers: 0
 
+  noise_scheduler:
+    _target_: diffusers.schedulers.scheduling_ddim.DDIMScheduler
+    beta_end: 0.02
+    beta_schedule: squaredcos_cap_v2
+    beta_start: 0.0001
+    clip_sample: true
+    num_train_timesteps: 100
+    prediction_type: epsilon
+#    variance_type: fixed_small
+
+  inference_args:
+    num_inference_steps: 10
+    n_action_steps: 16
+
+  shape_meta:
+    action:
+      shape:
+        - 7
+    obs:
+      agent_pos:
+        shape:
+          - 2
+        type: low_dim
+      image:
+        shape:
+          - 3
+          - 96
+          - 96
+        type: rgb
+
+
   obs_encoder:
     #---------------------------------------------------------------------------------------------------------#
     _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT_addtional
-    mod_names: [ "vision","audio","tactile" ]
-    main_mod: "vision"
+    mod_names:
+        - vision
+    main_mod: vision
     model_dim: 512
-    num_stack: 10  # num_frame / short_window_len
+    num_stack: 5  # num_frame / short_window_len
 
     nce_args:
       norm: batch
@@ -36,7 +68,8 @@ model:
 
     mask_args:
       mask_type: raw
-      masked_mod: [ "vision", "audio", "tactile" ]
+      masked_mod:
+        - vision
       mask_prob:
         latent: 0.5
         vision: 0.5
@@ -47,19 +80,18 @@ model:
         vision: 1
         audio: 10
         tactile: 1
-
     mask_fusion_nce:
       temp: 1.0
       proj_head:
         _target_: src.models.utils.helpers.ImageBindNceHeader
         model_dim: ${models.model.obs_encoder.model_dim}
-        dropout: 0.
+        dropout: 0.0
     mask_cross_time_trf_nce:
       temp: 1.0
       proj_head:
         _target_: src.models.utils.helpers.ImageBindNceHeader
         model_dim: ${models.model.obs_encoder.model_dim}
-        dropout: 0.
+        dropout: 0.0
     mask_latent_prediction:
       momentum: False
       loss: mse
@@ -67,7 +99,7 @@ model:
         _target_: src.models.utils.header.MLPHead
         in_dim: ${models.model.obs_encoder.model_dim}
         out_dim: ${models.model.obs_encoder.model_dim}
-        dropout: 0.
+        dropout: 0.0
         norm: layer
 
     fom_args:
@@ -76,7 +108,7 @@ model:
         _target_: src.models.utils.header.MLPHead
         in_dim: ${models.model.obs_encoder.model_dim}
         out_dim: ${models.model.obs_encoder.num_stack}
-        dropout: 0.
+        dropout: 0.0
         norm: layer
     #---------------------------------------------------------------------------------------------------------#
     vision_args:
@@ -84,40 +116,28 @@ model:
       preprocess_vision_args:
         _target_: src.models.encoders.identity.get_identity_encoder
       tokenization_vision:
-        _target_: src.models.vit_implementations.VitVATT3D
-        channel_size: 3
-        model_dim: ${models.model.obs_encoder.model_dim}
-        num_heads: 8
-        num_layers: 4
-        patch_size:
-          - 1
-          - 16
-          - 16
-        input_size: # first dim = short_window_len
-          - 1
-          - 240
-          - 160
-        num_emb: 151
+        _target_: src.models.encoders.res_net_18.make_resnet18_randomcrop_coordconv_groupnorm_maxpool
       pe_vision:
         _target_: src.models.encoders.identity.get_identity_encoder
       encoder_vision_args:
         _target_: src.models.encoders.identity.get_identity_encoder
-
     #---------------------------------------------------------------------------------------------------------#
 
     fusion_args:
       _target_: src.models.utils.fusion.EarlySum
       mod_names: ${models.model.obs_encoder.mod_names}
       dim: ${models.model.obs_encoder.model_dim}
-
-
     pos_emb_args:
       _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
       d_model: ${models.model.obs_encoder.model_dim}
-
-
     cross_time_trf_args:
       _target_: src.models.transformer_implementations.TransformerEncoderVanilla
       token_dim: ${models.model.obs_encoder.model_dim}
       num_heads: 8
       num_blocks: 4
+
+
+
+inference:
+  ckpt_path: ' '
+

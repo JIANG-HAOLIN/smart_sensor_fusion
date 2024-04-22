@@ -5,6 +5,21 @@ import logging
 import torch
 import torch.nn as nn
 from src.models.utils.positional_encoding import SinusoidalPosEmb
+import hydra.utils
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+import lightning as pl
+import logging
+from utils.metrics import top_k_accuracy
+from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
+from typing import Dict, Tuple, Callable
+
+import math
+from einops import rearrange, reduce
+
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +31,6 @@ class TransformerForDiffusion(nn.Module):
                  ) -> None:
         super().__init__()
         self._dummy_variable = nn.Parameter()
-
         input_dim = action_decoder.input_dim
         output_dim = action_decoder.output_dim
         t_p = action_decoder.t_p  # Tp prediction horizon
@@ -157,7 +171,7 @@ class TransformerForDiffusion(nn.Module):
         # init
         self.apply(self._init_weights)
         logger.info(
-            "number of parameters: %e", sum(p.numel() for p in self.parameters())
+            "number of parameters in TransformerForDiffusion Object: %e", sum(p.numel() for p in self.parameters())
         )
 
         self.obs_encoder = hydra.utils.instantiate(obs_encoder, _recursive_=False)
@@ -355,10 +369,120 @@ class TransformerForDiffusion(nn.Module):
 
         return {"pred": x, "obs_encoder_out": obs_encoder_out}
 
+
+class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
+
+    def __init__(self,
+                 action_decoder: DictConfig,
+                 obs_encoder,
+                 noise_scheduler: DictConfig,
+                 inference_args: DictConfig,
+                 ######################################
+                 shape_meta: dict,
+                 #########################################
+                 **kwargs):
+        """ The pytorch lighting module that configures the model and its training configuration.
+
+        Inputs:
+            mdl: the model to be trained or tested
+            optimizer: the optimizer e.g. Adam
+            scheduler: scheduler for learning rate schedule
+            train_loader: Dataloader for training dataset
+            val_loader: Dataloader for validation dataset
+            test_loader: Dataloader for test dataset
+        """
+        super().__init__()
+        self._dummy_variable = nn.Parameter()
+        self.noise_scheduler = hydra.utils.instantiate(noise_scheduler)
+        num_inference_steps = self.noise_scheduler.config.num_train_timesteps
+        if inference_args.num_inference_steps is not None:
+            self.num_inference_steps = num_inference_steps
+        # parse shape_meta
+        action_shape = shape_meta['action']['shape']
+        assert len(action_shape) == 1
+        action_dim = action_shape[0]
+        obs_shape_meta = shape_meta['obs']
+        obs_config = {
+            'low_dim': [],
+            'rgb': [],
+            'depth': [],
+            'scan': []
+        }
+        obs_key_shapes = dict()
+        for key, attr in obs_shape_meta.items():
+            shape = attr['shape']
+            obs_key_shapes[key] = list(shape)
+
+            type = attr.get('type', 'low_dim')
+            if type == 'rgb':
+                obs_config['rgb'].append(key)
+            elif type == 'low_dim':
+                obs_config['low_dim'].append(key)
+            else:
+                raise RuntimeError(f"Unsupported obs type: {type}")
+
+        self.mdl = TransformerForDiffusion(action_decoder, obs_encoder)
+        self.action_dim = action_dim
+        self.n_action_steps = inference_args.n_action_steps
+        self.t_p = action_decoder.t_p  # Tp prediction horizon
+        self.n_obs_steps = action_decoder.n_obs_steps
+
+    def forward(self, actions,
+                multimod_inputs,
+                mask,
+                task,
+                mode, ):
+
+        # handle different ways of passing observation
+        trajectory = actions
+        # reshape B, T, ... to B*T
+
+        condition_mask = torch.full(trajectory.shape, False)
+
+        # Sample noise that we'll add to the images
+        noise = torch.randn(trajectory.shape, device=trajectory.device)
+        bsz = trajectory.shape[0]
+        # Sample a random timestep for each image
+        timesteps = torch.randint(
+            0, self.noise_scheduler.config.num_train_timesteps,
+            (bsz,), device=trajectory.device
+        ).long()
+        # Add noise to the clean images according to the noise magnitude at each timestep
+        # (this is the forward diffusion process)
+        noisy_trajectory = self.noise_scheduler.add_noise(
+            trajectory, noise, timesteps)
+
+        # compute loss mask
+        loss_mask = ~condition_mask
+
+        # apply conditioning
+        noisy_trajectory[condition_mask] = trajectory[condition_mask]
+
+        # Predict the noise residual
+
+        mdl_out = self.mdl(sample=noisy_trajectory,
+                           timestep=timesteps,
+                           multimod_inputs=multimod_inputs,
+                           mask=mask,
+                           task=task,
+                           mode=mode,
+                           additional_input=None, )
+
+        pred_type = self.noise_scheduler.config.prediction_type
+        if pred_type == 'epsilon':
+            target = noise
+        elif pred_type == 'sample':
+            target = trajectory
+        else:
+            raise ValueError(f"Unsupported prediction type {pred_type}")
+
+        return mdl_out, target, loss_mask
+
     def conditional_sample(self,
-                           condition_data, condition_mask,
-                           multimod_inputs=None, generator=None,
-                           # keyword arguments to scheduler.step
+                           condition_data,
+                           condition_mask,
+                           multimod_inputs=None,
+                           generator=None,
                            **kwargs
                            ):
         scheduler = self.noise_scheduler
@@ -377,12 +501,12 @@ class TransformerForDiffusion(nn.Module):
             trajectory[condition_mask] = condition_data[condition_mask]
 
             # 2. predict model output
-            model_output = self.forward(sample=trajectory,
-                                 timestep=t,
-                                 multimod_inputs=multimod_inputs,
-                                 mask=None,
-                                 task="imitation",
-                                 mode="val", )
+            model_output = self.mdl(sample=trajectory,
+                                    timestep=t,
+                                    multimod_inputs=multimod_inputs,
+                                    mask=None,
+                                    task="repr",
+                                    mode="val", )
             pred = model_output["pred"]
             # 3. compute previous image: x_t -> x_t-1
             trajectory = scheduler.step(
@@ -395,24 +519,16 @@ class TransformerForDiffusion(nn.Module):
 
         return trajectory
 
-    def predict_action(self, batch) -> Dict[str, torch.Tensor]:
-
+    def predict_action(self, actions,
+                       multimod_inputs,
+                       **kwargs) -> Dict[str, torch.Tensor]:
+        batch_size = actions.shape[0]
         t_p = self.t_p
         Da = self.action_dim
 
         device = self.device
         dtype = self.dtype
 
-        inp_data = batch["observation"]
-        delta = batch["target_delta_seq"][:, 1:]
-        pose = batch["target_pose_seq"]
-        vf_inp, vg_inp, _, _ = inp_data
-        multimod_inputs = {
-            "vision": torch.cat([vg_inp, vf_inp], dim=-2),
-        }
-
-        batch_size = delta.shape[0]
-        To = self.n_obs_steps
         shape = (batch_size, t_p, Da)
 
         cond_data = torch.zeros(size=shape, device=device, dtype=dtype)
@@ -423,18 +539,102 @@ class TransformerForDiffusion(nn.Module):
             cond_data,
             cond_mask,
             multimod_inputs=multimod_inputs,
-            **self.kwargs)
+            **kwargs)
 
         # unnormalize prediction
         naction_pred = nsample[..., :Da]
         action_pred = naction_pred
 
-        start = To - 1
-        end = start + self.n_action_steps
-        action_reduced_horizon = action_pred[:, start:end]
+        action_reduced_horizon = action_pred[:, :self.n_action_steps]
 
         result = {
             'action': action_reduced_horizon,
             'action_pred': action_pred
         }
         return result
+
+
+class LowdimMaskGenerator(nn.Module):
+    def __init__(self,
+                 action_dim, obs_dim,
+                 # obs mask setup
+                 max_n_obs_steps=2,
+                 fix_obs_steps=True,
+                 # action mask
+                 action_visible=False
+                 ):
+        super().__init__()
+        self.action_dim = action_dim
+        self.obs_dim = obs_dim
+        self.max_n_obs_steps = max_n_obs_steps
+        self.fix_obs_steps = fix_obs_steps
+        self.action_visible = action_visible
+        self._dummy_variable = nn.Parameter()
+
+    @torch.no_grad()
+    def forward(self, shape, seed=None):
+        device = self.device
+        B, T, D = shape
+        assert D == (self.action_dim + self.obs_dim)
+
+        # create all tensors on this device
+        rng = torch.Generator(device=device)
+        if seed is not None:
+            rng = rng.manual_seed(seed)
+
+        # generate dim mask
+        dim_mask = torch.zeros(size=shape,
+                               dtype=torch.bool, device=device)
+        is_action_dim = dim_mask.clone()
+        is_action_dim[..., :self.action_dim] = True
+        is_obs_dim = ~is_action_dim
+
+        # generate obs mask
+        if self.fix_obs_steps:
+            obs_steps = torch.full((B,),
+                                   fill_value=self.max_n_obs_steps, device=device)
+        else:
+            obs_steps = torch.randint(
+                low=1, high=self.max_n_obs_steps + 1,
+                size=(B,), generator=rng, device=device)
+
+        steps = torch.arange(0, T, device=device).reshape(1, T).expand(B, T)
+        obs_mask = (steps.T < obs_steps).T.reshape(B, T, 1).expand(B, T, D)
+        obs_mask = obs_mask & is_obs_dim
+
+        # generate action mask
+        if self.action_visible:
+            action_steps = torch.maximum(
+                obs_steps - 1,
+                torch.tensor(0,
+                             dtype=obs_steps.dtype,
+                             device=obs_steps.device))
+            action_mask = (steps.T < action_steps).T.reshape(B, T, 1).expand(B, T, D)
+            action_mask = action_mask & is_action_dim
+
+        mask = obs_mask
+        if self.action_visible:
+            mask = mask | action_mask
+
+        return mask
+
+    @property
+    def device(self):
+        return next(iter(self.parameters())).device
+
+    @property
+    def dtype(self):
+        return next(iter(self.parameters())).dtype
+
+
+def dict_apply(
+        x: Dict[str, torch.Tensor],
+        func: Callable[[torch.Tensor], torch.Tensor]
+) -> Dict[str, torch.Tensor]:
+    result = dict()
+    for key, value in x.items():
+        if isinstance(value, dict):
+            result[key] = dict_apply(value, func)
+        else:
+            result[key] = func(value)
+    return result

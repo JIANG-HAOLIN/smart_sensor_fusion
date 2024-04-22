@@ -32,3 +32,4 @@ dependencies:
   - pip:
       - einops==0.7.0
       - pyrealsense2==2.54.2.5684
+      - robomimic==0.2.0
