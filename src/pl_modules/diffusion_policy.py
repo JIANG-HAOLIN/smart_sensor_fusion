@@ -67,7 +67,7 @@ class DiffusionPolicyFramework(pl.LightningModule):
         real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
         real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
         direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-        pose = batch["traj"]["source_glb_pos_ori"]["action"][:, :, :].float()
+        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
 
         pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
 

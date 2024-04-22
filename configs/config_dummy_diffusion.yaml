@@ -28,7 +28,7 @@ hydra:
       datasets.dataloader.args.frameskip: 5
       datasets.dataloader.args.len_lb: 16
       datasets.dataloader.batch_size: 16
-      pl_modules.pl_module.action: "real_delta_target"
+      pl_modules.pl_module.action: "position"
       optimizers.optimizer.weight_decay: 0.00001
       datasets.dataloader.args.resized_height_v: 240
       datasets.dataloader.args.resized_width_v: 320
