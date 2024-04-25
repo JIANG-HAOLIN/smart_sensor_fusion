@@ -11,7 +11,7 @@ defaults:
 
 
 # General settings
-task_name: "dummy_aloha"
+task_name: "dummy_diffusion"
 variable_name: trainers.launch_trainer.repeat_trial
 output_name: debug
 seed: 42
