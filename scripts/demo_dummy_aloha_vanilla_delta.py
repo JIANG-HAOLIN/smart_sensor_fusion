@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=real_delta_targetname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-08:18:34")
+                        default="../checkpoints/cupboard/name=alohaname=vae_resnetaction=real_delta_targetname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10source=True_04-17-22:13:33")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

@@ -1,7 +1,10 @@
 **/*.avi
 **/*.mp4
+**/*.mkv
 *.avi
 *.mp4
+*.mkv
+
 
 **/test_cam_save/
 *test_cam_save/

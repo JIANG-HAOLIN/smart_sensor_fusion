@@ -18,7 +18,7 @@ import torchvision.transforms as T
 from copy import deepcopy
 from PIL import Image
 from types import SimpleNamespace
-from utils.pose_trajectory_processor import PoseTrajectoryProcessor, ProcessedRobotTrajectory
+from utils.pose_trajectory_processor_4_24 import PoseTrajectoryProcessor, RobotTrajectory
 from utils.quaternion import q_log_map, q_exp_map, exp_map_seq, log_map_seq, recover_pose_from_quat_real_delta, log_map, \
     exp_map
 from omegaconf import OmegaConf, open_dict, ListConfig
@@ -70,27 +70,27 @@ class DummyDataset(Dataset):
         self._crop_height_v = int(self.resized_height_v * (1.0 - args.crop_percent))
         self._crop_width_v = int(self.resized_width_v * (1.0 - args.crop_percent))
 
-        (self.raw_target_trajectory,
-         self.resample_target_trajectory,
+        (self.resample_target_trajectory,
          self.smooth_resample_target_trajectory,
          ) = self.get_episode(traj_path, ablation=args.ablation,
                               sampling_time=args.sampling_time,
-                              json_name="target_robot_trajectory.json")
+                              json_name="target_robot_trajectory.json",
+                              smooth_factor=args.smooth_factor)
 
         if args.source:
-            (self.raw_source_trajectory,
-             self.resample_source_trajectory,
+            (self.resample_source_trajectory,
              self.smooth_resample_source_trajectory
              ) = self.get_episode(traj_path, ablation=args.ablation,
                                   sampling_time=args.sampling_time,
-                                  json_name="source_robot_trajectory.json")
+                                  json_name="source_robot_trajectory.json",
+                                  smooth_factor=args.smooth_factor)
         else:
-            (self.raw_source_trajectory,
-             self.resample_source_trajectory,
+            (self.resample_source_trajectory,
              self.smooth_resample_source_trajectory
              ) = self.get_episode(traj_path, ablation=args.ablation,
                                   sampling_time=args.sampling_time,
-                                  json_name="target_robot_trajectory.json")
+                                  json_name="target_robot_trajectory.json",
+                                  smooth_factor=args.smooth_factor)
 
         self.resample_target_trajectory["real_delta"], \
             self.resample_source_trajectory["real_delta"], \
@@ -133,7 +133,8 @@ class DummyDataset(Dataset):
         self.a_g, self.a_h = self.load_audio(traj_path, ablation=args.ablation)
         pass
 
-    def get_episode(self, traj_path, ablation="", sampling_time=150, json_name=None):
+    @staticmethod
+    def get_episode(traj_path, ablation="", sampling_time=150, json_name=None, smooth_factor=None):
         """
         Return:
             folder for traj_path
@@ -156,99 +157,53 @@ class DummyDataset(Dataset):
                 last_o = v["pose"][3:]
             return traj
 
-        if os.path.exists(os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")):
-            with open(os.path.join(traj_path, f"{json_name}")) as ts:
-                robot_trajectory = json.load(ts)
-                robot_trajectory = omit_nan(robot_trajectory)
-                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-            json_path = os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")
-            resampled_trajectory = ProcessedRobotTrajectory.from_path(json_path)
-        else:
-            json_path = os.path.join(traj_path, json_name)
-            with open(json_path) as ts:
-                robot_trajectory = json.load(ts)
-                robot_trajectory = omit_nan(robot_trajectory)
-                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-                resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
-                                                                                        sampling_time=sampling_time / 1000)
-                resampled_trajectory.save_to_file(os.path.join(traj_path, f"{sampling_time}_{json_name}"))
+        resample_traj_path = os.path.join(traj_path, f"resampled_{json_name}")
+        assert os.path.exists(os.path.exists(resample_traj_path)), "resampled trajectory not exist!!"
+        resampled_trajectory = RobotTrajectory.from_path(resample_traj_path)
 
         # get pseudo time stamp from resampled real time stamp and original real time stamps
-        resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
-        og_time_step = np.expand_dims(np.array(pose_trajectory.time_stamps), axis=0)
+        resample_time_step = np.expand_dims(np.loadtxt(os.path.join(traj_path, f"resampled_image_time_stamps.txt")), axis=1)
+        og_time_step = np.expand_dims(np.loadtxt(os.path.join(traj_path, f"image_time_stamps.txt")), axis=0)
         og_time_step = np.tile(og_time_step, (resample_time_step.shape[0], 1))
         diff = np.abs(og_time_step - resample_time_step)
         resample_pseudo_time_stamps = np.argmin(diff, axis=1, keepdims=False)
 
-        # get all raw info
-        raw_position_histroy = []
-        raw_orientation_history = []
-        raw_absolute_real_time_stamps = []
-        raw_gripper_pos = []
-        last_t = 0.0
-        for idx, (i, v) in enumerate(robot_trajectory.items()):
-            current_t = v["time"]
-            assert current_t > last_t, "need to reorder trajectory dict"
-
-            if np.isnan(v["pose"][3:]).any():
-                print("nan detected")
-            raw_position_histroy.append(v["pose"][:3])
-            raw_orientation_history.append(v["pose"][3:])
-            raw_absolute_real_time_stamps.append(v["time"])
-            raw_gripper_pos.append(v["gripper"])
-            last_t = current_t
-
         # get all resampled info
         resample_position_histroy = []
         resample_orientation_history = []
-        for i in resampled_trajectory.pose_trajectory.poses:
+        for i in resampled_trajectory.poses:
             resample_orientation_history.append(
                 [i.orientation.w, i.orientation.x, i.orientation.y, i.orientation.z])
             resample_position_histroy.append([i.position.x, i.position.y, i.position.z])
 
-        # if np.isnan(np.array(raw_position_histroy)).any():
-        #     print(f"nan detected in raw pos histroy {json_name}")
-        # if np.isnan(np.array(raw_orientation_history)).any():
-        #     print(f"nan detected in raw orienhistroy {json_name}")
         # if np.isnan(np.array(resample_position_histroy)).any():
         #     print(f"nan detected in resampled pos histroy {json_name}")
         # if np.isnan(np.array(resample_orientation_history)).any():
         #     print(f"nan detected in resampled ori histroy {json_name}")
         smoothed_traj, global_delta, smoothed_global_delta = smooth_traj(
             np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)], axis=1),
-            self.smooth_factor)
-
-        raw_traj = {
-            "pos_quat": np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1),
-            "gripper": np.array(raw_gripper_pos),
-            "glb_pos_ori": log_map_seq(
-                np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1).copy(),
-                np.array([0, 0, 0, 0, 1, 0, 0])),
-            "absolute_real_time_stamps": np.array(raw_absolute_real_time_stamps),
-            "relative_real_time_stamps": np.array(pose_trajectory.time_stamps),
-        }
+            smooth_factor)
 
         resample_traj = {
             "pos_quat": np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)],
                                        axis=1),
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
+            "gripper": np.array(resampled_trajectory.grippers),
             "glb_pos_ori": global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
-            "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
+            "relative_real_time_stamps": resampled_trajectory.time_stamps,
         }
 
         smooth_resample_traj = {
             "pos_quat": np.concatenate([smoothed_traj[:, :3], smoothed_traj[:, 3:]], axis=1),
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers),
+            "gripper": np.array(resampled_trajectory.grippers),
             "glb_pos_ori": smoothed_global_delta,
             "pseudo_time_stamps": resample_pseudo_time_stamps,
-            "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
+            "relative_real_time_stamps": resampled_trajectory.time_stamps,
         }
 
         return (
-            raw_traj,
             resample_traj,
             smooth_resample_traj,
         )
@@ -299,7 +254,7 @@ class DummyDataset(Dataset):
         else:
             audio_gripper = None
         if "ah" in modes:
-            audio_holebase = load("mic.wav")
+            audio_holebase = load("audio.wav")
             audio_holebase = [
                 x for x in [audio_holebase] if x is not None
             ]
@@ -553,7 +508,6 @@ class Normalizer(Dataset):
         else:
             self.norm_state = norm_state
 
-
     def get_all_traj_state(self, args):
         target_real_delta = []
         target_glb_pos_ori = []
@@ -570,27 +524,31 @@ class Normalizer(Dataset):
         smooth_direct_vel = []
 
         for traj in self.traj_folder_path:
-            (raw_target_trajectory,
-             resample_target_trajectory,
-             smooth_resample_target_trajectory,
-             ) = self.get_episode(traj, ablation=args.ablation,
-                                  sampling_time=args.sampling_time,
-                                  json_name="target_robot_trajectory.json")
+            (
+                resample_target_trajectory,
+                smooth_resample_target_trajectory,
+            ) = DummyDataset.get_episode(traj, ablation=args.ablation,
+                                         sampling_time=args.sampling_time,
+                                         json_name="target_robot_trajectory.json",
+                                         smooth_factor=self.args.smooth_factor)
 
             if args.source:
-                (raw_source_trajectory,
-                 resample_source_trajectory,
-                 smooth_resample_source_trajectory
-                 ) = self.get_episode(traj, ablation=args.ablation,
-                                      sampling_time=args.sampling_time,
-                                      json_name="source_robot_trajectory.json")
+                (
+                    resample_source_trajectory,
+                    smooth_resample_source_trajectory
+                ) = DummyDataset.get_episode(traj, ablation=args.ablation,
+                                             sampling_time=args.sampling_time,
+                                             json_name="source_robot_trajectory.json",
+                                             smooth_factor=self.args.smooth_factor)
             else:
-                (raw_source_trajectory,
-                 resample_source_trajectory,
-                 smooth_resample_source_trajectory
-                 ) = self.get_episode(traj, ablation=args.ablation,
-                                      sampling_time=args.sampling_time,
-                                      json_name="target_robot_trajectory.json")
+                (
+                    resample_source_trajectory,
+                    smooth_resample_source_trajectory
+                ) = DummyDataset.get_episode(traj, ablation=args.ablation,
+                                             sampling_time=args.sampling_time,
+                                             json_name="target_robot_trajectory.json",
+                                             smooth_factor=self.args.smooth_factor)
+
             resample_target_trajectory["real_delta"], \
                 resample_source_trajectory["real_delta"], \
                 resample_target_trajectory["direct_vel"], = \
@@ -639,7 +597,7 @@ class Normalizer(Dataset):
 
         return state, smooth_state
 
-    def save_json(self, save_json_path):
+    def save_json(self, save_json_path = None):
         def to_json(non_json):
             if isinstance(non_json, np.ndarray):
                 return non_json.tolist()
@@ -655,7 +613,10 @@ class Normalizer(Dataset):
 
         state_dict = json.dumps(self.__dict__, default=to_json, indent=4)
 
-        save_json_path = os.path.join(save_json_path, "normalizer_config.json")
+        if save_json_path is not None:
+            save_json_path = os.path.join(save_json_path, "normalizer_config.json")
+        else:
+            save_json_path = os.path.abspath(os.path.join(self.traj_folder_path[0], "..", "normalizer_config.json"))
         with open(save_json_path, 'w') as json_file:
             json_file.write(state_dict)
         return
@@ -685,6 +646,7 @@ class Normalizer(Dataset):
                     output_dict[key] = np.array([value])  # Convert other types to 1D NumPy arrays
             return output_dict
 
+        json_str = os.path.join(json_str, "normalizer_config.json")
         with open(json_str, 'r') as j:
             data = json.loads(j.read())
 
@@ -704,126 +666,6 @@ class Normalizer(Dataset):
             [source_pos_quat[1:], source_pos_quat[-1:]], axis=0))
         direct_vel = DummyDataset.get_real_delta_sequence_direct(target_pos_quat, source_pos_quat)
         return target_real_delta, source_real_delta, direct_vel
-
-    def get_episode(self, traj_path, ablation="", sampling_time=150, json_name=None):
-        """
-        Return:
-            folder for traj_path
-            logs
-            audio tracks
-            number of frames in episode
-        """
-
-        def omit_nan(traj):
-            last_t = 0.0
-            for idx, (i, v) in enumerate(traj.items()):
-                current_t = v["time"]
-                assert current_t > last_t, "need to reorder trajectory dict"
-                if np.isnan(v["pose"][3:]).any():
-                    traj[i]["pose"][3:] = last_o
-                #     v["pose"][3:][np.isnan(v["pose"][3:])] = robot_trajectory.items()[idx-1] + robot_trajectory.items()[idx+1]
-                if np.isnan(v["pose"][3:]).any():
-                    print("nan detected")
-                last_t = current_t
-                last_o = v["pose"][3:]
-            return traj
-
-        if os.path.exists(os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")):
-            with open(os.path.join(traj_path, f"{json_name}")) as ts:
-                robot_trajectory = json.load(ts)
-                robot_trajectory = omit_nan(robot_trajectory)
-                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-            json_path = os.path.join(traj_path, f"resampled_{sampling_time}_{json_name}")
-            resampled_trajectory = ProcessedRobotTrajectory.from_path(json_path)
-        else:
-            json_path = os.path.join(traj_path, json_name)
-            with open(json_path) as ts:
-                robot_trajectory = json.load(ts)
-                robot_trajectory = omit_nan(robot_trajectory)
-                pose_trajectory = self.pose_traj_processor.preprocess_trajectory(robot_trajectory)
-                resampled_trajectory = self.pose_traj_processor.process_pose_trajectory(pose_trajectory,
-                                                                                        sampling_time=sampling_time / 1000)
-                resampled_trajectory.save_to_file(os.path.join(traj_path, f"{sampling_time}_{json_name}"))
-
-        # get pseudo time stamp from resampled real time stamp and original real time stamps
-        resample_time_step = np.expand_dims(resampled_trajectory.pose_trajectory.time_stamps, axis=1)
-        og_time_step = np.expand_dims(np.array(pose_trajectory.time_stamps), axis=0)
-        og_time_step = np.tile(og_time_step, (resample_time_step.shape[0], 1))
-        diff = np.abs(og_time_step - resample_time_step)
-        resample_pseudo_time_stamps = np.argmin(diff, axis=1, keepdims=False)
-
-        # get all raw info
-        raw_position_histroy = []
-        raw_orientation_history = []
-        raw_absolute_real_time_stamps = []
-        raw_gripper_pos = []
-        last_t = 0.0
-        for idx, (i, v) in enumerate(robot_trajectory.items()):
-            current_t = v["time"]
-            assert current_t > last_t, "need to reorder trajectory dict"
-
-            if np.isnan(v["pose"][3:]).any():
-                print("nan detected")
-            raw_position_histroy.append(v["pose"][:3])
-            raw_orientation_history.append(v["pose"][3:])
-            raw_absolute_real_time_stamps.append(v["time"])
-            raw_gripper_pos.append(v["gripper"])
-            last_t = current_t
-
-        # get all resampled info
-        resample_position_histroy = []
-        resample_orientation_history = []
-        for i in resampled_trajectory.pose_trajectory.poses:
-            resample_orientation_history.append(
-                [i.orientation.w, i.orientation.x, i.orientation.y, i.orientation.z])
-            resample_position_histroy.append([i.position.x, i.position.y, i.position.z])
-
-        # if np.isnan(np.array(raw_position_histroy)).any():
-        #     print(f"nan detected in raw pos histroy {json_name}")
-        # if np.isnan(np.array(raw_orientation_history)).any():
-        #     print(f"nan detected in raw orienhistroy {json_name}")
-        # if np.isnan(np.array(resample_position_histroy)).any():
-        #     print(f"nan detected in resampled pos histroy {json_name}")
-        # if np.isnan(np.array(resample_orientation_history)).any():
-        #     print(f"nan detected in resampled ori histroy {json_name}")
-        smoothed_traj, global_delta, smoothed_global_delta = smooth_traj(
-            np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)], axis=1),
-            self.args.smooth_factor)
-
-        raw_traj = {
-            "pos_quat": np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1),
-            "gripper": np.array(raw_gripper_pos),
-            "glb_pos_ori": log_map_seq(
-                np.concatenate([np.array(raw_position_histroy), np.array(raw_orientation_history)], axis=1).copy(),
-                np.array([0, 0, 0, 0, 1, 0, 0])),
-            "absolute_real_time_stamps": np.array(raw_absolute_real_time_stamps),
-            "relative_real_time_stamps": np.array(pose_trajectory.time_stamps),
-        }
-
-        resample_traj = {
-            "pos_quat": np.concatenate([np.array(resample_position_histroy), np.array(resample_orientation_history)],
-                                       axis=1),
-            # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers)[..., :1],
-            "glb_pos_ori": global_delta,
-            "pseudo_time_stamps": resample_pseudo_time_stamps,
-            "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
-        }
-
-        smooth_resample_traj = {
-            "pos_quat": np.concatenate([smoothed_traj[:, :3], smoothed_traj[:, 3:]], axis=1),
-            # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
-            "gripper": np.array(resampled_trajectory.pose_trajectory.grippers)[..., :1],
-            "glb_pos_ori": smoothed_global_delta,
-            "pseudo_time_stamps": resample_pseudo_time_stamps,
-            "relative_real_time_stamps": resampled_trajectory.pose_trajectory.time_stamps,
-        }
-
-        return (
-            raw_traj,
-            resample_traj,
-            smooth_resample_traj,
-        )
 
     @staticmethod
     def compute_max_min_mean_std(arr):
@@ -847,18 +689,6 @@ class Normalizer(Dataset):
         else:
             raise TypeError("norm type unrecognized")
 
-    def normalize(self, x, var_name):
-        statistic = copy.deepcopy(self.norm_state[self.args.catg][var_name])
-        if isinstance(x, torch.Tensor):
-            for k, v in statistic.items():
-                statistic[k] = torch.from_numpy(v).to(x.device)
-        if self.args.norm_type == "limit":
-            return (x - statistic["min"]) * 2 / (statistic["max"] - statistic["min"]) - 1
-        elif self.args.norm_type == "gaussian":
-            return (x - statistic["mean"])/statistic["std"]
-        else:
-            raise TypeError("norm type unrecognized")
-
 
 def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, **kwargs):
     """
@@ -876,7 +706,7 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
     args = SimpleNamespace(**args) if not isinstance(args, SimpleNamespace) else args
     args.save_json = save_json
 
-    trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder))]
+    trajs = [os.path.join(data_folder, traj) for traj in sorted(os.listdir(data_folder)) if "demo" in traj]
     num_train = int(len(trajs) * 0.95)
 
     train_trajs_paths = trajs[:num_train]
@@ -886,8 +716,7 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
         val_trajs_paths = val_trajs_paths[2:3]
 
     normalizer = Normalizer(train_trajs_paths, args)
-    if save_json is not None:
-        normalizer.save_json(save_json)
+    normalizer.save_json(save_json)
     args.norm_state = normalizer.norm_state
     print("normalization state:", args.norm_state)
 
@@ -917,7 +746,8 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
           f"batch size: {batch_size} \n in total {batch_size * len(train_loader)} training samples", )
     train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
     val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
-    print(f"number of validation trajectories: {len(val_trajs_paths)} \n validation loader length: {len(val_loader)} \n",)
+    print(
+        f"number of validation trajectories: {len(val_trajs_paths)} \n validation loader length: {len(val_loader)} \n", )
     return train_loader, val_loader, train_inference_loader
 
 
@@ -948,7 +778,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/cuponplate1_robot_demos'
+    data_folder_path = '/tmp/robot_demos/'
     args = SimpleNamespace()
 
     args.ablation = 'vf_vg'
@@ -969,10 +799,10 @@ if __name__ == "__main__":
     args.norm_type = "limit"
 
     train_loader, val_loader, _, = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                               drop_last=False, debug=True, save_json="save_json_test")
+                                               drop_last=False, debug=False, save_json=None)
     norm_state = train_loader.dataset.datasets[0].norm_state
 
-    normalizer = Normalizer.from_json("save_json_test/normalizer_config.json")
+    normalizer = Normalizer.from_json("/tmp/robot_demos/")
     ######## show images ###################################################################
     print(len(val_loader))
 

@@ -484,21 +484,25 @@ class DETRVAE(nn.Module):
         gripper = gripper.squeeze(0).detach().cpu().numpy()
         if a_hat.shape[-1] == 6:
             if inference_type == "real_delta_target":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "target_real_delta")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "real_delta_source":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_real_delta")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "direct_vel":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "direct_vel")
                 base = exp_map(qpos[:, :-1].squeeze(0).detach().cpu().numpy(), np.array([0, 0, 0, 0, 1, 0, 0]))
                 v = a_hat.squeeze(0).detach().cpu().numpy() * v_scale
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "position":
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_glb_pos_ori")
                 v = a_hat.squeeze(0).detach().cpu().numpy()
                 out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
 

@@ -96,8 +96,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         #                 traj_name, output_png_path)
         # scatter_pca_3d(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
         #                traj_name, output_png_path)
-        scatter_tsne_selected(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
-                              traj_name, [1, 2, 3, 17, 18], output_png_path+'_train', )
+        # scatter_tsne_selected(outs, ['ultra_sonic', 'a
+        # 7, 18], output_png_path+'_train', )
         scatter_tsne_selected(outs, ['ultra_sonic', 'acceleration', 'force', 'current'],
                               traj_name, [14, 15, 16, 30, 31], output_png_path+'_val', )
 
@@ -112,8 +112,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../results/short_term_drilling_progress_prediction/bautiro_drilling'
-                                '/short_drilling_progress_bind_vanilla/stepsize_bs_epo15_12-12-16:00:48')
+                        default='../results/ss_nce/vision_audio_tactile/from cluster/short_term_drilling_progress_prediction/bautiro_drilling/short_drilling_progress_bind_vanilla/stepsize_bs_epo15_12-12-16:00:48')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
 

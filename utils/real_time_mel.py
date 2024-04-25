@@ -3,7 +3,7 @@ import numpy as np
 from scipy import signal
 import matplotlib.pyplot as plt
 import cv2
-import librosa
+# import librosa
 from threading import Thread
 import time
 import wave
