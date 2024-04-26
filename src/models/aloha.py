@@ -29,6 +29,7 @@ import time
 
 from utils.quaternion import q_exp_map, q_log_map, recover_pose_from_quat_real_delta, exp_map_seq, log_map_seq, exp_map
 
+
 class Transformer(nn.Module):
 
     def __init__(self, encoder,
@@ -71,10 +72,10 @@ class Transformer(nn.Module):
         query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)  # input for the transformer-decoder !!
         # mask = mask.flatten(1)
 
-        additional_pos_embed = additional_pos_embed.unsqueeze(1).repeat(1, bs, 1)  # seq, bs, dim
+        additional_pos_embed = additional_pos_embed.unsqueeze(1).repeat(1, bs, 1)[:1]  # seq, bs, dim
         # seq+2, bs, dim(positional embedding for input(multi_mod_input) for trm-encoder!!)
 
-        addition_input = torch.stack([latent_input, proprio_input], dim=0)
+        addition_input = torch.stack([latent_input], dim=0)
         addition_input = addition_input + additional_pos_embed
 
         tgt = torch.zeros_like(query_embed)
@@ -434,18 +435,18 @@ class DETRVAE(nn.Module):
         # fold camera dimension into width dimension
         multi_mod_input["vision"] = multi_mod_input["vision"]["v_fix"]
         output = self.transformer(
-                                multi_mod_input=multi_mod_input,
-                                mask=mask,
+            multi_mod_input=multi_mod_input,
+            mask=mask,
 
-                                query_embed=self.query_embed.weight,
-                                latent_input=latent_input,
-                                proprio_input=proprio_input,
-                                additional_pos_embed=self.additional_pos_embed.weight,
+            query_embed=self.query_embed.weight,
+            latent_input=latent_input,
+            proprio_input=proprio_input,
+            additional_pos_embed=self.additional_pos_embed.weight,
 
-                                mask_type=mask_type,
-                                task=task,
-                                mode=mode,
-                            )
+            mask_type=mask_type,
+            task=task,
+            mode=mode,
+        )
         hs = output["action_decoder_out"][0]
         a_hat = self.action_head(hs)  # bs, seq_len, action_dim
         is_pad_hat = self.is_pad_head(hs)
@@ -480,7 +481,6 @@ class DETRVAE(nn.Module):
         qpos = torch.cat([qpos, qpos_gripper], dim=-1)
         gripper = normalizer.denormalize(gripper[:, :num_queries, :], "gripper")
 
-
         gripper = gripper.squeeze(0).detach().cpu().numpy()
         if a_hat.shape[-1] == 6:
             if inference_type == "real_delta_target":
@@ -502,7 +502,7 @@ class DETRVAE(nn.Module):
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "position":
-                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_glb_pos_ori")
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "target_glb_pos_ori")
                 v = a_hat.squeeze(0).detach().cpu().numpy()
                 out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
 
@@ -537,7 +537,8 @@ class DETRVAE(nn.Module):
         weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
         raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
         raw_position = raw_action.squeeze(0).cpu().numpy()
-        return out_chunk, np.concatenate([raw_position, raw_orientation]), all_time_position, all_time_orientation, og_a_hat
+        return out_chunk, np.concatenate(
+            [raw_position, raw_orientation]), all_time_position, all_time_orientation, og_a_hat
 
 
 def build_encoder(args):
@@ -561,8 +562,7 @@ def build_detrvae(style_encoder: DictConfig,
                   action_decoder: DictConfig,
                   obs_encoder: DictConfig,
                   action_dim: int,
-                  pose_dim: int,):
-
+                  pose_dim: int, ):
     # From state
     # backbone = None # from state for now, no need for conv nets
     # From image

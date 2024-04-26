@@ -17,7 +17,7 @@ RECORD_SECONDS = 4
 FMAX = 8000
 MEL_HOP = 256
 MEL_BINS = 64
-DEVICE = [7]
+DEVICE = [6]
 # if no connected micro: 15/16 if conected micro: 14/16/17
 audio = pyaudio.PyAudio()
 CHUNK_TIME = CHUNK / (RATE * 1.0)

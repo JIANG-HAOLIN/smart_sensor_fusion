@@ -225,7 +225,7 @@ class DiffusionPolicyFramework(pl.LightningModule):
             if self.ema is not None:
                 mdl = self.ema_mdl
 
-            result = mdl.predict_action(gt_action, multimod_inputs)
+            result = mdl.predict_action(multimod_inputs)
             pred_action = result['action_pred']
             mse = torch.nn.functional.mse_loss(pred_action, gt_action)
             self.log("train_action_mse_error", mse)

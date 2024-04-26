@@ -391,13 +391,13 @@ class DummyDataset(Dataset):
         frame_idx[frame_idx < 0] = 0
 
         lb_end = idx + self.len_lb
-        pose_lb_idx = np.arange(start, lb_end + 1)
+        pose_lb_idx = np.concatenate([frame_idx, np.arange(idx + 1, lb_end + 1)])
         pose_lb_idx[pose_lb_idx >= self.num_frames] = -1
 
         pose_lb_idx[pose_lb_idx < 0] = 0
         pose_idx = copy.deepcopy(pose_lb_idx)
 
-        delta_lb_idx = np.arange(start - 1, lb_end)
+        delta_lb_idx = np.concatenate([frame_idx - 1, np.arange(idx, lb_end)])
         delta_lb_idx[delta_lb_idx >= self.num_frames] = -1
 
         delta_lb_idx[delta_lb_idx < 0] = 0

@@ -28,33 +28,6 @@ from src.datasets.dummy_robot_arm import get_loaders, Normalizer
 
 GRIPPER_OPEN_STATE = 0.02
 
-
-POSE_OFFSET = np.array([0.0, 0.0, -0.05, 1.0, 0.0, 0.0, 0.0])  # wxyz
-
-
-def apply_offset(pose, pose_offset):
-    # Computes T_pose * T_pose_offset => pose_new
-    # Assuming quaternions are in wxyz format
-    t = pose[:3]
-    R = q_to_rotation_matrix(pose[3:])
-
-    to = pose_offset[:3]
-    Ro = q_to_rotation_matrix(pose_offset[3:])
-
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = t
-
-    To = np.eye(4)
-    To[:3, :3] = Ro
-    To[:3, 3] = to
-
-    T_new = np.matmul(T, To)
-    pose_new = np.zeros((7,))
-    pose_new[:3] = T_new[:3, 3]
-    pose_new[3:] = q_from_rot_mat(T_new[:3, :3])
-    return pose_new
-
 def limit_norm(arr, min, max):
     gap = max - min
     arr = arr - min
@@ -73,7 +46,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
     cfgs = HydraConfig.get()
     cfg_path = cfgs.runtime['config_sources'][1]['path']
-
+    normalizer = Normalizer.from_json(os.path.join(cfg_path
+                                                   , "normalizer_config.json"))
     model = load_checkpoints(cfg, args)
 
     GENERATE_TRAJECTORY = False  # we send 1-step commands instead of a full trajectory
@@ -106,8 +80,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
     cv2.imshow("press q to exit", np.zeros((1, 1)))
 
-    normalizer = Normalizer.from_json(os.path.join(cfg_path
-                                                   , "normalizer_config.json"))
+
 
     max_timesteps = 1000
 
@@ -161,7 +134,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         image_list.append(im_f)
         if len(image_list) < 14:
             continue
-        input_image_list = torch.cat(image_list[-13::3], dim=1)
+        input_image_list = torch.cat(image_list[-9::2], dim=1)
         multimod_inputs = {"vision": {"v_fix": input_image_list}, }
         # multimod_inputs = {"vision": {"v_fix": im_f}}
 
@@ -208,8 +181,6 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
             gripper_command = buffer[t % query_frequency][0]
 
-        if inference_type == "position":
-            pose_new = apply_offset(pose_new, POSE_OFFSET)
         rpc.goto_cartesian_pose_nonblocking(pose_new[:3], pose_new[3:], GENERATE_TRAJECTORY)
         loop_time = time.time() - start
         if loop_time < send_time:
@@ -236,6 +207,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
             if gripper_command > GRIPPER_OPEN_STATE:
                 rpc.open_gripper()
 
+        print("iter time:", time.time() - time_start)
         key = cv2.waitKey(1)
         if key == ord("q"):
             cv2.destroyAllWindows()
@@ -254,7 +226,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-07:40:56')
+                        default='../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=240resized_width_v=320_04-26-10:32:06')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

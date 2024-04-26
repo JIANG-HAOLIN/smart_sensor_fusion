@@ -18,40 +18,6 @@ import time
 from utils.visualizations import plot_tensors
 
 
-POSE_OFFSET = np.array([0.0, 0.0, -0.05, 1.0, 0.0, 0.0, 0.0])  # wxyz
-
-
-def apply_offset(pose, pose_offset):
-    # Computes T_pose * T_pose_offset => pose_new
-    # Assuming quaternions are in wxyz format
-    t = pose[:3]
-    R = q_to_rotation_matrix(pose[3:])
-
-    to = pose_offset[:3]
-    Ro = q_to_rotation_matrix(pose_offset[3:])
-
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = t
-
-    To = np.eye(4)
-    To[:3, :3] = Ro
-    To[:3, 3] = to
-
-    T_new = np.matmul(T, To)
-    pose_new = np.zeros((7,))
-    pose_new[:3] = T_new[:3, 3]
-    pose_new[3:] = q_from_rot_mat(T_new[:3, :3])
-    return pose_new
-
-
-def set_random_seed(seed):
-    import random
-    import numpy as np
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
 
 def inference(cfg: DictConfig, args: argparse.Namespace):
     # set_random_seed(42)
@@ -68,7 +34,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         print("Found pretrained model, loading...")
         model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to(args.device)
         checkpoint_state_dict = torch.load(checkpoints_path)['state_dict']
-        clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
+        clone_state_dict = {key[8:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys() if "ema_mdl.mdl" in key}  # name key changed from mdl to ema_mdl
+        clone_state_dict["_dummy_variable"] = torch.Tensor(0)
         model.load_state_dict(clone_state_dict)
         model.eval()
         pm = []
@@ -91,7 +58,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
 
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_inference_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -121,7 +88,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         for key, value in inp_data.items():
                             inp_data[key] = value.to(args.device)
                         multimod_inputs = {
-                            "vision": inp_data,
+                            "vision": batch["observation"]["v_fix"],
                         }
 
                         inference_type = cfg.pl_modules.pl_module.action
@@ -145,82 +112,30 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
 
-                        all_action, raw_action, all_time_position, all_time_orientation, og_a_hat = model.rollout(
-                            qpos,
-                            multimod_inputs,
-                            env_state=None,
-                            actions=None,
-                            is_pad=None,
-                            all_time_position=all_time_position,
-                            all_time_orientation=all_time_orientation,
-                            t=t,
-                            args=args,
-                            v_scale=1,
-                            inference_type=inference_type,
-                            num_queries=query_frequency,
-                            normalizer=normalizer,
-                            action_type=action_type,
-                            )
-                        # all_action = torch.from_numpy(all_action)
-                        # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
-                        # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
-                        # print(l1)
-                        #
+                        result = model.predict_action(multimod_inputs)
+                        pred_action = result['action_pred'].detach().cpu().numpy()
+                        actions = actions.detach().cpu().numpy()
 
-                        og_a_hat_list.append(og_a_hat[0, :query_frequency, :])
+                        og_a_hat_list.append(pred_action[0, :query_frequency, :])
                         real_a_list.append(actions[0, :query_frequency, :])
 
-                        gripper = all_action[:, :1]
-                        all_action = all_action[:, 1:]
-                        if inference_type == "position":
-                            for l in range(all_action.shape[0]):
-                                all_action[l] = apply_offset(all_action[l], POSE_OFFSET)
+                        gripper = pred_action[0, :, -1:]
+                        pred_action = pred_action[0, :, :-1]
 
                         pose = normalizer.denormalize(pose[0, :query_frequency, :], "target_glb_pos_ori")
                         pose_gripper = normalizer.denormalize(pose_gripper[0, :query_frequency, :], "gripper")
-                        pm.append(torch.cat([pose, pose_gripper], dim=-1))
-                        all_action = log_map_seq(all_action, np.array([0, 0, 0, 0, 1, 0, 0]))
 
-
-                        pmr.append(torch.from_numpy(np.concatenate([all_action[:query_frequency, :], gripper[:query_frequency, :]], axis=-1)))
 
                         inference_time.append(time.time() - start_time)
                 print(
                     f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
                     f"example inference time:{inference_time[:10]}")
 
-        # output_png_path = os.path.join(checkpoints_folder_path, ckpt_path + '_infer')
-        # scatter_tsne([i[:, :3] for i in trials_outs], ["vision", "audio", "tactile", ],
-        #              trials_names, output_png_path+"_modalities")
-        # scatter_tsne([i[:, 3:] for i in trials_outs], ["fused_inputs", "cross_time_output"],
-        #              trials_names, output_png_path+"_fused_and_ct")
-        # scatter_tsne([i[:, 3:4] for i in trials_outs], ["fused_inputs", ],
-        #              trials_names, output_png_path+"_fused_inputs")
-        # scatter_tsne([i[:, -1:] for i in trials_outs], ["cross_time_output", ],
-        #              trials_names, output_png_path+"_ct_output")
 
-        # print(torch.cat(loss_list).mean())
-        pm = torch.cat(pm, dim=0)
-
-        plot_tensors([pm, torch.cat(pmr, dim=0)], ["real", "pred"])
-
-        og_a_hat = torch.cat(og_a_hat_list, dim=0)
-        real_a = torch.cat(real_a_list, dim=0)
+        og_a_hat = np.concatenate(og_a_hat_list, axis=0)
+        real_a = np.concatenate(real_a_list, axis=0)
         plot_tensors([og_a_hat, real_a], ["pred", "real"])
 
-
-
-        np.save("example_traj.npy", pm)
-
-        x = pm[:, 0]
-        y = pm[:, 1]
-        z = pm[:, 2]
-
-        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-        markerline, stemlines, baseline = ax.stem(
-            x, y, z, linefmt='none', markerfmt='.', orientation='z', )
-        # markerline.set_markerfacecolor('none')
-        ax.set_aspect('equal')
 
         plt.show()
 
@@ -235,7 +150,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_resnetaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=120resized_width_v=160_04-26-00:03:32")
+                        default="../checkpoints/cupboard/name=diffusion_policyname=DiffusionPolicyaction=positionname=coswarmuplr=4e-05weight_decay=1e-05source=True_04-26-05:18:35")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

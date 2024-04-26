@@ -8,24 +8,60 @@ from hydra.core.global_hydra import GlobalHydra
 from hydra.core.hydra_config import HydraConfig
 from hydra import compose, initialize
 from omegaconf import DictConfig, OmegaConf
-from torch.utils.data import DataLoader
 import copy
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scatter_tnse_3d, scatter_tsne_selected
-from src.datasets.dummy_robot_arm import get_debug_loaders
-from utils.quaternion import q_exp_map, q_log_map
+from src.datasets.dummy_robot_arm import get_loaders, Normalizer
+from utils.quaternion import q_exp_map, q_log_map, exp_map_seq, log_map_seq, q_to_rotation_matrix, q_from_rot_mat
 import time
+from utils.visualizations import plot_tensors
 
+
+POSE_OFFSET = np.array([0.0, 0.0, -0.05, 1.0, 0.0, 0.0, 0.0])  # wxyz
+
+
+def apply_offset(pose, pose_offset):
+    # Computes T_pose * T_pose_offset => pose_new
+    # Assuming quaternions are in wxyz format
+    t = pose[:3]
+    R = q_to_rotation_matrix(pose[3:])
+
+    to = pose_offset[:3]
+    Ro = q_to_rotation_matrix(pose_offset[3:])
+
+    T = np.eye(4)
+    T[:3, :3] = R
+    T[:3, 3] = t
+
+    To = np.eye(4)
+    To[:3, :3] = Ro
+    To[:3, 3] = to
+
+    T_new = np.matmul(T, To)
+    pose_new = np.zeros((7,))
+    pose_new[:3] = T_new[:3, 3]
+    pose_new[3:] = q_from_rot_mat(T_new[:3, :3])
+    return pose_new
+
+
+def set_random_seed(seed):
+    import random
+    import numpy as np
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 def inference(cfg: DictConfig, args: argparse.Namespace):
+    # set_random_seed(42)
     torch.set_float32_matmul_precision('medium')
     cfgs = HydraConfig.get()
     cfg_path = cfgs.runtime['config_sources'][1]['path']
     checkpoints_folder_path = os.path.abspath(os.path.join(cfg_path, 'checkpoints'))
     ckpt_path = args.ckpt_path
     for p in os.listdir(checkpoints_folder_path):
-        if 'best' in p and p.split('.')[-1] == 'ckpt':
+        if "best" in p and p.split('.')[-1] == 'ckpt':
             ckpt_path = p
     checkpoints_path = os.path.join(checkpoints_folder_path, ckpt_path)
     if os.path.isfile(checkpoints_path):
@@ -40,13 +76,20 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         loss_list = []
         trials_outs = []
         trials_names = []
-        train_loaders, val_loaders, _ = get_debug_loaders(**cfg.datasets.dataloader)
+        pred_out = []
+        og_a_hat_list = []
+        real_a_list = []
+
+        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True)
         l = len(train_loaders)
 
+        normalizer = Normalizer.from_json(os.path.join(cfg_path, "normalizer_config.json"))
+
         max_timesteps = 1000
-        num_queries = 30
-        all_time_position = torch.zeros([max_timesteps, max_timesteps + num_queries, 3]).cuda()
-        all_time_orientation = torch.zeros([max_timesteps, max_timesteps + num_queries, 4]).cuda()
+        query_frequency = 10
+        all_time_position = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
+        all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
+
         with torch.no_grad():
             for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
@@ -54,92 +97,97 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 trial_outs = []
                 inference_time = []
                 for t, batch in enumerate(loader):
-                    total_loss = 0
-                    metrics = {}
+                    if t % query_frequency == 0:
+                        print(t)
 
-                    inp_data = batch["observation"]
-                    delta = batch["target_delta_seq"][:, 1:]
-                    pose = batch["target_pose_seq"]
-                    vf_inp, vg_inp, _, _ = inp_data
-                    multimod_inputs = {
-                        "vision": torch.cat([vg_inp, vf_inp], dim=-2).to(args.device),
-                    }
-                    qpos = pose[:, 0, :].to(args.device)
+                        start_time = time.time()
+                        total_loss = 0
+                        metrics = {}
 
-                    # Perform prediction and calculate loss and accuracy
-                    in_t = time.time()
-                    output = model(qpos,
-                                        multimod_inputs,
-                                        actions=None,
-                                        is_pad=None,
-                                        mask=None,
-                                        mask_type=None,
-                                        task="repr",
-                                        mode="val")
-                    a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
-                    # loss = torch.nn.functional.mse_loss(delta.to(args.device), output["predict"]["xyzrpy"])
-                    # loss_list.append(loss.reshape(1,))
-                    out_delta = a_hat
-                    base = qpos.squeeze(0).detach().cpu().numpy()
-                    base_position = base[:3]
-                    base_orientation = base[3:]
-                    v = out_delta.squeeze(0).permute(1, 0).detach().cpu().numpy()
-                    v_position = v[:3]
-                    v_orientation = v[3:]
+                        real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
+                        real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
+                        direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
+                        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
+
+                        pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
+
+                        qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
+
+                        qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
+
+                        qpos = torch.cat([qpos, qpos_gripper], dim=-1).to(args.device)
+
+                        inp_data = batch["observation"]
+                        for key, value in inp_data.items():
+                            inp_data[key] = value.to(args.device)
+                        multimod_inputs = {
+                            "vision": inp_data,
+                        }
+
+                        inference_type = cfg.pl_modules.pl_module.action
+                        if inference_type == "real_delta_target":
+                            actions = real_delta
+                            action_type = "target_real_delta"
+
+                        elif inference_type == "position":
+                            actions = pose[:, :, :]
+                            action_type = "target_glb_pos_ori"
+
+                        elif inference_type == "real_delta_source":
+                            actions = real_delta_source[:, :, :]
+                            action_type = "source_real_delta"
+
+                        elif inference_type == "direct_vel":
+                            actions = direct_vel
+                            action_type = "direct_vel"
+
+                        actions = torch.cat([actions, pose_gripper], dim=-1).to(args.device)
+
+                        is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
+
+                        all_action, raw_action, all_time_position, all_time_orientation, og_a_hat = model.rollout(
+                            qpos,
+                            multimod_inputs,
+                            env_state=None,
+                            actions=None,
+                            is_pad=None,
+                            all_time_position=all_time_position,
+                            all_time_orientation=all_time_orientation,
+                            t=t,
+                            args=args,
+                            v_scale=1,
+                            inference_type=inference_type,
+                            num_queries=query_frequency,
+                            normalizer=normalizer,
+                            action_type=action_type,
+                            )
+                        # all_action = torch.from_numpy(all_action)
+                        # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
+                        # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
+                        # print(l1)
+                        #
+
+                        og_a_hat_list.append(og_a_hat[0, :query_frequency, :])
+                        real_a_list.append(actions[0, :query_frequency, :])
+
+                        gripper = all_action[:, :1]
+                        all_action = all_action[:, 1:]
+                        if inference_type == "position":
+                            for l in range(all_action.shape[0]):
+                                all_action[l] = apply_offset(all_action[l], POSE_OFFSET)
+
+                        pose = normalizer.denormalize(pose[0, :query_frequency, :], "target_glb_pos_ori")
+                        pose_gripper = normalizer.denormalize(pose_gripper[0, :query_frequency, :], "gripper")
+                        pm.append(torch.cat([pose, pose_gripper], dim=-1))
+                        all_action = log_map_seq(all_action, np.array([0, 0, 0, 0, 1, 0, 0]))
 
 
+                        pmr.append(torch.from_numpy(np.concatenate([all_action[:query_frequency, :], gripper[:query_frequency, :]], axis=-1)))
 
-
-                    out_delta = torch.tensor(q_exp_map(v_orientation, base_orientation)).permute(1, 0)
-                    all_time_orientation[[t], t:t + num_queries] = out_delta.float().to(args.device)
-                    orientation_for_curr_step = all_time_orientation[:, t]
-                    actions_populated = torch.all(orientation_for_curr_step != 0, axis=1)
-                    orientation_for_curr_step = orientation_for_curr_step[actions_populated]
-
-                    k = 0.01
-                    exp_weights = np.exp(-k * np.arange(len(orientation_for_curr_step)))
-                    exp_weights = exp_weights / exp_weights.sum()
-
-                    weights = np.expand_dims(exp_weights, axis=0)
-                    raw_orientation = orientation_for_curr_step[0].detach().cpu().numpy()
-                    orientation = orientation_for_curr_step.permute(1, 0).detach().cpu().numpy()
-                    for i in range(5):
-                        tangent_space_vector = q_log_map(orientation, raw_orientation)
-                        tangent_space_vector = np.sum(tangent_space_vector * weights, axis=1, keepdims=True)
-                        if sum(np.abs(tangent_space_vector)) < 1e-6:
-                            break
-                        raw_orientation = q_exp_map(tangent_space_vector, raw_orientation)[:, 0]
-
-                    out_position = np.expand_dims(base_position, axis=-1) + v_position
-                    out_position = torch.from_numpy(out_position).permute(1, 0)
-                    all_time_position[[t], t:t + num_queries] = out_position.float().to(args.device)
-                    position_for_curr_step = all_time_position[:, t]
-                    actions_populated = torch.all(position_for_curr_step != 0, axis=1)
-                    position_for_curr_step = position_for_curr_step[actions_populated]
-                    weights = torch.from_numpy(exp_weights).cuda().unsqueeze(dim=1)
-                    raw_action = (position_for_curr_step * weights).sum(dim=0, keepdim=True)
-                    raw_position = raw_action.squeeze(0).cpu().numpy()
-
-                    raw_output = np.concatenate([raw_position, raw_orientation], axis=0)
-
-                    compute_time = round(time.time() - in_t, 4)
-
-                    # out = torch.cat([
-                    #     output["obs_encoder_out"]["repr"]["encoded_inputs"]["vision"],
-                    #     output["obs_encoder_out"]["repr"]['fused_encoded_inputs'],
-                    #     output["obs_encoder_out"]["repr"]['cross_time_repr'][:, 1:, :],
-                    # ], dim=0).permute(1, 0, 2)
-                    # out = out.detach().cpu().numpy()
-                    # trial_outs.append(out)
-                    inference_time.append(compute_time)
-
-                    pm.append(delta)
-                    pmr.append(out_delta)
-
-                # trials_outs.append(np.concatenate(trial_outs, axis=0))
-                print(f"trial {name}: total infernce time {compute_time},\n"
-                      f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
-                      f"example inference time:{inference_time[:10]}")
+                        inference_time.append(time.time() - start_time)
+                print(
+                    f"average inference time for each step: {sum(inference_time) / len(inference_time)}"
+                    f"example inference time:{inference_time[:10]}")
 
         # output_png_path = os.path.join(checkpoints_folder_path, ckpt_path + '_infer')
         # scatter_tsne([i[:, :3] for i in trials_outs], ["vision", "audio", "tactile", ],
@@ -151,35 +199,30 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         # scatter_tsne([i[:, -1:] for i in trials_outs], ["cross_time_output", ],
         #              trials_names, output_png_path+"_ct_output")
 
-
         # print(torch.cat(loss_list).mean())
-        pm = torch.cat(pm, dim=0).detach().cpu().numpy()
-        pmr = torch.cat(pmr, dim=0).detach().cpu().numpy()
-        t = np.arange(len(pm))
-        tr = t.copy()
-        plt.figure()
-        plt.subplot(611)
-        plt.plot(t, pm[:, :1], '.-', )
-        plt.plot(tr, pmr[:, :1], '.-')
-        # plt.plot(tfwd, pmfwd[:, :3], 'd-')
-        plt.subplot(612)
-        plt.plot(t, pm[:, 1:2], '.-')
-        plt.plot(tr, pmr[:, 1:2], '.-')
-        # plt.plot(tfwd, pmfwd[:, 3:], 'd-')
-        plt.subplot(613)
-        plt.plot(t, pm[:, 2:3], '.-')
-        plt.plot(tr, pmr[:, 2:3], '.-')
-        plt.subplot(614)
-        plt.plot(t, pm[:, 3:4], '.-')
-        plt.plot(tr, pmr[:, 3:4], '.-')
-        plt.subplot(615)
-        plt.plot(t, pm[:, 4:5], '.-')
-        plt.plot(tr, pmr[:, 4:5], '.-')
-        plt.subplot(616)
-        plt.plot(t, pm[:, 5:6], '.-')
-        plt.plot(tr, pmr[:, 5:6], '.-')
-        plt.show()
+        pm = torch.cat(pm, dim=0)
 
+        plot_tensors([pm, torch.cat(pmr, dim=0)], ["real", "pred"])
+
+        og_a_hat = torch.cat(og_a_hat_list, dim=0)
+        real_a = torch.cat(real_a_list, dim=0)
+        plot_tensors([og_a_hat, real_a], ["pred", "real"])
+
+
+
+        np.save("example_traj.npy", pm)
+
+        x = pm[:, 0]
+        y = pm[:, 1]
+        z = pm[:, 2]
+
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+        markerline, stemlines, baseline = ax.stem(
+            x, y, z, linefmt='none', markerfmt='.', orientation='z', )
+        # markerline.set_markerfacecolor('none')
+        ax.set_aspect('equal')
+
+        plt.show()
 
     else:
         print(f'pretrained Model at {checkpoints_path} not found')
@@ -192,7 +235,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/name=alohaname=vae_03-12-09:59:12')
+                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=240resized_width_v=320_04-26-10:32:06")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

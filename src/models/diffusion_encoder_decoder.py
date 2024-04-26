@@ -519,10 +519,10 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
 
         return trajectory
 
-    def predict_action(self, actions,
+    def predict_action(self,
                        multimod_inputs,
                        **kwargs) -> Dict[str, torch.Tensor]:
-        batch_size = actions.shape[0]
+        batch_size = multimod_inputs["vision"].shape[0]
         t_p = self.t_p
         Da = self.action_dim
 

@@ -775,7 +775,7 @@ class DETRVAE(nn.Module):
                 out_chunk = recover_pose_from_quat_real_delta(v, base)
 
             elif inference_type == "position":
-                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "source_glb_pos_ori")
+                a_hat = normalizer.denormalize(a_hat[:, :num_queries, :], "target_glb_pos_ori")
                 v = a_hat.squeeze(0).detach().cpu().numpy()
                 out_chunk = exp_map_seq(v, np.array([0, 0, 0, 0, 1, 0, 0]))
 

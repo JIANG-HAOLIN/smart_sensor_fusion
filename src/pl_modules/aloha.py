@@ -91,6 +91,7 @@ class AlohaPolicy(pl.LightningModule):
 
         multimod_inputs = {
             "vision": batch["observation"],
+            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(), batch["traj"]["gripper"]["obs"][..., :1].float()], dim= -1)
         }
 
         if self.action == "real_delta_target":

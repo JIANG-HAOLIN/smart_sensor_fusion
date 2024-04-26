@@ -394,7 +394,8 @@ def scatter_pca_3d(data: list, mods: list, names: list, out_path: Optional[str] 
 
 def plot_tensors(l, name):
     for idx, i in enumerate(l):
-        l[idx] = i.detach().cpu().numpy()
+        if isinstance(i, torch.Tensor):
+            l[idx] = i.detach().cpu().numpy()
     for arr, n in zip(l, name):
         print(f"{name} max = {np.max(arr, axis=0)}")
         print(f"{name} min = {np.min(arr, axis=0)}")
