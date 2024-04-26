@@ -6,7 +6,6 @@ dataloader:
   batch_size: 128
   data_folder: ''
   drop_last: True
-  debug: False
   args:
     ablation: 'vf'
     num_stack: 10

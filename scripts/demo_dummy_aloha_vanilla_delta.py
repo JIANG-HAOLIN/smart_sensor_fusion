@@ -91,7 +91,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
 
         with torch.no_grad():
-            for idx1, loader in enumerate([train_inference_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -124,7 +124,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             "vision": inp_data,
                         }
 
-                        inference_type = "real_delta_target"
+                        inference_type = cfg.pl_modules.pl_module.action
                         if inference_type == "real_delta_target":
                             actions = real_delta
                             action_type = "target_real_delta"
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_resnetaction=real_delta_targetname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10source=True_04-17-22:13:33")
+                        default="../checkpoints/cupboard/name=alohaname=vae_resnetaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=120resized_width_v=160_04-26-00:03:32")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

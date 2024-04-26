@@ -159,13 +159,13 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                    im_f[0][-1].permute(1, 2, 0).detach().cpu().numpy())  # sanity check
 
         image_list.append(im_f)
-        if len(image_list) < 30:
+        if len(image_list) < 14:
             continue
-        input_image_list = torch.cat(image_list[-10:], dim=1)
+        input_image_list = torch.cat(image_list[-13::3], dim=1)
         multimod_inputs = {"vision": {"v_fix": input_image_list}, }
         # multimod_inputs = {"vision": {"v_fix": im_f}}
 
-        inference_type = "real_delta_target"
+        inference_type = cfg.pl_modules.pl_module.action
         if inference_type == "real_delta_target":
             action_type = "target_real_delta"
 
@@ -188,7 +188,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
             all_time_orientation=all_time_orientation,
             t=t,
             args=args,
-            v_scale=1.7,
+            v_scale=3,
             inference_type=inference_type,
             num_queries=query_frequency,
             normalizer=normalizer,
@@ -254,7 +254,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/cupboard/name=alohaname=vae_resnetaction=real_delta_targetname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10source=True_04-17-22:13:33')
+                        default='../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-07:40:56')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

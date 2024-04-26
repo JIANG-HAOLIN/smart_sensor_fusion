@@ -2,6 +2,8 @@
 import copy
 import json
 import os
+
+import matplotlib.pyplot as plt
 from PIL import Image
 import numpy as np
 import torch
@@ -128,10 +130,16 @@ class VisionAudioTactile(Dataset):
             audio_gripper = None
         if "ah" in modes:
             audio_holebase_left = load("audio_holebase_left.wav")
+            # plt.subplot(211)
+            # plt.plot(np.arange(audio_holebase_left.shape[0]), audio_holebase_left)
+            # plt.show()
+            print(np.max(audio_holebase_left), np.min(audio_holebase_left), np.mean(audio_holebase_left), np.std(audio_holebase_left))
             audio_holebase_right = load("audio_holebase_right.wav")
             audio_holebase = [
                 x for x in [audio_holebase_left, audio_holebase_right] if x is not None
             ]
+            # plt.subplot(212)
+            # plt.plot(np.arange(audio_holebase_right.shape[0]), audio_holebase_right)
             audio_holebase = torch.as_tensor(np.stack(audio_holebase, 0))
         else:
             audio_holebase = None

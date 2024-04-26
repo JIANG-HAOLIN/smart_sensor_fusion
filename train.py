@@ -20,6 +20,7 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
 @hydra.main(config_path='configs', config_name='config_progress_prediction', version_base='1.2')
 def train(cfg: DictConfig) -> None:
     set_random_seed(42)
@@ -66,10 +67,10 @@ def train(cfg: DictConfig) -> None:
 
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
 
-
     with open_dict(cfg):
         cfg.optimizers.scheduler.num_training_steps = len(train_loader) * cfg.trainers.launch_trainer.max_epochs
-        cfg.optimizers.scheduler.num_warmup_steps = int(len(train_loader) * cfg.trainers.launch_trainer.max_epochs * 0.1)
+        cfg.optimizers.scheduler.num_warmup_steps = int(
+            len(train_loader) * cfg.trainers.launch_trainer.max_epochs * 0.1)
     lr_scheduler = hydra.utils.instantiate(cfg.optimizers.scheduler, optimizer=optimizer)
     pl_module = hydra.utils.instantiate(cfg.pl_modules.pl_module, model,
                                         optimizer, lr_scheduler,

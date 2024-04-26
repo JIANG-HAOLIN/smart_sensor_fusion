@@ -10,8 +10,7 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 import pandas as pd
 import torchaudio
-import soundfile as sf
-
+import wave
 import os
 import torch
 import torchvision.transforms as T
@@ -22,7 +21,7 @@ from utils.pose_trajectory_processor_4_24 import PoseTrajectoryProcessor, RobotT
 from utils.quaternion import q_log_map, q_exp_map, exp_map_seq, log_map_seq, recover_pose_from_quat_real_delta, log_map, \
     exp_map
 from omegaconf import OmegaConf, open_dict, ListConfig
-
+import pyaudio
 from utils.quaternion import smooth_traj
 
 
@@ -42,8 +41,8 @@ class DummyDataset(Dataset):
         self.sampling_time = args.sampling_time / 1000
         self.smooth_factor = args.smooth_factor
 
-        self.fix_cam_path = os.path.join(traj_path, "camera", "220322060186", "rgb")
-        self.gripper_cam_path = os.path.join(traj_path, "camera", "838212074210", "rgb")
+        self.fix_cam_path = os.path.join(traj_path, "camera", "220322060186", "resample_rgb")
+        self.gripper_cam_path = os.path.join(traj_path, "camera", "838212074210", "resample_rgb")
         self.pose_traj_processor = PoseTrajectoryProcessor()
         self.sr = 44100
         self.streams = [
@@ -60,6 +59,8 @@ class DummyDataset(Dataset):
         )
 
         self.audio_len = self.num_stack * self.frameskip * self.resolution
+
+
 
         # augmentation parameters
         self.EPS = 1e-8
@@ -161,12 +162,7 @@ class DummyDataset(Dataset):
         assert os.path.exists(os.path.exists(resample_traj_path)), "resampled trajectory not exist!!"
         resampled_trajectory = RobotTrajectory.from_path(resample_traj_path)
 
-        # get pseudo time stamp from resampled real time stamp and original real time stamps
-        resample_time_step = np.expand_dims(np.loadtxt(os.path.join(traj_path, f"resampled_image_time_stamps.txt")), axis=1)
-        og_time_step = np.expand_dims(np.loadtxt(os.path.join(traj_path, f"image_time_stamps.txt")), axis=0)
-        og_time_step = np.tile(og_time_step, (resample_time_step.shape[0], 1))
-        diff = np.abs(og_time_step - resample_time_step)
-        resample_pseudo_time_stamps = np.argmin(diff, axis=1, keepdims=False)
+
 
         # get all resampled info
         resample_position_histroy = []
@@ -190,7 +186,6 @@ class DummyDataset(Dataset):
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
             "gripper": np.array(resampled_trajectory.grippers),
             "glb_pos_ori": global_delta,
-            "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.time_stamps,
         }
 
@@ -199,7 +194,6 @@ class DummyDataset(Dataset):
             # "gripper": np.array([i[0] for i in resampled_trajectory.pose_trajectory.grippers]),
             "gripper": np.array(resampled_trajectory.grippers),
             "glb_pos_ori": smoothed_global_delta,
-            "pseudo_time_stamps": resample_pseudo_time_stamps,
             "relative_real_time_stamps": resampled_trajectory.time_stamps,
         }
 
@@ -226,6 +220,11 @@ class DummyDataset(Dataset):
         arr = (arr - mean) / std
         return arr
 
+    def normalize_audio(self, arr):
+        statistic = copy.deepcopy(self.norm_state["resample"]["audio"])
+        limit = max(np.abs(statistic["max"]), np.abs(statistic["min"]))
+        return arr / limit
+
     def normalize(self, arr, state):
         if self.norm == "limit":
             return self.limit_norm(arr, state["min"], state["max"])
@@ -241,7 +240,14 @@ class DummyDataset(Dataset):
         def load(file):
             fullpath = os.path.join(traj_path, file)
             if os.path.exists(fullpath):
-                return sf.read(fullpath)[0]
+                a = wave.open(fullpath, "rb")
+                print(f"{traj_path} has audio with parameter:", a.getparams())
+                audio_len = a.getparams().nframes
+                audio_data = a.readframes(nframes=audio_len)
+                audio_data = np.frombuffer(audio_data, dtype=np.int16)
+                # plt.plot(np.arange(audio_len), audio_data)
+                # plt.show()
+                return audio_data
             else:
                 return None
 
@@ -254,11 +260,11 @@ class DummyDataset(Dataset):
         else:
             audio_gripper = None
         if "ah" in modes:
-            audio_holebase = load("audio.wav")
+            audio_holebase = load("resampled_audio.wav")
             audio_holebase = [
                 x for x in [audio_holebase] if x is not None
             ]
-            audio_holebase = torch.as_tensor(np.stack(audio_holebase, 0))
+            audio_holebase = torch.as_tensor(np.stack(audio_holebase, 0))  # to [1, audio_len]
         else:
             audio_holebase = None
 
@@ -288,18 +294,21 @@ class DummyDataset(Dataset):
         image = torch.as_tensor(image).float().permute(2, 0, 1) / 255
         return image
 
-    @staticmethod
-    def clip_resample(audio, audio_start, audio_end):
+
+    def clip_resample(self, audio, audio_start, audio_end):
         left_pad, right_pad = torch.Tensor([]), torch.Tensor([])
         if audio_start < 0:
+            print("small!!!")
             left_pad = torch.zeros((audio.shape[0], -audio_start))
             audio_start = 0
         if audio_end >= audio.size(-1):
+            print("large!!!")
             right_pad = torch.zeros((audio.shape[0], audio_end - audio.size(-1)))
             audio_end = audio.size(-1)
         audio_clip = torch.cat(
             [left_pad, audio[:, audio_start:audio_end], right_pad], dim=1
         )
+        audio_clip = self.normalize_audio(audio_clip)
         audio_clip = torchaudio.functional.resample(audio_clip, 44100, 16000)
         return audio_clip
 
@@ -311,7 +320,7 @@ class DummyDataset(Dataset):
         ).squeeze(0)
 
     def __len__(self):
-        return (self.num_frames - self.len_lb)
+        return (self.num_frames - self.len_lb - self.len_obs - self.frameskip)
 
     @staticmethod
     def get_relative_delta_sequence(pos_quat: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -373,7 +382,10 @@ class DummyDataset(Dataset):
 
     def __getitem__(self, idx):
         # print("idx", idx)
+        idx = idx + self.len_obs + self.frameskip
         start = idx - self.len_obs
+        if start < 0:
+            print("image small!!!!")
         # compute which frames to use
         frame_idx = np.arange(start, idx + 1, self.frameskip)
         frame_idx[frame_idx < 0] = 0
@@ -417,7 +429,7 @@ class DummyDataset(Dataset):
                     self.transform_cam(
                         self.load_image(self.gripper_cam_path, f"{timestep :06d}" + ".jpg")
                     )
-                    for timestep in self.resample_target_trajectory["pseudo_time_stamps"][frame_idx]
+                    for timestep in frame_idx
                 ],
                 dim=0,
             )
@@ -427,7 +439,7 @@ class DummyDataset(Dataset):
                     self.transform_cam(
                         self.load_image(self.fix_cam_path, f"{timestep :06d}" + ".jpg")
                     )
-                    for timestep in self.resample_target_trajectory["pseudo_time_stamps"][frame_idx]
+                    for timestep in frame_idx
                 ],
                 dim=0,
             )
@@ -461,7 +473,7 @@ class DummyDataset(Dataset):
         # load audio
         # if idx == 88:
         #     print(idx)
-        audio_end = idx * self.resolution
+        audio_end = (idx + 1) * self.resolution
         audio_start = audio_end - self.audio_len  # why self.sr // 2, and start + sr
         if self.a_g is not None:
             audio_clip_g = self.clip_resample(
@@ -523,6 +535,8 @@ class Normalizer(Dataset):
         direct_vel = []
         smooth_direct_vel = []
 
+        audio = []
+
         for traj in self.traj_folder_path:
             (
                 resample_target_trajectory,
@@ -561,6 +575,10 @@ class Normalizer(Dataset):
                 self.compute_real_delta(smooth_resample_target_trajectory["pos_quat"],
                                         smooth_resample_source_trajectory["pos_quat"])
 
+            a_g, a_h = DummyDataset.load_audio(traj, args.ablation)
+
+            audio.append(a_h[0].detach().cpu().numpy())
+
             source_glb_pos_ori.append(resample_source_trajectory["glb_pos_ori"])
             source_real_delta.append(resample_source_trajectory["real_delta"])
 
@@ -580,6 +598,7 @@ class Normalizer(Dataset):
 
         state = {}
 
+        state["audio"] = np.concatenate(audio, axis=0)
         state["target_real_delta"] = np.concatenate(target_real_delta, axis=0)
         state["target_glb_pos_ori"] = np.concatenate(target_glb_pos_ori, axis=0)
         state["source_real_delta"] = np.concatenate(source_real_delta, axis=0)
@@ -607,7 +626,8 @@ class Normalizer(Dataset):
                 return non_json.__dict__
             elif isinstance(non_json, ListConfig):
                 return list(non_json)
-
+            elif isinstance(non_json, np.int16):
+                return non_json.item()
             else:
                 return non_json
 
@@ -688,6 +708,11 @@ class Normalizer(Dataset):
             return x * statistic["std"] + statistic["mean"]
         else:
             raise TypeError("norm type unrecognized")
+
+    def denormalize_audio(self, audio):
+        statistic = copy.deepcopy(self.norm_state["resample"]["audio"])
+        limit = max(np.abs(statistic["max"]), np.abs(statistic["min"]))
+        return audio * limit
 
 
 def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, **kwargs):
@@ -778,12 +803,12 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/tmp/robot_demos/'
+    data_folder_path = '/home/jin4rng/Documents/robodemo_4_24'
     args = SimpleNamespace()
 
-    args.ablation = 'vf_vg'
-    args.num_stack = 10
-    args.frameskip = 4
+    args.ablation = 'vg_vf_ah'
+    args.num_stack = 2
+    args.frameskip = 2
     args.no_crop = True
     args.crop_percent = 0.0
     args.resized_height_v = 240
@@ -801,11 +826,32 @@ if __name__ == "__main__":
     train_loader, val_loader, _, = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
                                                drop_last=False, debug=False, save_json=None)
     norm_state = train_loader.dataset.datasets[0].norm_state
+    FORMAT = pyaudio.paInt16
 
-    normalizer = Normalizer.from_json("/tmp/robot_demos/")
+    normalizer = Normalizer.from_json("/home/jin4rng/Documents/robodemo_4_24/")
     ######## show images ###################################################################
-    print(len(val_loader))
+    # print(len(val_loader))
+    #
+    # for idx, batch in enumerate(val_loader):
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+    #     image = np.concatenate([image_f, image_g], axis=0)
+    #     cv2.imshow("asdf", image)
+    #     time.sleep(0.1)
+    #     key = cv2.waitKey(1)
+    #     if key == ord("q"):
+    #         break
 
+    ######## show images ###################################################################
+
+    ######## show images and audio #################################################################
+    print(len(val_loader))
+    audio_list = []
     for idx, batch in enumerate(val_loader):
         # if idx >= 100:
         #     break
@@ -814,14 +860,28 @@ if __name__ == "__main__":
 
         image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
         image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+        audio = obs["a_holebase"][0][-1][-1600:].numpy()
+        audio = normalizer.denormalize_audio(audio=audio)
+        # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
+        #                     output_device_index=0)
+        # for i in range(len(frames)):
+        #     stream.write(frames[i])
+        #
+        # stream.stop_stream()
+        # stream.close()
+
+        audio_list.append(audio)
+
         image = np.concatenate([image_f, image_g], axis=0)
         cv2.imshow("asdf", image)
-        time.sleep(0.2)
+        time.sleep(0.1)
         key = cv2.waitKey(1)
         if key == ord("q"):
             break
-
-    ######## show images ###################################################################
+    audio_list = np.concatenate(audio_list, axis=0)
+    plt.plot(np.arange(audio_list.shape[0]), audio_list)
+    plt.show()
+    ####### show image and audio ########################################################################
 
     #######check pose and vel######################################################################3
     # all_step_source_pose = []
