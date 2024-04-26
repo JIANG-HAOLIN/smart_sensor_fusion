@@ -77,6 +77,7 @@ class DiffusionPolicyFramework(pl.LightningModule):
 
         multimod_inputs = {
             "vision": batch["observation"]["v_fix"],
+            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(), batch["traj"]["gripper"]["obs"][..., :1].float()], dim= -1)
         }
 
         if self.action == "real_delta_target":
@@ -209,6 +210,8 @@ class DiffusionPolicyFramework(pl.LightningModule):
 
             multimod_inputs = {
                 "vision": batch["observation"]["v_fix"],
+                "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(),
+                                   batch["traj"]["gripper"]["obs"][..., :1].float()], dim=-1)
             }
 
             if self.action == "real_delta_target":
