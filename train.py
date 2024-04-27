@@ -63,7 +63,7 @@ def train(cfg: DictConfig) -> None:
     log.info(f"model trainable params:{sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     log.info(f"model non-trainable params:{sum(p.numel() for p in model.parameters() if not p.requires_grad)}")
     train_loader, val_loader, test_loader = hydra.utils.instantiate(cfg.datasets.dataloader, project_path=project_path,
-                                                                    save_json=out_dir_path, debug=True)
+                                                                    save_json=out_dir_path)
 
     optimizer = hydra.utils.instantiate(cfg.optimizers.optimizer, params=model.parameters())
 
