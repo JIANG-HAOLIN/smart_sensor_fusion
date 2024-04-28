@@ -196,7 +196,6 @@ class DiffusionPolicyFramework(pl.LightningModule):
         Returns: validation accuracy of an entire epoch
 
         """
-        val_loss = sum(self.validation_epoch_outputs) / len(self.validation_epoch_outputs)
         self.validation_epoch_outputs.clear()
         self.validation_preds.clear()
 
