@@ -317,7 +317,7 @@ class TransformerForDiffusion(nn.Module):
                                            task=task,
                                            mode=mode,
                                            additional_input=additional_input, )
-        nobs_features = obs_encoder_out["repr"]['cross_time_repr'][:, 1:, ...]
+        nobs_features = obs_encoder_out["repr"]['fused_encoded_inputs']
         # reshape back to B, To, Do
         cond = nobs_features
         # 1. time
@@ -423,7 +423,6 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
 
         self.mdl = TransformerForDiffusion(action_decoder, obs_encoder)
         self.action_dim = action_dim
-        self.n_action_steps = inference_args.n_action_steps
         self.t_p = action_decoder.t_p  # Tp prediction horizon
         self.n_obs_steps = action_decoder.n_obs_steps
 
@@ -545,7 +544,7 @@ class DiffusionTransformerHybridImagePolicy(pl.LightningModule):
         naction_pred = nsample[..., :Da]
         action_pred = naction_pred
 
-        action_reduced_horizon = action_pred[:, :self.n_action_steps]
+        action_reduced_horizon = action_pred[:, self.n_obs_steps - 1:]
 
         result = {
             'action': action_reduced_horizon,

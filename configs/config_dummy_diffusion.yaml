@@ -26,7 +26,7 @@ hydra:
       datasets.dataloader.data_folder: ${data_folder_path}
       datasets.dataloader.args.num_stack: 5
       datasets.dataloader.args.frameskip: 5
-      datasets.dataloader.args.len_lb: 16
+      datasets.dataloader.args.len_lb: 10
       datasets.dataloader.batch_size: 16
       pl_modules.pl_module.action: "position"
       optimizers.optimizer.weight_decay: 0.00001

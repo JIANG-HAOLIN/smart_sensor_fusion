@@ -2150,7 +2150,7 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
             output["ssl_losses"]["cr_m_nce_loss"] = loss
 
         fused_t_feats = self.fusion(encoded_inputs)
-
+        output["repr"]['fused_encoded_inputs'] = fused_t_feats
         if mask == "latent_mask":
             encoded_masked_inputs, masked_index = self.random_latent_masking(multimod_inputs=encoded_inputs,
                                                                              mask_tokens=self.latent_mask_token,
@@ -2272,7 +2272,7 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
         # Find positive example -> batch_size//2 away from the original example
         pos_mask = torch.eye(bs, bs, dtype=torch.bool, device=v_vat_feats.device)
         # InfoNCE loss
-        nll_sum = torch.zeros([])
+        nll_sum = []
         for name, feat in encoded_inputs.items():
             if name == "audio":
                 side_feat = self.nce_head_a_va(feat)
@@ -2283,7 +2283,8 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
                 nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
                 nll = nll.mean()
                 nll_ = nll_.mean()
-                nll_sum = nll_sum + nll + nll_
+                nll = (nll_ + nll) / 2
+                nll_sum.append(nll)
             elif name == "tactile":
                 side_feat = self.nce_head_t_vat(feat)
                 side_feat = side_feat.reshape(bs, num_frame * dim)
@@ -2293,7 +2294,8 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
                 nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
                 nll = nll.mean()
                 nll_ = nll_.mean()
-                nll_sum = nll_sum + nll + nll_
+                nll = (nll_ + nll) / 2
+                nll_sum.append(nll)
             elif name == "qpos":
                 side_feat = self.nce_head_qpos_va(feat)
                 side_feat = side_feat.reshape(bs, num_frame * dim)
@@ -2303,10 +2305,10 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
                 nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
                 nll = nll.mean()
                 nll_ = nll_.mean()
-                nll_sum = nll_sum + nll + nll_
-                
+                nll = (nll_ + nll) / 2
+                nll_sum.append(nll)
         nce_loss_dict = {
-            '_loss': nll_sum,
+            '_loss': sum(nll_sum)/ len(nll_sum),
         }
 
         return nce_loss_dict

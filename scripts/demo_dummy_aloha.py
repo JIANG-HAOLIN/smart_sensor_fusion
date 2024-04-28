@@ -18,33 +18,6 @@ import time
 from utils.visualizations import plot_tensors
 
 
-POSE_OFFSET = np.array([0.0, 0.0, -0.05, 1.0, 0.0, 0.0, 0.0])  # wxyz
-
-
-def apply_offset(pose, pose_offset):
-    # Computes T_pose * T_pose_offset => pose_new
-    # Assuming quaternions are in wxyz format
-    t = pose[:3]
-    R = q_to_rotation_matrix(pose[3:])
-
-    to = pose_offset[:3]
-    Ro = q_to_rotation_matrix(pose_offset[3:])
-
-    T = np.eye(4)
-    T[:3, :3] = R
-    T[:3, 3] = t
-
-    To = np.eye(4)
-    To[:3, :3] = Ro
-    To[:3, 3] = to
-
-    T_new = np.matmul(T, To)
-    pose_new = np.zeros((7,))
-    pose_new[:3] = T_new[:3, 3]
-    pose_new[3:] = q_from_rot_mat(T_new[:3, :3])
-    return pose_new
-
-
 def set_random_seed(seed):
     import random
     import numpy as np
@@ -91,7 +64,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
 
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_inference_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -172,9 +145,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
 
                         gripper = all_action[:, :1]
                         all_action = all_action[:, 1:]
-                        if inference_type == "position":
-                            for l in range(all_action.shape[0]):
-                                all_action[l] = apply_offset(all_action[l], POSE_OFFSET)
+
 
                         pose = normalizer.denormalize(pose[0, :query_frequency, :], "target_glb_pos_ori")
                         pose_gripper = normalizer.denormalize(pose_gripper[0, :query_frequency, :], "gripper")
@@ -235,7 +206,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=240resized_width_v=320_04-26-10:32:06")
+                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-07:40:56")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

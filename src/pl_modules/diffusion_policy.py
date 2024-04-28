@@ -57,38 +57,29 @@ class DiffusionPolicyFramework(pl.LightningModule):
         self.automatic_optimization = False
         self.action = action
 
-    def _calculate_loss(self, batch, mode, ema=""):
+    def _calculate_loss(self, batch, mode, ema="",  batch_idx=None,):
         self.last_train_batch = batch
         total_loss = 0
         metrics = {}
         # normalize input
         assert 'valid_mask' not in batch
 
-        real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
-        real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
-        direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
-
-        pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
-
-        qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
-        qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
-        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
-
+        chunk_len = batch["traj"]["gripper"]["action"].shape[1]
         multimod_inputs = {
             "vision": batch["observation"]["v_fix"],
-            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(), batch["traj"]["gripper"]["obs"][..., :1].float()], dim= -1)
+            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"], batch["traj"]["gripper"]["obs"][..., :1]], dim= -1).float()
         }
 
+        gripper_action = torch.cat([batch["traj"]["gripper"]["obs"][:, 1:, :][..., :1], batch["traj"]["gripper"]["action"][:, :, :1]], dim=1)
         if self.action == "real_delta_target":
-            action = real_delta
+            action = torch.cat([batch["traj"]["target_real_delta"]["obs"][:, 1:, :], batch["traj"]["target_real_delta"]["action"]], dim=1)
         elif self.action == "position":
-            action = pose[:, :, :]
+            action = torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"][:, 1:, :], batch["traj"]["target_glb_pos_ori"]["action"]], dim=1)
         elif self.action == "real_delta_source":
-            action = real_delta_source[:, :, :]
+            action = torch.cat([batch["traj"]["source_real_delta"]["obs"][:, 1:, :], batch["traj"]["source_real_delta"]["action"]], dim=1)
         elif self.action == "direct_vel":
-            action = direct_vel
-        action = torch.cat([action, pose_gripper[:, :, :1]], dim=-1)
+            action = torch.cat([batch["traj"]["direct_vel"]["obs"][:, 1:, :],batch["traj"]["direct_vel"]["action"]], dim=1)
+        action = torch.cat([action, gripper_action], dim=-1).float()
 
         task = self.train_tasks.split("+")
 
@@ -132,6 +123,17 @@ class DiffusionPolicyFramework(pl.LightningModule):
         # 
         #     })
         #     step_output["imitation_acc"] = acc
+        if mode == "val" and batch_idx % chunk_len ==0:
+            gt_action = action[:, -chunk_len:, :]
+            mdl = self.mdl
+            if self.ema is not None:
+                mdl = self.ema_mdl
+
+            result = mdl.predict_action(multimod_inputs)
+            pred_action = result['action']
+            l1_loss = torch.nn.functional.l1_loss(pred_action, gt_action).mean()
+            self.log("val_l1_error", l1_loss)
+
 
         for key, value in mdl_out["obs_encoder_out"]["ssl_losses"].items():
             total_loss += value * self.weight[key]
@@ -186,52 +188,10 @@ class DiffusionPolicyFramework(pl.LightningModule):
             Also store the intermediate validation accuracy and prediction results of first sample of the batch
         """
         if self.ema is not None:
-            val_step_output_ema = self._calculate_loss(batch, mode="val", ema="ema")
-        val_step_output = self._calculate_loss(batch, mode="val")
+            val_step_output_ema = self._calculate_loss(batch, mode="val", ema="ema", batch_idx=batch_idx)
+        val_step_output = self._calculate_loss(batch, mode="val", batch_idx=batch_idx)
 
-        if batch_idx == len(self.val_loader) - 1:
-            if self.last_train_batch is None:
-                print("rolling out on last val batch!")
-                last_batch = batch
-            else:
-                print("rolling out on last training batch!")
-                last_batch = self.last_train_batch
 
-            real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
-            real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
-            direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-            pose = batch["traj"]["source_glb_pos_ori"]["action"][:, :, :].float()
-
-            pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
-
-            qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
-            qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
-            qpos = torch.cat([qpos, qpos_gripper], dim=-1)
-
-            multimod_inputs = {
-                "vision": batch["observation"]["v_fix"],
-                "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(),
-                                   batch["traj"]["gripper"]["obs"][..., :1].float()], dim=-1)
-            }
-
-            if self.action == "real_delta_target":
-                action = real_delta
-            elif self.action == "position":
-                action = pose[:, :, :]
-            elif self.action == "real_delta_source":
-                action = real_delta_source[:, :, :]
-            elif self.action == "direct_vel":
-                action = direct_vel
-            gt_action = torch.cat([action, pose_gripper[:, :, :1]], dim=-1)
-
-            mdl = self.mdl
-            if self.ema is not None:
-                mdl = self.ema_mdl
-
-            result = mdl.predict_action(multimod_inputs)
-            pred_action = result['action_pred']
-            mse = torch.nn.functional.mse_loss(pred_action, gt_action)
-            self.log("train_action_mse_error", mse)
 
         self.validation_epoch_outputs.append(val_step_output["total_loss"])
 

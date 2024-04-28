@@ -22,7 +22,7 @@ class TransformerEncoder(nn.Module):
         self.norm_first = norm_first
         self.final_norm = nn.LayerNorm(token_dim, eps=1e-5) if norm_first else nn.Identity()
         self.layers = nn.ModuleList([])
-        middle_dim_mlp = 2 * token_dim if middle_dim_mlp is None else middle_dim_mlp
+        middle_dim_mlp = 4 * token_dim if middle_dim_mlp is None else middle_dim_mlp
         for _ in range(num_blocks):
             self.layers.append(nn.ModuleList([
                 nn.LayerNorm(token_dim) if norm_first else nn.Identity(),
@@ -135,7 +135,7 @@ class TransformerEncoderVanilla(nn.Module):
         super().__init__()
         self.output_dim = token_dim
         self.layers = nn.ModuleList([])
-        middle_dim_mlp = 2 * token_dim if middle_dim_mlp is None else middle_dim_mlp
+        middle_dim_mlp = 4 * token_dim if middle_dim_mlp is None else middle_dim_mlp
         for _ in range(num_blocks):
             self.layers.append(TransformerEncoderLayerVanilla(token_dim=token_dim,
                                                               num_heads=num_heads,
@@ -178,7 +178,7 @@ class TransformerEncoderLayerVanilla(nn.Module):
         super().__init__()
         self.norm_first = norm_first
         self.layers = nn.ModuleList([])
-        middle_dim_mlp = 2 * token_dim if middle_dim_mlp is None else middle_dim_mlp
+        middle_dim_mlp = 4 * token_dim if middle_dim_mlp is None else middle_dim_mlp
 
         self.norm1 = nn.LayerNorm(token_dim, eps=1e-5)
         self.attn = nn.modules.activation.MultiheadAttention(embed_dim=token_dim, kdim=None, vdim=None,
@@ -193,7 +193,7 @@ class TransformerEncoderLayerVanilla(nn.Module):
                                  nn.ReLU(),
                                  nn.Linear(middle_dim_mlp, token_dim), )
 
-    def forward(self, x: torch.Tensor) -> (torch.Tensor, list):
+    def forward(self, x: torch.Tensor, is_causual=False, attn_mask=None) -> (torch.Tensor, list):
         """
 
         Args:
@@ -236,12 +236,32 @@ class TransformerEncoderLayerVanilla(nn.Module):
         x_ = x
         if self.norm_first:
             x = self.norm1(x)
-            x, attn_map = self.attn(x, x, x, need_weights=True, average_attn_weights=False, is_causal=False)
+            x, attn_map = self.attn(x, x, x, need_weights=True, average_attn_weights=False, is_causal=is_causual,
+                                    attn_mask=None)
             x += x_
             x = x + self.ffn(self.norm2(x))
         else:
-            x, attn_map = self.attn(x, x, x, need_weights=True, average_attn_weights=False, is_causal=False)
+            x, attn_map = self.attn(x, x, x, need_weights=True, average_attn_weights=False, is_causal=is_causual,
+                                    attn_mask=None)
             x = self.norm1(x + x_)
             x = self.norm2(x + self.ffn(x))
 
         return x, attn_map
+
+
+if __name__ == "__main__":
+    attn = nn.modules.activation.MultiheadAttention(embed_dim=3, kdim=None, vdim=None,
+                                                    num_heads=1,
+                                                    batch_first=True,
+                                                    dropout=0.,
+                                                    bias=True,
+                                                    add_bias_kv=False,
+                                                    add_zero_attn=False, )
+    x = torch.ones([1, 3, 3])
+
+    seq_length = 1
+    causal_mask = torch.triu(torch.ones(seq_length, seq_length), diagonal=1).bool()
+    causal_mask = causal_mask.to(x.device)
+
+    out = attn(x, x, x, need_weights=True, average_attn_weights=False, is_causal=True, attn_mask=causal_mask)
+    print(out)

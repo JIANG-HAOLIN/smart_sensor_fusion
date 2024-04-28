@@ -5,7 +5,7 @@ model:
   action_decoder:
     input_dim: 7
     output_dim: ${models.model.action_decoder.input_dim}
-    t_p: 16
+    t_p: 14
     n_obs_steps: 5
     cond_dim: 512
     n_layer: 8
@@ -30,7 +30,6 @@ model:
 
   inference_args:
     num_inference_steps: 100
-    n_action_steps: 16
 
   shape_meta:
     action:

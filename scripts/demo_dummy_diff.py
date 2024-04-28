@@ -58,7 +58,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
 
         with torch.no_grad():
-            for idx1, loader in enumerate([train_inference_loaders]):
+            for idx1, loader in enumerate([val_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -74,21 +74,18 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
                         real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
                         direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-                        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
+                        pose = batch["traj"]["source_glb_pos_ori"]["action"][:, :, :].float()
 
                         pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
 
                         qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
-
                         qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
+                        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
 
-                        qpos = torch.cat([qpos, qpos_gripper], dim=-1).to(args.device)
-
-                        inp_data = batch["observation"]
-                        for key, value in inp_data.items():
-                            inp_data[key] = value.to(args.device)
                         multimod_inputs = {
-                            "vision": batch["observation"]["v_fix"],
+                            "vision": batch["observation"]["v_fix"].to(args.device),
+                            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(),
+                                               batch["traj"]["gripper"]["obs"][..., :1].float()], dim=-1).to(args.device)
                         }
 
                         inference_type = cfg.pl_modules.pl_module.action
@@ -150,7 +147,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=diffusion_policyname=DiffusionPolicyaction=positionname=coswarmuplr=4e-05weight_decay=1e-05source=True_04-26-05:18:35")
+                        default="../checkpoints/cuponboard_diff/name=diffusion_policyname=DiffusionPolicyaction=positionname=coswarmuplr=4e-05weight_decay=1e-05source=True_04-27-11:18:23_120_160_ddpm_posfuse")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
