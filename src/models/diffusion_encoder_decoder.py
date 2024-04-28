@@ -317,7 +317,7 @@ class TransformerForDiffusion(nn.Module):
                                            task=task,
                                            mode=mode,
                                            additional_input=additional_input, )
-        nobs_features = obs_encoder_out["repr"]['fused_encoded_inputs']
+        nobs_features = obs_encoder_out["repr"]['cross_time_repr']
         # reshape back to B, To, Do
         cond = nobs_features
         # 1. time
