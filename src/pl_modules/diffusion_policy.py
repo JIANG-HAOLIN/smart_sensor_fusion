@@ -189,11 +189,6 @@ class DiffusionPolicyFramework(pl.LightningModule):
         """
         if self.ema is not None:
             val_step_output_ema = self._calculate_loss(batch, mode="val", ema="ema", batch_idx=batch_idx)
-        val_step_output = self._calculate_loss(batch, mode="val", batch_idx=batch_idx)
-
-
-
-        self.validation_epoch_outputs.append(val_step_output["total_loss"])
 
     def on_validation_epoch_end(self) -> None:
         """ Calculate the validation accuracy after an entire epoch.
