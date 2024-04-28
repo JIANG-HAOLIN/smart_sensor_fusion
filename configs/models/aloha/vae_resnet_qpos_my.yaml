@@ -1,0 +1,136 @@
+name: 'vae_resnet_qpos'
+
+model:
+  _target_: src.models.aloha_my.build_detrvae
+  action_dim: 7
+  pose_dim: 7
+  style_encoder:
+    dilation: False
+    position_embedding: 'sine'
+    enc_layers: 4
+    dec_layers: 7
+    dim_feedforward: 1024
+    hidden_dim: 512
+    dropout: 0.1
+    nheads: 8
+    pre_norm: False
+
+  action_decoder:
+    dilation: False
+    position_embedding: 'sine'
+    enc_layers: 4
+    dec_layers: 7
+    dim_feedforward: 1024
+    hidden_dim: 512
+    dropout: 0.1
+    nheads: 8
+    num_queries: 10
+    pre_norm: False
+
+  obs_encoder:
+    #---------------------------------------------------------------------------------------------------------#
+    _target_: src.models.ssl_nce_framework.SslNceFramework_EarlySum_VATT_addtional_qpos
+    mod_names:
+        - vision
+        - qpos
+    main_mod: vision
+    model_dim: 512
+    num_stack: 5  # num_frame / short_window_len
+
+    nce_args:
+      norm: batch
+      main_mod: ${models.model.obs_encoder.main_mod}
+      temp: 1.0
+      nce_proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.obs_encoder.model_dim}
+        dropout: 0.
+
+    mask_args:
+      mask_type: latent_mask
+      masked_mod:
+        - vision
+      mask_prob:
+        latent: 0.5
+      mask_length:
+        latent: 1
+        vision: 1
+        audio: 10
+        tactile: 1
+    mask_fusion_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.obs_encoder.model_dim}
+        dropout: 0.0
+    mask_cross_time_trf_nce:
+      temp: 1.0
+      proj_head:
+        _target_: src.models.utils.helpers.ImageBindNceHeader
+        model_dim: ${models.model.obs_encoder.model_dim}
+        dropout: 0.0
+    mask_latent_prediction:
+      momentum: False
+      loss: mse
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.obs_encoder.model_dim}
+        out_dim: ${models.model.pose_dim}
+        dropout: 0.0
+        norm: layer
+
+    fom_args:
+      reorder_prob: 0.2
+      predictor:
+        _target_: src.models.utils.header.MLPHead
+        in_dim: ${models.model.obs_encoder.model_dim}
+        out_dim: ${models.model.obs_encoder.num_stack}
+        dropout: 0.0
+        norm: layer
+    #---------------------------------------------------------------------------------------------------------#
+    vision_args:
+      short_window_len: 1
+      preprocess_vision_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      tokenization_vision:
+        _target_: src.models.encoders.res_net_18.make_vision_encoder
+        out_dim: 512
+        out_layer: "layer4.1.relu_1"
+      pe_vision:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_vision_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+
+
+    qpos_args:
+      short_window_len: 1
+      preprocess_qpos_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      tokenization_qpos:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      pe_qpos:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_qpos_args:
+        _target_: torch.nn.Linear
+        in_features: ${models.model.pose_dim}
+        out_features: ${models.model.obs_encoder.model_dim}
+    #---------------------------------------------------------------------------------------------------------#
+
+    fusion_args:
+      _target_: src.models.utils.fusion.EarlySum
+      mod_names: ${models.model.obs_encoder.mod_names}
+      dim: ${models.model.obs_encoder.model_dim}
+    pos_emb_args:
+      _target_: src.models.utils.positional_encoding.StandardPositionalEncoding
+      d_model: ${models.model.obs_encoder.model_dim}
+    cross_time_trf_args:
+      _target_: src.models.transformer_implementations.TransformerEncoderVanilla
+      token_dim: ${models.model.obs_encoder.model_dim}
+      num_heads: 8
+      num_blocks: 4
+
+
+
+inference:
+  ckpt_path: ' '
+

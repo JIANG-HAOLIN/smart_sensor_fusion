@@ -48,6 +48,7 @@ from types import SimpleNamespace
 import time
 from src.models.utils.helpers import cosine_loss_fn, mse_fn
 from src.models.utils.embeddings import LearnablePosEmb
+import math
 
 
 class Transformer(nn.Module):
@@ -74,6 +75,13 @@ class Transformer(nn.Module):
 
         self.d_model = d_model
 
+        pe = torch.zeros(1000, d_model)
+        position = torch.arange(0, 1000, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0)
+        self.cross_time_pe = pe
 
     def forward(self, multi_mod_input, mask, query_embed, latent_input=None, proprio_input=None,
                 additional_pos_embed=None,
@@ -87,13 +95,15 @@ class Transformer(nn.Module):
         """
 
         bs = latent_input.shape[0]
-        query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)  # input for the transformer-decoder !!
+        query_embed = query_embed.unsqueeze(0).repeat(bs, 1, 1)  # input for the transformer-decoder !!
         # mask = mask.flatten(1)
 
-        additional_pos_embed = additional_pos_embed.unsqueeze(1).repeat(1, bs, 1)[:1]  # seq, bs, dim
+        additional_pos_embed = additional_pos_embed.unsqueeze(0).repeat(bs, 1, 1)[:, :1]
+        chunk_len = query_embed.shape[1]
+
         # seq+2, bs, dim(positional embedding for input(multi_mod_input) for trm-encoder!!)
 
-        addition_input = torch.stack([latent_input], dim=0)
+        addition_input = torch.stack([latent_input], dim=1)
         addition_input = addition_input + additional_pos_embed
 
         tgt = torch.zeros_like(query_embed)
@@ -103,19 +113,252 @@ class Transformer(nn.Module):
                                    mask=mask_type,
                                    task=task,
                                    mode=mode,
-                                   additional_input=addition_input.permute(1, 0, 2))
-        memory = trm_enc_out["repr"]['cross_time_repr'].permute(1, 0, 2)
-        pos_embed = trm_enc_out["pos_emb"]["cross_time_emb"].permute(1, 0, 2).repeat(1, bs, 1)
-        pos_embed = torch.cat([pos_embed, additional_pos_embed], dim=0)
+                                   additional_input=addition_input.to(query_embed.device))
+        memory = trm_enc_out["repr"]['cross_time_repr'][:, 1:, :]
+        pos_emb = self.cross_time_pe[:, memory.shape[1] + 1: memory.shape[1] + 1 + chunk_len, :].repeat(bs, 1, 1).to(query_embed.device)
 
-        hs = self.decoder(tgt, memory, memory_key_padding_mask=mask,
-                          pos=pos_embed, query_pos=query_embed)
-        hs = hs.transpose(1, 2)
+        mask = (torch.triu(torch.ones(chunk_len, chunk_len)) == 1).transpose(0, 1)
+        mask = mask.float().masked_fill(mask == 0, float('-inf')).masked_fill(mask == 1, float(0.0)).to(query_embed.device)
+
+        t, s = torch.meshgrid(
+            torch.arange(chunk_len),
+            torch.arange(memory.shape[1]),
+            indexing='ij'
+        )
+        memory_mask = t >= (s - 1)  # add one dimension since time is the first token in cond
+        memory_mask = memory_mask.float().masked_fill(memory_mask == 0, float('-inf')).masked_fill(memory_mask == 1,
+                                                                                                   float(0.0))
+
+        hs = self.decoder(
+            tgt=pos_emb,
+            memory=memory,
+            tgt_mask=mask,
+            memory_mask=None
+        )
         return {"action_decoder_out": hs,
                 "obs_encoder_out": trm_enc_out,
                 }
 
 
+class TransformerEncoder(nn.Module):
+
+    def __init__(self, encoder_layer, num_layers, norm=None):
+        super().__init__()
+        self.layers = _get_clones(encoder_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+
+    def forward(self, src,
+                mask: Optional[Tensor] = None,
+                src_key_padding_mask: Optional[Tensor] = None,
+                pos: Optional[Tensor] = None):
+        output = src
+
+        for layer in self.layers:
+            output = layer(output, src_mask=mask,
+                           src_key_padding_mask=src_key_padding_mask, pos=pos)
+
+        if self.norm is not None:
+            output = self.norm(output)
+
+        return output
+
+
+class TransformerDecoder(nn.Module):
+
+    def __init__(self, decoder_layer, num_layers, norm=None, return_intermediate=False):
+        super().__init__()
+        self.layers = _get_clones(decoder_layer, num_layers)
+        self.num_layers = num_layers
+        self.norm = norm
+        self.return_intermediate = return_intermediate
+
+    def forward(self, tgt, memory,
+                tgt_mask: Optional[Tensor] = None,
+                memory_mask: Optional[Tensor] = None,
+                tgt_key_padding_mask: Optional[Tensor] = None,
+                memory_key_padding_mask: Optional[Tensor] = None,
+                pos: Optional[Tensor] = None,
+                query_pos: Optional[Tensor] = None):
+        output = tgt
+
+        intermediate = []
+
+        for layer in self.layers:
+            output = layer(output, memory, tgt_mask=tgt_mask,
+                           memory_mask=memory_mask,
+                           tgt_key_padding_mask=tgt_key_padding_mask,
+                           memory_key_padding_mask=memory_key_padding_mask,
+                           pos=pos, query_pos=query_pos)
+            if self.return_intermediate:
+                intermediate.append(self.norm(output))
+
+        if self.norm is not None:
+            output = self.norm(output)
+            if self.return_intermediate:
+                intermediate.pop()  # pop the last element, but why??
+                intermediate.append(output)
+
+        if self.return_intermediate:
+            return torch.stack(intermediate)
+
+        return output.unsqueeze(0)
+
+
+class TransformerEncoderLayer(nn.Module):
+
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
+                 activation="relu", normalize_before=False):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+
+        self.activation = _get_activation_fn(activation)
+        self.normalize_before = normalize_before
+
+    def with_pos_embed(self, tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward_post(self,
+                     src,
+                     src_mask: Optional[Tensor] = None,
+                     src_key_padding_mask: Optional[Tensor] = None,
+                     pos: Optional[Tensor] = None):
+        q = k = self.with_pos_embed(src, pos)
+        src2 = self.self_attn(q, k, value=src, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)[0]
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+        return src
+
+    def forward_pre(self, src,
+                    src_mask: Optional[Tensor] = None,
+                    src_key_padding_mask: Optional[Tensor] = None,
+                    pos: Optional[Tensor] = None):
+        src2 = self.norm1(src)
+        q = k = self.with_pos_embed(src2, pos)
+        src2 = self.self_attn(q, k, value=src2, attn_mask=src_mask,
+                              key_padding_mask=src_key_padding_mask)[0]
+        src = src + self.dropout1(src2)
+        src2 = self.norm2(src)
+        src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
+        src = src + self.dropout2(src2)
+        return src
+
+    def forward(self, src,
+                src_mask: Optional[Tensor] = None,
+                src_key_padding_mask: Optional[Tensor] = None,
+                pos: Optional[Tensor] = None):
+        if self.normalize_before:
+            return self.forward_pre(src, src_mask, src_key_padding_mask, pos)
+        return self.forward_post(src, src_mask, src_key_padding_mask, pos)
+
+
+class TransformerDecoderLayer(nn.Module):
+
+    def __init__(self, d_model, nhead, dim_feedforward=2048, dropout=0.1,
+                 activation="relu", normalize_before=False):
+        super().__init__()
+        self.self_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
+        # Implementation of Feedforward model
+        self.linear1 = nn.Linear(d_model, dim_feedforward)
+        self.dropout = nn.Dropout(dropout)
+        self.linear2 = nn.Linear(dim_feedforward, d_model)
+
+        self.norm1 = nn.LayerNorm(d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.norm3 = nn.LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+
+        self.activation = _get_activation_fn(activation)
+        self.normalize_before = normalize_before
+
+    def with_pos_embed(self, tensor, pos: Optional[Tensor]):
+        return tensor if pos is None else tensor + pos
+
+    def forward_post(self, tgt, memory,
+                     tgt_mask: Optional[Tensor] = None,
+                     memory_mask: Optional[Tensor] = None,
+                     tgt_key_padding_mask: Optional[Tensor] = None,
+                     memory_key_padding_mask: Optional[Tensor] = None,
+                     pos: Optional[Tensor] = None,
+                     query_pos: Optional[Tensor] = None):
+        q = k = self.with_pos_embed(tgt, query_pos)
+        tgt2 = self.self_attn(q, k, value=tgt, attn_mask=tgt_mask,
+                              key_padding_mask=tgt_key_padding_mask)[0]
+        tgt = tgt + self.dropout1(tgt2)
+        tgt = self.norm1(tgt)
+        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt, query_pos),
+                                   key=self.with_pos_embed(memory, pos),
+                                   value=memory, attn_mask=memory_mask,
+                                   key_padding_mask=memory_key_padding_mask)[0]
+        tgt = tgt + self.dropout2(tgt2)
+        tgt = self.norm2(tgt)
+        tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt))))
+        tgt = tgt + self.dropout3(tgt2)
+        tgt = self.norm3(tgt)
+        return tgt
+
+    def forward_pre(self, tgt, memory,
+                    tgt_mask: Optional[Tensor] = None,
+                    memory_mask: Optional[Tensor] = None,
+                    tgt_key_padding_mask: Optional[Tensor] = None,
+                    memory_key_padding_mask: Optional[Tensor] = None,
+                    pos: Optional[Tensor] = None,
+                    query_pos: Optional[Tensor] = None):
+        tgt2 = self.norm1(tgt)
+        q = k = self.with_pos_embed(tgt2, query_pos)
+        tgt2 = self.self_attn(q, k, value=tgt2, attn_mask=tgt_mask,
+                              key_padding_mask=tgt_key_padding_mask)[0]
+        tgt = tgt + self.dropout1(tgt2)
+        tgt2 = self.norm2(tgt)
+        tgt2 = self.multihead_attn(query=self.with_pos_embed(tgt2, query_pos),
+                                   key=self.with_pos_embed(memory, pos),
+                                   value=memory, attn_mask=memory_mask,
+                                   key_padding_mask=memory_key_padding_mask)[0]
+        tgt = tgt + self.dropout2(tgt2)
+        tgt2 = self.norm3(tgt)
+        tgt2 = self.linear2(self.dropout(self.activation(self.linear1(tgt2))))
+        tgt = tgt + self.dropout3(tgt2)
+        return tgt
+
+    def forward(self, tgt, memory,
+                tgt_mask: Optional[Tensor] = None,
+                memory_mask: Optional[Tensor] = None,
+                tgt_key_padding_mask: Optional[Tensor] = None,
+                memory_key_padding_mask: Optional[Tensor] = None,
+                pos: Optional[Tensor] = None,
+                query_pos: Optional[Tensor] = None):
+        if self.normalize_before:
+            return self.forward_pre(tgt, memory, tgt_mask, memory_mask,
+                                    tgt_key_padding_mask, memory_key_padding_mask, pos, query_pos)
+        return self.forward_post(tgt, memory, tgt_mask, memory_mask,
+                                 tgt_key_padding_mask, memory_key_padding_mask, pos, query_pos)
+
+
+def _get_activation_fn(activation):
+    """Return an activation function given a string"""
+    if activation == "relu":
+        return F.relu
+    if activation == "gelu":
+        return F.gelu
+    if activation == "glu":
+        return F.glu
+    raise RuntimeError(F"activation should be relu/gelu, not {activation}.")
 
 
 def _get_clones(module, N):
@@ -176,7 +419,7 @@ class DETRVAE(nn.Module):
         self.encoder_action_proj = nn.Linear(action_dim, hidden_dim)  # project action to embedding
         self.encoder_joint_proj = nn.Linear(pose_dim, hidden_dim)  # project qpos to embedding
         self.latent_proj = nn.Linear(hidden_dim, self.latent_dim * 2)  # project hidden state to latent std, var
-        self.pos_table = get_sinusoid_encoding_table(1 + 1 + num_queries, hidden_dim) # [CLS], qpos, a_seq
+        self.pos_table = get_sinusoid_encoding_table(1 + 1 + num_queries, hidden_dim)  # [CLS], qpos, a_seq
         # decoder extra parameters
         self.latent_out_proj = nn.Linear(self.latent_dim, hidden_dim)  # project latent sample to embedding
         self.additional_pos_embed = nn.Embedding(2, hidden_dim)  # learned position embedding for proprio and latent
@@ -210,7 +453,7 @@ class DETRVAE(nn.Module):
             cls_joint_is_pad = torch.full((bs, 2), False).to(qpos.device)  # False: not a padding
             is_pad = torch.cat([cls_joint_is_pad, is_pad], dim=1)  # (bs, seq+2)
             # obtain position embedding
-            pos_embed = self.pos_table.clone().detach()
+            pos_embed = self.pos_table.clone().detach().to(encoder_input.device)
             pos_embed = pos_embed.permute(1, 0, 2)  # (seq+2, 1, hidden_dim)
             # query model
             encoder_output = self.style_encoder(encoder_input, pos=pos_embed, src_key_padding_mask=is_pad)
@@ -244,7 +487,7 @@ class DETRVAE(nn.Module):
             task=task,
             mode=mode,
         )
-        hs = output["action_decoder_out"][0]
+        hs = output["action_decoder_out"]
         a_hat = self.action_head(hs)  # bs, seq_len, action_dim
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
@@ -367,13 +610,7 @@ def build_detrvae(style_encoder: DictConfig,
     transformer = Transformer(
         encoder=hydra.utils.instantiate(obs_encoder, _recursive_=False),
         d_model=action_decoder.hidden_dim,
-        dropout=action_decoder.dropout,
-        nhead=action_decoder.nheads,
-        dim_feedforward=action_decoder.dim_feedforward,
-        num_encoder_layers=action_decoder.enc_layers,
-        num_decoder_layers=action_decoder.dec_layers,
-        normalize_before=action_decoder.pre_norm,
-        return_intermediate_dec=True,
+
     )
 
     style_encoder = build_encoder(style_encoder)
@@ -390,540 +627,4 @@ def build_detrvae(style_encoder: DictConfig,
     print("number of parameters: %.2fM" % (n_parameters / 1e6,))
 
     return model
-
-
-class MyAloha(torch.nn.Module):
-
-    def __init__(self,
-                 mod_names: List,
-                 main_mod: str,
-                 model_dim: int,
-                 num_stack: int,
-
-                 nce_args: DictConfig,
-                 fom_args: DictConfig,
-                 mask_args: DictConfig,
-                 mask_fusion_nce: DictConfig,
-                 mask_cross_time_trf_nce: DictConfig,
-                 mask_latent_prediction: DictConfig,
-
-                 audio_args: Optional[DictConfig] = None,
-                 vision_args: Optional[DictConfig] = None,
-                 tactile_args: Optional[DictConfig] = None,
-                 qpos_args: Optional[DictConfig] = None,
-                 ultrasonic_args: Optional[DictConfig] = None,
-                 imu_args: Optional[DictConfig] = None,
-                 force_args: Optional[DictConfig] = None,
-                 current_args: Optional[DictConfig] = None,
-                 thermal_args: Optional[DictConfig] = None,
-                 depth_args: Optional[DictConfig] = None,
-                 text_args: Optional[DictConfig] = None,
-
-                 fusion_args: Optional[DictConfig] = None,
-                 pos_emb_args: Optional[DictConfig] = None,
-                 cross_time_trf_args: Optional[DictConfig] = None,
-
-                 **kwargs
-                 ):
-        """
-
-        Args:
-             preprocess_audio_args: arguments for audio prepressing
-             tokenization_audio: arguments for audio tokenization
-             pe_audio: arguments for positional encoding for audio tokens
-             encoder_audio_args: arguments for audio encoder(identity for earlycat/transformer for multi to one)
-             preprocess_vision_args: arguments for vision prepressing
-             tokenization_vision: arguments for vision tokenization
-             pe_vision: arguments for positional encoding for vision tokens
-             encoder_vision_args: arguments for vision encoder(identity for earlycat/transformer for multi to one)
-             cross_time_trf_args: arguments for cross time transformer
-             **kwargs:
-        """
-        super().__init__()
-
-        self.mod_args = {
-            "vision": vision_args,
-            "tactile": tactile_args,
-            "audio": audio_args,
-            "qpos": qpos_args,
-
-            "ultrasonic": ultrasonic_args,
-            "imu": imu_args,
-            "force": force_args,
-            "current": current_args,
-
-            "thermal": thermal_args,
-            "depth": depth_args,
-            "text": text_args,
-        }
-        self.mod_names = mod_names
-        self.main_mod = main_mod
-        self.num_stack = num_stack
-
-        self.fom_args = fom_args
-        self.mask_args = mask_args
-        self.mask_fusion_nce = mask_fusion_nce
-        self.mask_cross_time_trf_nce = mask_cross_time_trf_nce
-        self.mask_latent_prediction = mask_latent_prediction
-        self.nce_args = nce_args
-
-        if self.nce_args.norm == "batch":
-            from src.models.utils.helpers import MyPermute
-            self.nce_head_v_va = nn.Sequential(
-                nn.Linear(model_dim, model_dim, bias=False),
-                MyPermute([0, 2, 1]),
-                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                MyPermute([0, 2, 1]),
-                nn.ReLU(),
-                nn.Linear(model_dim, model_dim, bias=False),
-                MyPermute([0, 2, 1]),
-                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                MyPermute([0, 2, 1]),
-            )
-            self.nce_head_a_va = nn.Linear(model_dim, model_dim)
-            self.nce_head_qpos_va = nn.Linear(model_dim, model_dim)
-            self.nce_head_va_vat = nn.Sequential(nn.ReLU(),
-                                                 nn.Linear(model_dim, model_dim, bias=False),
-                                                 MyPermute([0, 2, 1]),
-                                                 nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                                                 MyPermute([0, 2, 1]),
-                                                 )
-            self.nce_head_t_vat = nn.Sequential(
-                nn.Linear(model_dim, model_dim, bias=False),
-                MyPermute([0, 2, 1]),
-                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                MyPermute([0, 2, 1]),
-                nn.ReLU(),
-                nn.Linear(model_dim, model_dim, bias=False),
-                MyPermute([0, 2, 1]),
-                nn.BatchNorm1d(momentum=0.9, eps=1e-5, num_features=model_dim),
-                MyPermute([0, 2, 1]),
-            )
-        elif self.nce_args.norm == "layer":
-            self.nce_head_v_va = nn.Sequential(
-                nn.Linear(model_dim, model_dim, bias=False),
-                nn.LayerNorm(model_dim),
-                nn.ReLU(),
-                nn.Linear(model_dim, model_dim, bias=False),
-                nn.LayerNorm(model_dim),
-            )
-            self.nce_head_a_va = nn.Linear(model_dim, model_dim)
-            self.nce_head_qpos_va = nn.Linear(model_dim, model_dim)
-            self.nce_head_va_vat = nn.Sequential(nn.ReLU(),
-                                                 nn.Linear(model_dim, model_dim, bias=False),
-                                                 nn.LayerNorm(model_dim),
-                                                 )
-            self.nce_head_t_vat = nn.Sequential(
-                nn.Linear(model_dim, model_dim, bias=False),
-                nn.LayerNorm(model_dim),
-                nn.ReLU(),
-                nn.Linear(model_dim, model_dim, bias=False),
-                nn.LayerNorm(model_dim),
-            )
-
-        self.mask_fusion_nce_proj = hydra.utils.instantiate(mask_fusion_nce.proj_head) if \
-            mask_fusion_nce is not None else None
-
-        self.mask_cross_time_trf_proj = hydra.utils.instantiate(mask_cross_time_trf_nce.proj_head) if \
-            mask_cross_time_trf_nce is not None else None
-
-        self.mask_latent_predictor = hydra.utils.instantiate(mask_latent_prediction.predictor) if \
-            mask_latent_prediction is not None else None
-
-        self.fom_classifier = hydra.utils.instantiate(fom_args.predictor) if \
-            fom_args is not None else None
-
-        for mod_name, mod_args in self.mod_args.items():
-            if mod_args is not None:
-                self.__setattr__(f"preprocess_{mod_name}",
-                                 hydra.utils.instantiate(mod_args[f"preprocess_{mod_name}_args"]))
-                self.__setattr__(f"tokenization_{mod_name}",
-                                 hydra.utils.instantiate(mod_args[f"tokenization_{mod_name}"]))
-                self.__setattr__(f"positional_encoding_{mod_name}",
-                                 hydra.utils.instantiate(mod_args[f"pe_{mod_name}"]))
-                self.__setattr__(f"encoder_{mod_name}",
-                                 hydra.utils.instantiate(mod_args[f"encoder_{mod_name}_args"]))
-
-        self.fusion = hydra.utils.instantiate(fusion_args)
-
-        self.cls = torch.nn.Parameter(torch.randn(1, 1, model_dim))
-        self.cross_time_pos_emb = hydra.utils.instantiate(pos_emb_args)
-        self.cross_time_trf = hydra.utils.instantiate(cross_time_trf_args)
-
-        self.mlp = torch.nn.Sequential(
-            torch.nn.Linear(model_dim, model_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(model_dim, model_dim),
-            torch.nn.ReLU(),
-            torch.nn.Linear(model_dim, 3 ** 3),
-        )
-        self.aux_mlp = nn.Sequential(nn.Linear(model_dim, 6))
-
-        self.latent_mask_token = nn.ParameterDict({mod_name: torch.nn.Parameter(torch.randn([1, 1, model_dim]))
-                                                   for mod_name in self.mod_names})
-
-        self.output_dim = model_dim
-
-    def forward(self, multimod_inputs: Dict,
-                mask: Optional[str] = "input_mask",
-                task: Optional[str] = "imitation",
-                mode: str = "train",
-                additional_input: Optional[torch.Tensor] = None,
-                multi_mod_input_key_padding_mask: Optional[torch.Tensor] = None,
-                ):
-        assert mode in ["train", "val", "inference"]
-
-        start_time = time.time()
-        output = {"predict": {}, "ssl_losses": {}, "repr": {}, "pos_emb": {}}
-
-        encoded_inputs = self.forward_modality_specific_encoding(multimod_inputs)
-
-        if task == "repr":
-            output["repr"]["encoded_inputs"] = encoded_inputs
-            encoded_inputs = self.fusion(encoded_inputs)
-            output["repr"]['fused_encoded_inputs'] = encoded_inputs
-            x, attn_maps = self.forward_cross_time(encoded_inputs, additional_input)
-            output["repr"]['cross_time_repr'] = x
-            agg_feat = x[:, 0, :]
-            action_logits = self.mlp(agg_feat)
-            xyzrpy = self.aux_mlp(agg_feat)
-            output["predict"]["action_logits"] = action_logits
-            output["predict"]["xyzrpy"] = xyzrpy
-            output["time"] = time.time() - start_time
-            output["pos_emb"]["cross_time_emb"] = self.cross_time_pos_emb.pe[:, :self.num_stack + 1, :]
-            return output
-
-        if "bind" in task:
-            nce_loss_dict = self.forward_nce(encoded_inputs)
-            loss = nce_loss_dict['_loss']
-            output["ssl_losses"]["cr_m_nce_loss"] = loss
-
-        fused_t_feats = self.fusion(encoded_inputs)
-
-        if mask == "latent_mask":
-            encoded_masked_inputs, masked_index = self.random_latent_masking(multimod_inputs=encoded_inputs,
-                                                                             mask_tokens=self.latent_mask_token,
-                                                                             mask_prob=self.mask_args.mask_prob.latent,
-                                                                             mask_length=self.mask_args.mask_length.latent, )
-
-            mask_pred_target = multimod_inputs["qpos"]
-            fused_t_masked_feats = self.fusion(encoded_masked_inputs)
-
-            if 'order' in task:
-                fom_loss = self.forward_order_prediction(fused_t_masked_feats,
-                                                         compute_loss=True,
-                                                         additional_input=additional_input)
-                output["ssl_losses"]["masked_fom_loss"] = fom_loss
-
-            fused_t_feats, _ = self.forward_cross_time(fused_t_feats, additional_input)
-            output["repr"]['cross_time_repr'] = fused_t_feats
-            agg_feat = fused_t_feats[:, 0, :]
-            fused_t_feats = fused_t_feats[:, 1: 1 + self.num_stack, :]
-            fused_t_masked_feats, _ = self.forward_cross_time(fused_t_masked_feats, additional_input)
-            fused_t_masked_feats = fused_t_masked_feats[:, 1: 1 + self.num_stack, :]
-
-            if 'recover' in task and self.mask_latent_predictor is not None:
-                recover_loss = self.mask_prediction(self.mask_latent_predictor,
-                                                    mask_pred_target,
-                                                    fused_t_masked_feats,
-                                                    masks=masked_index,
-                                                    loss=self.mask_latent_prediction.loss)
-                output["ssl_losses"]["recover_loss"] = recover_loss
-
-            if "imitation" in task:
-                action_logits = self.mlp(agg_feat)
-                xyzrpy = self.aux_mlp(agg_feat)
-                output["predict"]["action_logits"] = action_logits
-                output["predict"]["xyzrpy"] = xyzrpy
-
-        elif mask == "no_mask":
-            if "order" in task:
-                fom_loss = self.forward_order_prediction(fused_t_feats,
-                                                         compute_loss=True,
-                                                         additional_input=additional_input)
-                output["ssl_losses"]["fom_loss"] = fom_loss
-            if "imitation" in task:
-                fused_t_feats, _ = self.forward_cross_time(fused_t_feats, additional_input)
-                output["repr"]['cross_time_repr'] = fused_t_feats
-                agg_feat = fused_t_feats[:, 0, :]
-                action_logits = self.mlp(agg_feat)
-                xyzrpy = self.aux_mlp(agg_feat)
-                output["predict"]["action_logits"] = action_logits
-                output["predict"]["xyzrpy"] = xyzrpy
-
-        output["pos_emb"]["cross_time_emb"] = self.cross_time_pos_emb.pe[:, :self.num_stack + 1, :]
-        return output
-
-    def forward_cross_time(self, x, additional_input=None):
-        cls = self.cls.expand(x.shape[0], self.cls.shape[1], self.cls.shape[2])
-        x = torch.cat([cls, x], dim=1)
-        x = self.cross_time_pos_emb(x)
-        if additional_input is not None:
-            x = torch.cat([x, additional_input], dim=1)
-        x, attn_maps = self.cross_time_trf(x)
-        return x, attn_maps
-
-    def forward_order_prediction(self, fused_t_feats: torch.Tensor, compute_loss=True, additional_input=None):
-
-        bs, num_frame, dim = fused_t_feats.shape
-
-        target, shuffled_fused_t_feats = self.random_shuffle(fused_t_feats, reorder_prob=self.fom_args.reorder_prob)
-
-        if all(element == -1 for element in target.reshape(bs * num_frame, )):
-            return torch.zeros([])
-
-        x, attn_maps = self.forward_cross_time(shuffled_fused_t_feats, additional_input)
-        x = x[:, 1: 1 + self.num_stack, :]
-        x = self.fom_classifier(x)
-
-        if compute_loss:
-            x = x.view(bs * num_frame, num_frame)
-            targets = target.view(x.shape[0])
-            loss = F.cross_entropy(
-                x, targets, ignore_index=-1,
-                reduction='mean')
-            return loss
-        return x
-
-    @staticmethod
-    def random_shuffle(fused_t_feats: torch.Tensor, reorder_prob: float):
-        bs, num_frame, dim = fused_t_feats.shape
-        shuffled_orders = []
-        targets = []
-        for i in range(bs):
-            shuffled_order, target = get_scatter_idx_target(list(range(num_frame)), reorder_prob=reorder_prob)
-            shuffled_order = torch.tensor(shuffled_order, device=fused_t_feats.device)
-            target = torch.tensor(target, device=fused_t_feats.device)
-            shuffled_orders.append(shuffled_order)
-            targets.append(target)
-        targets = torch.stack(targets, dim=0)
-        shuffled_orders = torch.stack(shuffled_orders, dim=0).unsqueeze(-1)  # [b, num_frame, 1]
-        shuffled_orders = shuffled_orders.expand(-1, -1, dim)
-        shuffled_fused_t_feats = torch.zeros_like(fused_t_feats,
-                                                  dtype=fused_t_feats.dtype, device=fused_t_feats.device)
-        shuffled_fused_t_feats = shuffled_fused_t_feats.scatter_(1, shuffled_orders, fused_t_feats)
-        # a = fused_t_feats[:, :, 10]
-        # b = shuffled_fused_t_feats[:, :, 10]
-        return targets, shuffled_fused_t_feats
-
-    def forward_nce(self, encoded_inputs, compute_loss=True):
-        v_va_feats = self.nce_head_v_va(encoded_inputs["vision"])
-        v_vat_feats = self.nce_head_va_vat(v_va_feats)
-
-        bs, num_frame, dim = v_va_feats.shape
-        v_va_feats = v_va_feats.reshape(bs, num_frame * dim)
-        v_va_feats = v_va_feats[:, None, :]
-
-        bs, num_frame, dim = v_vat_feats.shape
-        v_vat_feats = v_vat_feats.reshape(bs, num_frame * dim)
-        v_vat_feats = v_vat_feats[:, None, :]
-
-        # Find positive example -> batch_size//2 away from the original example
-        pos_mask = torch.eye(bs, bs, dtype=torch.bool, device=v_vat_feats.device)
-        # InfoNCE loss
-        nll_sum = []
-        for name, feat in encoded_inputs.items():
-            if name == "audio":
-                side_feat = self.nce_head_a_va(feat)
-                side_feat = side_feat.reshape(bs, num_frame * dim)
-                cos_sim = F.cosine_similarity(v_va_feats, side_feat[None, :, :], dim=-1)
-                cos_sim = cos_sim / self.nce_args.temp
-                nll = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=-1)
-                nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
-                nll = nll.mean()
-                nll_ = nll_.mean()
-                nll = (nll_ + nll) / 2
-                nll_sum.append(nll)
-            elif name == "tactile":
-                side_feat = self.nce_head_t_vat(feat)
-                side_feat = side_feat.reshape(bs, num_frame * dim)
-                cos_sim = F.cosine_similarity(v_vat_feats, side_feat[None, :, :], dim=-1)
-                cos_sim = cos_sim / self.nce_args.temp
-                nll = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=-1)
-                nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
-                nll = nll.mean()
-                nll_ = nll_.mean()
-                nll = (nll_ + nll) / 2
-                nll_sum.append(nll)
-            elif name == "qpos":
-                side_feat = self.nce_head_qpos_va(feat)
-                side_feat = side_feat.reshape(bs, num_frame * dim)
-                cos_sim = F.cosine_similarity(v_va_feats, side_feat[None, :, :], dim=-1)
-                cos_sim = cos_sim / self.nce_args.temp
-                nll = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=-1)
-                nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
-                nll = nll.mean()
-                nll_ = nll_.mean()
-                nll = (nll_ + nll) / 2
-                nll_sum.append(nll)
-        nce_loss_dict = {
-            '_loss': sum(nll_sum) / len(nll_sum),
-        }
-
-        return nce_loss_dict
-
-    @staticmethod
-    def mask_cross_time_nce(proj: nn.Module,
-                            fused_t_feats: torch.Tensor, fused_t_masked_feats: torch.Tensor,
-                            temp: float, compute_loss=True):
-        proj_fused_t_feats = proj(fused_t_feats)
-        proj_fused_t_masked_feats = proj(fused_t_masked_feats)
-
-        bs, num_frame, dim = proj_fused_t_feats.shape
-        proj_fused_t_feats = proj_fused_t_feats.reshape(bs, num_frame * dim)
-        proj_fused_t_feats = proj_fused_t_feats[:, None, :]
-
-        bs, num_frame, dim = proj_fused_t_masked_feats.shape
-        proj_fused_t_masked_feats = proj_fused_t_masked_feats.reshape(bs, num_frame * dim)
-        proj_fused_t_masked_feats = proj_fused_t_masked_feats[None, :, :]
-
-        pos_mask = torch.eye(bs, bs, dtype=torch.bool, device=proj_fused_t_feats.device)
-        # InfoNCE loss
-        nll_sum = torch.zeros([])
-        cos_sim = F.cosine_similarity(proj_fused_t_feats, proj_fused_t_masked_feats, dim=-1)
-        cos_sim = cos_sim / temp
-        nll = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=-1)
-        nll_ = -cos_sim[pos_mask] + torch.logsumexp(cos_sim, dim=0)
-        nll = nll.mean()
-        nll_ = nll_.mean()
-        nll_sum = nll_sum + nll + nll_
-
-        nce_loss_dict = {
-            '_loss': nll_sum,
-        }
-
-        return nce_loss_dict
-
-    def forward_modality_specific_encoding(self, multimod_inputs: Dict, ):
-        encoded_inputs = {}
-
-        # process of vision signal
-        if "vision" in multimod_inputs.keys():
-            vision_signal = multimod_inputs["vision"]
-            batch_size, num_frame, c_v, h_v, w_v = vision_signal.shape
-            short_window_len = self.mod_args["vision"].short_window_len
-            assert num_frame % short_window_len == 0
-            num_stack = num_frame // short_window_len
-            assert num_stack == self.num_stack
-            vision_signal = torch.reshape(vision_signal, (-1, c_v, h_v, w_v))
-            vision_signal = self.preprocess_vision(vision_signal)
-            vision_signal = torch.reshape(vision_signal, (-1, short_window_len, c_v, h_v, w_v))
-            vision_signal = self.tokenization_vision(vision_signal)  # vit
-            if type(vision_signal) == tuple:
-                vision_signal, attn_map = vision_signal
-            if len(vision_signal.shape) == 2:
-                vision_signal = vision_signal.reshape(vision_signal.shape[0], 1, vision_signal.shape[1])
-                # [B*N, 256] -> [B*N, 1, 256]
-            vision_signal = vision_signal.view(batch_size, num_stack * vision_signal.shape[-2], vision_signal.shape[-1])
-            # [B*N, 1, 256] -> [B, N, 256]
-            vision_signal = self.positional_encoding_vision(vision_signal)
-            vision_signal = self.encoder_vision(vision_signal)
-            if type(vision_signal) == tuple:
-                vision_signal, attn_vision = vision_signal
-            encoded_inputs["vision"] = vision_signal
-
-        # process of audio signal
-        if "audio" in multimod_inputs.keys():
-            audio_signal = multimod_inputs["audio"]
-            audio_signal = self.preprocess_audio(audio_signal)
-            # [B, 1, 40K] -> [B, 64, 251]
-            audio_signal = self.tokenization_audio(audio_signal)
-            # [B*N, 1, 256] -> [B, N, 256]
-            audio_signal = self.positional_encoding_audio(audio_signal)
-            audio_signal = self.encoder_audio(audio_signal)
-            if type(audio_signal) == tuple:
-                audio_signal, attn_audio = audio_signal
-            encoded_inputs["audio"] = audio_signal
-
-        # process of tactile signal(similar to vision signal)
-        if "tactile" in multimod_inputs.keys():
-            tactile_signal = multimod_inputs["tactile"]
-            batch_size, num_frame, c_v, h_v, w_v = tactile_signal.shape
-            short_window_len = self.mod_args["tactile"].short_window_len
-            assert num_frame % short_window_len == 0
-            num_stack = num_frame // short_window_len
-            assert num_stack == self.num_stack
-            tactile_signal = torch.reshape(tactile_signal, (-1, c_v, h_v, w_v))
-            tactile_signal = self.preprocess_tactile(tactile_signal)
-            tactile_signal = torch.reshape(tactile_signal, (-1, short_window_len, c_v, h_v, w_v))
-            tactile_signal = self.tokenization_tactile(tactile_signal)  # vit
-            if type(tactile_signal) == tuple:
-                tactile_signal, attn_map = tactile_signal
-            if len(tactile_signal.shape) == 2:
-                tactile_signal = tactile_signal.reshape(tactile_signal.shape[0], 1, tactile_signal.shape[1])
-                # [B*N, 256] -> [B*N, 1, 256]
-            tactile_signal = tactile_signal.view(batch_size, num_stack * tactile_signal.shape[-2],
-                                                 tactile_signal.shape[-1])
-            # [B*N, 1, 256] -> [B, N, 256]
-            tactile_signal = self.positional_encoding_tactile(tactile_signal)
-            tactile_signal = self.encoder_tactile(tactile_signal)
-            if type(tactile_signal) == tuple:
-                tactile_signal, attn_tactile = tactile_signal
-            encoded_inputs["tactile"] = tactile_signal
-
-        # process of qpos signal
-        if "qpos" in multimod_inputs.keys():
-            qpos_signal = multimod_inputs["qpos"]
-            qpos_signal = self.preprocess_qpos(qpos_signal)
-            # [B, 1, 40K] -> [B, 64, 251]
-            qpos_signal = self.tokenization_qpos(qpos_signal)
-            # [B*N, 1, 256] -> [B, N, 256]
-            qpos_signal = self.positional_encoding_qpos(qpos_signal)
-            qpos_signal = self.encoder_qpos(qpos_signal)
-            encoded_inputs["qpos"] = qpos_signal
-
-        return encoded_inputs
-
-    @staticmethod
-    def random_latent_masking(multimod_inputs: Dict,
-                              mask_tokens: nn.ParameterDict,
-                              mask_prob: float,
-                              mask_length: int, ):
-        mask_multimod_inputs = {}
-        masked_index = {}
-        for mod_name, mod_feat in multimod_inputs.items():
-            bs, num_frame, dim = mod_feat.shape
-            mask = torch.tensor(get_mask_sequence1d(seq_len=bs * num_frame,
-                                                    mask_prob=mask_prob,
-                                                    mask_length=mask_length,
-                                                    mask_mark=0,
-                                                    unmask_mark=1, ), device=mod_feat.device).reshape(bs, num_frame, 1)
-            mod_feat = mod_feat * mask + mask_tokens[mod_name].reshape(1, 1, -1) * (1 - mask)
-            mask_multimod_inputs[mod_name] = mod_feat
-            masked_index[mod_name] = mask
-        return multimod_inputs, masked_index
-
-    @staticmethod
-    def mask_prediction(predictor: nn.Module,
-                        target: torch.Tensor,
-                        fused_t_mask_feats: torch.Tensor,
-                        masks: Optional[dict] = None,
-                        loss: str = "mse", ):
-        """
-
-        Args:
-            predictor:
-            target:
-            fused_t_mask_feats:
-            masks: shape [B, S ,1]
-            loss:
-
-        Returns:
-
-        """
-        pred_out = predictor(fused_t_mask_feats)
-        if loss == "mse":
-            loss_fn = mse_fn
-        elif loss == "cosine":
-            loss_fn = cosine_loss_fn
-
-        if masks is None:
-            pred_loss = loss_fn(pred_out, target)
-        else:
-            # can not filter the zero value as number of masked ele varies alone dif dim
-            mask = masks["qpos"]
-            mask = 1 - mask
-            pred_loss = loss_fn(pred_out, target, mask)
-
-        return pred_loss
 
