@@ -139,7 +139,7 @@ class DiffusionPolicyFramework(pl.LightningModule):
             total_loss += value * self.weight[key]
 
         if mode == "train":
-            self.log("learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
+            self.log("train_learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
         metrics["total_loss"] = total_loss
         mod_metric = {}
         for key, value in metrics.items():

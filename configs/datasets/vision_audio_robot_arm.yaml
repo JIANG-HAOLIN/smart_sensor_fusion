@@ -2,14 +2,14 @@ name: 'dummy'
 
 dataloader:
   # norm_audio: True
-  _target_: src.datasets.dummy_robot_arm.get_loaders
+  _target_: src.datasets.vision_audio_robot_arm.get_loaders
   batch_size: 128
   data_folder: ''
   drop_last: True
   debug: False
   args:
-    ablation: 'vf'
-    num_stack: 10
+    ablation: 'vf_ah'
+    num_stack: 5
     frameskip: 5
     no_crop: True
     crop_percent: 0.0

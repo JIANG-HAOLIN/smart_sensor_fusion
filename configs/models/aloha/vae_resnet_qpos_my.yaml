@@ -33,6 +33,7 @@ model:
     mod_names:
         - vision
         - qpos
+        - audio
     main_mod: vision
     model_dim: 512
     num_stack: 5  # num_frame / short_window_len
@@ -114,6 +115,30 @@ model:
         _target_: torch.nn.Linear
         in_features: ${models.model.pose_dim}
         out_features: ${models.model.obs_encoder.model_dim}
+
+    audio_args:
+      preprocess_audio_args:
+        _target_: src.models.utils.mel_spec.MelSpec
+        windows_size: 0.05
+        length: 80000
+        sr: 16000
+        n_mels: 64
+        norm_audio: false
+        hop: 0.05
+      tokenization_audio:
+        _target_: src.models.utils.tokenization.Vanilla2dTokenization
+        channel_size: 1
+        input_size:
+          - ${models.model.obs_encoder.audio_args.preprocess_audio_args.n_mels}
+          - 51
+        patch_size:
+          - ${models.model.obs_encoder.audio_args.preprocess_audio_args.n_mels}
+          - 10
+        model_dim: ${models.model.obs_encoder.model_dim}
+      pe_audio:
+        _target_: src.models.encoders.identity.get_identity_encoder
+      encoder_audio_args:
+        _target_: src.models.encoders.identity.get_identity_encoder
     #---------------------------------------------------------------------------------------------------------#
 
     fusion_args:

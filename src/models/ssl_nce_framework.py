@@ -1942,6 +1942,8 @@ class SslNceFramework_EarlySum_VATT_addtional(torch.nn.Module):
             encoded_inputs["tactile"] = tactile_signal
 
         return encoded_inputs
+
+
 class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
     """Framework for multi-model self-supervised pretraining"""
 
@@ -2308,7 +2310,7 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
                 nll = (nll_ + nll) / 2
                 nll_sum.append(nll)
         nce_loss_dict = {
-            '_loss': sum(nll_sum)/ len(nll_sum),
+            '_loss': sum(nll_sum) / len(nll_sum),
         }
 
         return nce_loss_dict
@@ -2411,7 +2413,7 @@ class SslNceFramework_EarlySum_VATT_addtional_qpos(torch.nn.Module):
             if type(tactile_signal) == tuple:
                 tactile_signal, attn_tactile = tactile_signal
             encoded_inputs["tactile"] = tactile_signal
-        
+
         # process of qpos signal
         if "qpos" in multimod_inputs.keys():
             qpos_signal = multimod_inputs["qpos"]
@@ -2542,7 +2544,8 @@ class OneImageVit(torch.nn.Module):
             "depth": depth_args,
             "text": text_args,
         }
-        self.vit = Vit(model_dim=model_dim, num_heads=12, num_layers=8, input_size=(240, 160), patch_size=(16, 16), num_emb=151)
+        self.vit = Vit(model_dim=model_dim, num_heads=12, num_layers=8, input_size=(240, 160), patch_size=(16, 16),
+                       num_emb=151)
         self.mlp = nn.Linear(model_dim, 6)
         self.mod_names = mod_names
         self.main_mod = main_mod
@@ -2567,7 +2570,6 @@ class OneImageVit(torch.nn.Module):
         image = self.mlp(image)
         output["predict"]["xyzrpy"] = image
         return output
-
 
 
 class OneImageResnet(torch.nn.Module):

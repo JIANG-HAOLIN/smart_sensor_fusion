@@ -58,7 +58,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         all_time_orientation = torch.zeros([max_timesteps, max_timesteps + query_frequency, 4]).cuda()
 
         with torch.no_grad():
-            for idx1, loader in enumerate([val_loaders]):
+            for idx1, loader in enumerate([train_inference_loaders]):
                 name = str(idx1) + ("val" if idx1 >= l else "train")
                 trials_names.append(name)
                 trial_outs = []
@@ -147,7 +147,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cuponboard_diff/name=diffusion_policyname=DiffusionPolicyaction=positionname=coswarmuplr=4e-05weight_decay=1e-05source=True_04-27-11:18:23_120_160_ddpm_posfuse")
+                        default="../checkpoints/cuponboard_diff/name=diffusion_policyname=DiffusionPolicyaction=positionname=coswarmuplr=5e-05weight_decay=1e-05frameskip=5_target_=diffusers.schedulers.scheduling_ddpm.DDPMScheduler_04-28-18:07:45")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

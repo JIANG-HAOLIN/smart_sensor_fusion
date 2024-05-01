@@ -737,8 +737,8 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
     train_trajs_paths = trajs[:num_train]
     val_trajs_paths = trajs[num_train:]
     if debug:
-        train_trajs_paths = train_trajs_paths[1:2]
-        val_trajs_paths = val_trajs_paths[2:3]
+        train_trajs_paths = train_trajs_paths[0:1]
+        val_trajs_paths = val_trajs_paths[1:2]
 
     normalizer = Normalizer(train_trajs_paths, args)
     normalizer.save_json(save_json)
@@ -803,12 +803,12 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/home/jin4rng/Documents/robodemo_4_24'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/4_29_pouring'
     args = SimpleNamespace()
 
     args.ablation = 'vg_vf_ah'
-    args.num_stack = 2
-    args.frameskip = 2
+    args.num_stack = 5
+    args.frameskip = 5
     args.no_crop = True
     args.crop_percent = 0.0
     args.resized_height_v = 240
@@ -823,12 +823,12 @@ if __name__ == "__main__":
     args.catg = "resample"
     args.norm_type = "limit"
 
-    train_loader, val_loader, _, = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
-                                               drop_last=False, debug=False, save_json=None)
+    train_loader, val_loader, train_inference_loader, = get_loaders(batch_size=1, args=args, data_folder=data_folder_path,
+                                               drop_last=False, debug=True, save_json=None)
     norm_state = train_loader.dataset.datasets[0].norm_state
     FORMAT = pyaudio.paInt16
 
-    normalizer = Normalizer.from_json("/home/jin4rng/Documents/robodemo_4_24/")
+    normalizer = Normalizer.from_json(data_folder_path)
     ######## show images ###################################################################
     # print(len(val_loader))
     #
@@ -850,91 +850,93 @@ if __name__ == "__main__":
     ######## show images ###################################################################
 
     ######## show images and audio #################################################################
-    print(len(val_loader))
-    audio_list = []
+    # print(len(val_loader))
+    # audio_list = []
+    # for idx, batch in enumerate(val_loader):
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+    #     audio = obs["a_holebase"][0][-1][-1600:].numpy()
+    #     audio = normalizer.denormalize_audio(audio=audio)
+    #     # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
+    #     #                     output_device_index=0)
+    #     # for i in range(len(frames)):
+    #     #     stream.write(frames[i])
+    #     #
+    #     # stream.stop_stream()
+    #     # stream.close()
+    #
+    #     audio_list.append(audio)
+    #
+    #     image = np.concatenate([image_f, image_g], axis=0)
+    #     cv2.imshow("asdf", image)
+    #     time.sleep(0.1)
+    #     key = cv2.waitKey(1)
+    #     if key == ord("q"):
+    #         break
+    # audio_list = np.concatenate(audio_list, axis=0)
+    # plt.plot(np.arange(audio_list.shape[0]), audio_list)
+    # plt.show()
+    ####### show image and audio ########################################################################
+
+    #######check pose and vel######################################################################3
+    all_step_source_pose = []
+    all_step_target_pose = []
+    all_step_gripper = []
+    all_step_source_pos_ori = []
+    all_step_target_pos_ori = []
+
+    all_step_source_real_delta = []
+    all_step_target_real_delta = []
+    all_step_direct_vel = []
+
+
     for idx, batch in enumerate(val_loader):
         # if idx >= 100:
         #     break
         print(f"{idx} \n")
         obs = batch["observation"]
 
-        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
-        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
-        audio = obs["a_holebase"][0][-1][-1600:].numpy()
-        audio = normalizer.denormalize_audio(audio=audio)
-        # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
-        #                     output_device_index=0)
-        # for i in range(len(frames)):
-        #     stream.write(frames[i])
-        #
-        # stream.stop_stream()
-        # stream.close()
+        # for image_g in obs[1][0]:
+        #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
+        # key = cv2.waitKey(1)
+        # if key == ord("q"):
+        #     break
+        all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:].unsqueeze(-1))
 
-        audio_list.append(audio)
+        all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
+        all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
 
-        image = np.concatenate([image_f, image_g], axis=0)
-        cv2.imshow("asdf", image)
-        time.sleep(0.1)
-        key = cv2.waitKey(1)
-        if key == ord("q"):
-            break
-    audio_list = np.concatenate(audio_list, axis=0)
-    plt.plot(np.arange(audio_list.shape[0]), audio_list)
-    plt.show()
-    ####### show image and audio ########################################################################
+        all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
+        all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
+        all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
 
-    #######check pose and vel######################################################################3
-    # all_step_source_pose = []
-    # all_step_target_pose = []
-    # all_step_gripper = []
-    # all_step_source_pos_ori = []
-    # all_step_target_pos_ori = []
-    # 
-    # all_step_source_real_delta = []
-    # all_step_target_real_delta = []
-    # all_step_direct_vel = []
-    # 
-    # 
-    # for idx, batch in enumerate(train_loader):
-    #     # if idx >= 100:
-    #     #     break
-    #     print(f"{idx} \n")
-    #     obs = batch["observation"]
-    # 
-    #     # for image_g in obs[1][0]:
-    #     #     cv2.imshow("asdf", image_g.permute(1, 2, 0).numpy())
-    #     # key = cv2.waitKey(1)
-    #     # if key == ord("q"):
-    #     #     break
-    #     all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:, -1:])
-    # 
-    #     all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
-    #     all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
-    # 
-    #     all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
-    #     all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
-    #     all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
-    # 
-    #     all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
-    #     all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
-    # 
-    # 
-    # all_step_gripper = torch.cat(all_step_gripper, dim=0)
-    # 
-    # all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
-    # all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
-    # plot_2arr([torch.cat([all_step_target_pose, all_step_gripper], dim=-1), torch.cat([all_step_source_pose, all_step_gripper], dim=-1)],
-    #           ["target", "source"])
-    # 
-    # all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
-    # all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
-    # plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1), torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)],
-    #           ["source", "target"])
-    # 
-    # all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
-    # all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
-    # all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)
-    # plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["direct", "target", "source"])
+        all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
+        all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
+
+
+    all_step_gripper = torch.cat(all_step_gripper, dim=0)
+
+    all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
+    all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
+    plot_2arr([torch.cat([all_step_target_pose, all_step_gripper], dim=-1), torch.cat([all_step_source_pose, all_step_gripper], dim=-1)],
+              ["target", "source"])
+
+    all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
+    # all_step_target_pos_ori = normalizer.denormalize(all_step_target_pos_ori, "target_glb_pos_ori")
+    all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
+    # all_step_source_pos_ori = normalizer.denormalize(all_step_source_pos_ori, "source_glb_pos_ori")
+    plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1)[:,0:-1:2], torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)[:,0:-1:2]],
+              ["source", "target"])
+
+    all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
+    all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
+    all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)
+    plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["direct", "target", "source"])
     #######check pos and vel######################################################################3
 
     #######check pose recover######################################################################3
