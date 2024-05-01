@@ -850,37 +850,37 @@ if __name__ == "__main__":
     ######## show images ###################################################################
 
     ######## show images and audio #################################################################
-    # print(len(val_loader))
-    # audio_list = []
-    # for idx, batch in enumerate(val_loader):
-    #     # if idx >= 100:
-    #     #     break
-    #     print(f"{idx} \n")
-    #     obs = batch["observation"]
-    #
-    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
-    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
-    #     audio = obs["a_holebase"][0][-1][-1600:].numpy()
-    #     audio = normalizer.denormalize_audio(audio=audio)
-    #     # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
-    #     #                     output_device_index=0)
-    #     # for i in range(len(frames)):
-    #     #     stream.write(frames[i])
-    #     #
-    #     # stream.stop_stream()
-    #     # stream.close()
-    #
-    #     audio_list.append(audio)
-    #
-    #     image = np.concatenate([image_f, image_g], axis=0)
-    #     cv2.imshow("asdf", image)
-    #     time.sleep(0.1)
-    #     key = cv2.waitKey(1)
-    #     if key == ord("q"):
-    #         break
-    # audio_list = np.concatenate(audio_list, axis=0)
-    # plt.plot(np.arange(audio_list.shape[0]), audio_list)
-    # plt.show()
+    print(len(val_loader))
+    audio_list = []
+    for idx, batch in enumerate(train_inference_loader):
+        # if idx >= 100:
+        #     break
+        print(f"{idx} \n")
+        obs = batch["observation"]
+
+        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+        audio = obs["a_holebase"][0][-1][-1600:].numpy()
+        audio = normalizer.denormalize_audio(audio=audio)
+        # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
+        #                     output_device_index=0)
+        # for i in range(len(frames)):
+        #     stream.write(frames[i])
+        #
+        # stream.stop_stream()
+        # stream.close()
+
+        audio_list.append(audio)
+
+        image = np.concatenate([image_f, image_g], axis=0)
+        cv2.imshow("asdf", image)
+        time.sleep(0.1)
+        key = cv2.waitKey(1)
+        if key == ord("q"):
+            break
+    audio_list = np.concatenate(audio_list, axis=0)
+    plt.plot(np.arange(audio_list.shape[0]), audio_list)
+    plt.show()
     ####### show image and audio ########################################################################
 
     #######check pose and vel######################################################################3

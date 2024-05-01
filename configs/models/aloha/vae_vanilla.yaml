@@ -2,6 +2,8 @@ name: 'vae_vanilla'
 
 model:
   _target_: src.models.aloha_vanilla.build
+  action_dim: 3  # not used, just as a placeholder
+  pose_dim: 3  # not used, just as a placeholder
   replace_args:
     camera_names:
       - 'vf'
