@@ -1,4 +1,4 @@
-name: "aloha"
+name: "aloha_pouring"
 
 pl_module:
   _target_: src.pl_modules.aloha_pouring.AlohaPolicy
