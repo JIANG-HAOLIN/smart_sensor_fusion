@@ -129,7 +129,7 @@ class AlohaPolicy(pl.LightningModule):
         for key, value in metrics.items():
             mod_metric[f"{mode}_{key}"] = value
         self.log_dict(mod_metric)
-        print(metrics)
+        # print(metrics)
         return metrics
 
     def train_dataloader(self):
