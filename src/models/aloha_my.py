@@ -135,6 +135,7 @@ class Transformer(nn.Module):
             tgt_mask=mask,
             memory_mask=None
         )
+        # hs = torch.nn.functional.tanh(hs)  # 697 nan
         return {"action_decoder_out": hs,
                 "obs_encoder_out": trm_enc_out,
                 }
@@ -423,7 +424,12 @@ class DETRVAE(nn.Module):
         # decoder extra parameters
         self.latent_out_proj = nn.Linear(self.latent_dim, hidden_dim)  # project latent sample to embedding
         self.additional_pos_embed = nn.Embedding(2, hidden_dim)  # learned position embedding for proprio and latent
+        self._reset_parameters()
 
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
     def forward(self, qpos, multi_mod_input, actions=None, is_pad=None,
                 mask=None,
                 mask_type="input_mask",
@@ -489,6 +495,7 @@ class DETRVAE(nn.Module):
         )
         hs = output["action_decoder_out"]
         a_hat = self.action_head(hs)  # bs, seq_len, action_dim
+        a_hat = F.tanh(a_hat)
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
                 "obs_encoder_out": output["obs_encoder_out"],

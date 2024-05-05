@@ -134,11 +134,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             normalizer=normalizer,
                             action_type=action_type,
                             )
-                        # all_action = torch.from_numpy(all_action)
-                        # all_l1 = F.l1_loss(actions, all_action.to(actions.device), reduction='none')
-                        # l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
-                        # print(l1)
-                        #
+                        all_l1 = F.l1_loss(actions, og_a_hat.to(actions.device), reduction='none')
+                        l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
+                        print(l1)
+
 
                         og_a_hat_list.append(og_a_hat[0, :query_frequency, :])
                         real_a_list.append(actions[0, :query_frequency, :])
@@ -206,7 +205,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=5e-05weight_decay=0.0001kl_divergence=10hidden_dim=512output_layer_index=-1source=True_04-16-07:40:56")
+                        default="../checkpoints/cupboard/name=alohaname=vae_resnet_qposaction=real_delta_targetname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=240resized_width_v=320_04-30-08:15:26")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
