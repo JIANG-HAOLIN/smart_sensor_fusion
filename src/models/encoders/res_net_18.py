@@ -102,7 +102,7 @@ class Encoder(nn.Module):
         return x
 
 
-def make_audio_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
+def make_audio_encoder(out_dim=None, out_layer="layer4.1.relu_1", **kwargs):
     audio_extractor = resnet18()
     audio_extractor.conv1 = nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3, bias=False)
     audio_extractor = create_feature_extractor(audio_extractor, [out_layer])
@@ -113,15 +113,15 @@ def make_audio_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
     return Encoder(audio_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
 
 
-def make_vision_encoder(out_dim=None, out_layer="layer3.1.relu_1", **kwargs):
-    audio_extractor = resnet18()
-    audio_extractor.conv1 = nn.Conv2d(5, 64, kernel_size=7, stride=1, padding=3, bias=False)
-    audio_extractor = create_feature_extractor(audio_extractor, [out_layer])
+def make_vision_encoder(out_dim=None, out_layer="layer4.1.relu_1", weight=None, **kwargs, ):
+    vision_extractor = resnet18(weight)
+    vision_extractor.conv1 = nn.Conv2d(5, 64, kernel_size=7, stride=1, padding=3, bias=False)
+    vision_extractor = create_feature_extractor(vision_extractor, [out_layer])
     out_dim_dict = {
         "layer3.1.relu_1": 256,
         "layer4.1.relu_1": 512,
     }
-    return Encoder(audio_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
+    return Encoder(vision_extractor, in_dim=out_dim_dict[out_layer], out_dim=out_dim)
 
 
 def make_tactile_encoder(out_dim=None, out_layer="layer4.1.relu_1", **kwargs):
@@ -341,7 +341,7 @@ def make_resnet18_randomcrop_coordconv_groupnorm_maxpool(**kwargs):
             x = self.feature_extractor(x)
             return x.unsqueeze(1)
 
-    resnet = resnet18()
+    resnet = resnet18(weights='DEFAULT')
     resnet.conv1 = nn.Conv2d(5, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
     resnet.bn1 = nn.GroupNorm(
         num_groups=64 // 16,

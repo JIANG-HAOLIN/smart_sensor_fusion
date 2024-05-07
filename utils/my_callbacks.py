@@ -6,6 +6,7 @@ import time
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 
 class MyProgressBar(TQDMProgressBar):
@@ -41,6 +42,7 @@ class MyEpochTimer(Callback):
 class SaveBestTxt(Callback):
     """this hook is always executed before the main code defined in pl_modules, so at epoch n only the best_model_score
     only contains the best value appeared in epoch 0 --> n-1 """
+
     def __init__(self, out_dir_path: str, label: str):
         super().__init__()
         self.out_dir_path = out_dir_path
@@ -68,6 +70,7 @@ class SaveBestTxt(Callback):
 class PlotMetric(Callback):
     """i want to plot the metrics of all the epochs including current epoch that's why i access the metric through log
     instead of checkpoints"""
+
     def __init__(self, out_dir_path: str,
                  wanted_metrics: tuple = ("loss", "acc"),
                  ):
@@ -88,7 +91,7 @@ class PlotMetric(Callback):
                     if metric not in self.val_metrics.keys():
                         self.val_metrics[metric] = []
                     self.val_metrics[metric].append(value)
-            fig, ax = plt.subplots(num_metric, 1, figsize = (5, 3*num_metric))
+            fig, ax = plt.subplots(num_metric, 1, figsize=(5, 3 * num_metric))
             for idx, (metric, values) in enumerate(self.val_metrics.items()):
                 x = np.arange(len(values))
                 y = np.asarray(values)
@@ -134,3 +137,22 @@ class PlotMetric(Callback):
                             bbox_inches='tight', )
             plt.clf()
             plt.close('all')
+
+
+class NaNCallback(Callback):
+
+    def nan_detect(self, trainer, pl_moudle, x, name):
+        if isinstance(x, torch.Tensor):
+            if torch.isnan(x).any():
+                print(f"Nan detected in {name}")
+                trainer.should_stop = True
+        elif isinstance(x, dict):
+            for k, v in x.items():
+                self.nan_detect(trainer, pl_moudle, v, name + k)
+        elif isinstance(x, list):
+            for v in x:
+                self.nan_detect(trainer, pl_moudle, v, name)
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
+        self.nan_detect(trainer, pl_module, outputs, "output")
+        self.nan_detect(trainer, pl_module, batch, "batch input")

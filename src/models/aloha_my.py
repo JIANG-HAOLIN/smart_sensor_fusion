@@ -424,7 +424,7 @@ class DETRVAE(nn.Module):
         # decoder extra parameters
         self.latent_out_proj = nn.Linear(self.latent_dim, hidden_dim)  # project latent sample to embedding
         self.additional_pos_embed = nn.Embedding(2, hidden_dim)  # learned position embedding for proprio and latent
-        self._reset_parameters()
+        # self._reset_parameters()
 
     def _reset_parameters(self):
         for p in self.parameters():
