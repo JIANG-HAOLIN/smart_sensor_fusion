@@ -12,7 +12,7 @@ import copy
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 from utils.visualizations import scatter_tsne, scatter_pca, scatter_pca_3d, scatter_tnse_3d, scatter_tsne_selected
-from src.datasets.dummy_robot_arm import get_loaders, Normalizer
+from src.datasets.vision_audio_robot_arm import get_loaders, Normalizer
 from utils.quaternion import q_exp_map, q_log_map, exp_map_seq, log_map_seq, q_to_rotation_matrix, q_from_rot_mat
 import time
 from utils.visualizations import plot_tensors
@@ -25,7 +25,6 @@ def set_random_seed(seed):
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
-
 
 def inference(cfg: DictConfig, args: argparse.Namespace):
     # set_random_seed(42)
@@ -57,7 +56,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True)
         l = len(train_loaders)
 
-        normalizer = Normalizer.from_json(os.path.join(cfg_path, "normalizer_config.json"))
+        normalizer = Normalizer.from_json(os.path.join(cfg_path))
 
         max_timesteps = 1000
         query_frequency = 10
@@ -71,51 +70,39 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 trial_outs = []
                 inference_time = []
                 for t, batch in enumerate(loader):
-                    # if t % 1 == 0:
+                    if t % query_frequency == 0:
                         print(t)
 
                         start_time = time.time()
                         total_loss = 0
                         metrics = {}
 
-                        real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
-                        real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
-                        direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-                        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
-
-                        pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
-
-                        qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
-
-                        qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
-
-                        qpos = torch.cat([qpos, qpos_gripper], dim=-1).to(args.device)
-
                         inp_data = batch["observation"]
                         for key, value in inp_data.items():
                             inp_data[key] = value.to(args.device)
                         multimod_inputs = {
-                            "vision": inp_data,
+                            "vision": batch["observation"],
+                            "qpos": batch["traj"]["target_glb_pos_ori"]["obs"][:, :, ::2].float().to(args.device),
+                            "audio": batch["observation"]["a_holebase"].to(args.device),
                         }
+
+                        qpos = multimod_inputs["qpos"][:, -1, :]
 
                         inference_type = cfg.pl_modules.pl_module.action
                         if inference_type == "real_delta_target":
-                            actions = real_delta
+                            action = batch["traj"]["target_real_delta"]["action"][:, :, ::2].float()
                             action_type = "target_real_delta"
-
                         elif inference_type == "position":
-                            actions = pose[:, :, :]
+                            action = batch["traj"]["source_glb_pos_ori"]["action"][:, :, ::2].float()
                             action_type = "target_glb_pos_ori"
-
                         elif inference_type == "real_delta_source":
-                            actions = real_delta_source[:, :, :]
+                            action = batch["traj"]["source_real_delta"]["action"][:, :, ::2].float()
                             action_type = "source_real_delta"
-
                         elif inference_type == "direct_vel":
-                            actions = direct_vel
+                            action = batch["traj"]["direct_vel"]["action"][:, :, ::2].float()
                             action_type = "direct_vel"
 
-                        actions = torch.cat([actions, pose_gripper], dim=-1).to(args.device)
+                        actions = action.to(args.device)
 
                         is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
 
@@ -123,8 +110,8 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             qpos,
                             multimod_inputs,
                             env_state=None,
-                            actions=actions,
-                            is_pad=is_pad,
+                            actions=None,
+                            is_pad=None,
                             all_time_position=all_time_position,
                             all_time_orientation=all_time_orientation,
                             t=t,
@@ -134,25 +121,14 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             num_queries=query_frequency,
                             normalizer=normalizer,
                             action_type=action_type,
-                        )
+                            )
                         all_l1 = F.l1_loss(actions, og_a_hat.to(actions.device), reduction='none')
                         l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
                         print(l1)
-                        loss_list.append(l1)
+
 
                         og_a_hat_list.append(og_a_hat[0, :query_frequency, :])
                         real_a_list.append(actions[0, :query_frequency, :])
-
-                        gripper = all_action[:, :1]
-                        all_action = all_action[:, 1:]
-
-                        pose = normalizer.denormalize(pose[0, :query_frequency, :], "target_glb_pos_ori")
-                        pose_gripper = normalizer.denormalize(pose_gripper[0, :query_frequency, :], "gripper")
-                        pm.append(torch.cat([pose, pose_gripper], dim=-1))
-                        all_action = log_map_seq(all_action, np.array([0, 0, 0, 0, 1, 0, 0]))
-
-                        pmr.append(torch.from_numpy(
-                            np.concatenate([all_action[:query_frequency, :], gripper[:query_frequency, :]], axis=-1)))
 
                         inference_time.append(time.time() - start_time)
                 print(
@@ -170,25 +146,27 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         #              trials_names, output_png_path+"_ct_output")
 
         # print(torch.cat(loss_list).mean())
-        pm = torch.cat(pm, dim=0)
-        print("average loss:",torch.asarray(loss_list).mean())
-        plot_tensors([pm, torch.cat(pmr, dim=0)], ["real", "pred"])
+        # pm = torch.cat(pm, dim=0)
+        #
+        # plot_tensors([pm, torch.cat(pmr, dim=0)], ["real", "pred"])
 
         og_a_hat = torch.cat(og_a_hat_list, dim=0)
         real_a = torch.cat(real_a_list, dim=0)
         plot_tensors([og_a_hat, real_a], ["pred", "real"])
 
-        # np.save("example_traj.npy", pm)
-        #
-        # x = pm[:, 0]
-        # y = pm[:, 1]
-        # z = pm[:, 2]
-        #
-        # fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-        # markerline, stemlines, baseline = ax.stem(
-        #     x, y, z, linefmt='none', markerfmt='.', orientation='z', )
-        # # markerline.set_markerfacecolor('none')
-        # ax.set_aspect('equal')
+
+
+        np.save("example_traj.npy", pm)
+
+        x = pm[:, 0]
+        y = pm[:, 1]
+        z = pm[:, 2]
+
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+        markerline, stemlines, baseline = ax.stem(
+            x, y, z, linefmt='none', markerfmt='.', orientation='z', )
+        # markerline.set_markerfacecolor('none')
+        ax.set_aspect('equal')
 
         plt.show()
 
@@ -203,7 +181,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../multirun/2024-05-07/15-36-38/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=480resized_width_v=640_05-07-15:36:39")
+                        default="../checkpoints/pouring/name=aloha_pouringname=vae_resnet_qposaction=direct_velname=coswarmuplr=4e-05source=Trueresized_height_v=240resized_width_v=320batch_size=64_05-06-10:33:15")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

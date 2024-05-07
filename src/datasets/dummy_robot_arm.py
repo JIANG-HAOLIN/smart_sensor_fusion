@@ -883,7 +883,7 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
     val_trajs_paths = trajs[num_train:]
     if debug:
         train_trajs_paths = train_trajs_paths[1:2]
-        val_trajs_paths = val_trajs_paths[2:3]
+        val_trajs_paths = train_trajs_paths
 
     normalizer = Normalizer(train_trajs_paths, args)
     if save_json is not None:

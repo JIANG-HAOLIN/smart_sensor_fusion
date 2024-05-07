@@ -521,6 +521,14 @@ class DETRVAE(nn.Module):
                               mode="val",
                               env_state=None, )
         a_hat, is_pad_hat, (mu, logvar) = output["vae_output"]
+        if a_hat.shape[-1] == 3:
+            og_a_hat = a_hat
+
+            return None, None, all_time_position, all_time_orientation, og_a_hat
+
+
+
+
         og_a_hat = a_hat
         a_hat, gripper = a_hat[:, :, :-1], a_hat[:, :, -1:]
         qpos = normalizer.denormalize(qpos[:, :-1], "target_glb_pos_ori").float()
