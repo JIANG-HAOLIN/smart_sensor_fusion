@@ -119,6 +119,8 @@ class AlohaPolicy(pl.LightningModule):
                            env_state=None)
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
+
+            self.log("logvar", logvar.mean(), on_step=True, prog_bar=True)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             action = action[:, :, :]
             a_hat = a_hat[:, :, :]

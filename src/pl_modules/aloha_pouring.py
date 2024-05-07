@@ -20,7 +20,7 @@ def kl_divergence(mu, logvar):
     if logvar.data.ndimension() == 4:
         logvar = logvar.view(logvar.size(0), logvar.size(1))
 
-    klds = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())
+    klds = -0.5 * (1 + logvar - mu.pow(2) - logvar.exp())  #####!!!!!!
     total_kld = klds.sum(1).mean(0, True)
     dimension_wise_kld = klds.mean(0)
     mean_kld = klds.mean(1).mean(0, True)
@@ -108,6 +108,7 @@ class AlohaPolicy(pl.LightningModule):
                            env_state=None)
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
+            self.log("logvar", logvar.mean(), on_step=True, prog_bar=True)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             action = action[:, :, :]
             a_hat = a_hat[:, :, :]
