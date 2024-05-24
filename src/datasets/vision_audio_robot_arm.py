@@ -666,7 +666,7 @@ class Normalizer(Dataset):
                     output_dict[key] = np.array([value])  # Convert other types to 1D NumPy arrays
             return output_dict
 
-        json_str = os.path.join(json_str, "normalizer_config.json")
+        json_str = os.path.join(json_str)
         with open(json_str, 'r') as j:
             data = json.loads(j.read())
 
@@ -714,8 +714,24 @@ class Normalizer(Dataset):
         limit = max(np.abs(statistic["max"]), np.abs(statistic["min"]))
         return audio * limit
 
+    def normalize(self, x, var_name):
+        statistic = copy.deepcopy(self.norm_state[self.args.catg][var_name])
+        if isinstance(x, torch.Tensor):
+            for k, v in statistic.items():
+                statistic[k] = torch.from_numpy(v).to(x.device)
+        if self.args.norm_type == "limit":
+            return (x - statistic["min"]) * 2 / (statistic["max"] - statistic["min"]) - 1
+        elif self.args.norm_type == "gaussian":
+            return (x - statistic["mean"])/statistic["std"]
+        else:
+            raise TypeError("norm type unrecognized")
 
-def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, **kwargs):
+    def normalize_audio(self, audio):
+        statistic = copy.deepcopy(self.norm_state["resample"]["audio"])
+        limit = max(np.abs(statistic["max"]), np.abs(statistic["min"]))
+        return audio / limit
+
+def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, load_json=None, **kwargs):
     """
 
     Args:
@@ -740,8 +756,11 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
         train_trajs_paths = train_trajs_paths[0:1]
         val_trajs_paths = val_trajs_paths[1:2]
 
-    normalizer = Normalizer(train_trajs_paths, args)
-    normalizer.save_json(save_json)
+    if load_json is not None:
+        normalizer = Normalizer.from_json(load_json)
+    else:
+        normalizer = Normalizer(train_trajs_paths, args)
+        normalizer.save_json(save_json)
     args.norm_state = normalizer.norm_state
     print("normalization state:", args.norm_state)
 
@@ -766,11 +785,11 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
         ]
     )
 
-    train_loader = DataLoader(train_set, batch_size, num_workers=8, shuffle=True, drop_last=drop_last, )
+    train_loader = DataLoader(train_set, batch_size, num_workers=4, shuffle=True, drop_last=drop_last, )
     print(f"number of training trajectories: {len(train_trajs_paths)} \n train loader length: {len(train_loader)} \n "
           f"batch size: {batch_size} \n in total {batch_size * len(train_loader)} training samples", )
-    train_inference_loader = DataLoader(train_inference_set, 1, num_workers=8, shuffle=False, drop_last=False, )
-    val_loader = DataLoader(val_set, 1, num_workers=8, shuffle=False, drop_last=False, )
+    train_inference_loader = DataLoader(train_inference_set, 1, num_workers=4, shuffle=False, drop_last=False, )
+    val_loader = DataLoader(val_set, 1, num_workers=4, shuffle=False, drop_last=False, )
     print(
         f"number of validation trajectories: {len(val_trajs_paths)} \n validation loader length: {len(val_loader)} \n", )
     return train_loader, val_loader, train_inference_loader
@@ -803,7 +822,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/4_29_pouring'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/4_29_pouring/4_29_pouring'
     args = SimpleNamespace()
 
     args.ablation = 'vg_vf_ah'
@@ -828,7 +847,7 @@ if __name__ == "__main__":
     norm_state = train_loader.dataset.datasets[0].norm_state
     FORMAT = pyaudio.paInt16
 
-    normalizer = Normalizer.from_json(data_folder_path)
+    normalizer = Normalizer.from_json(data_folder_path+"/normalizer_config.json")
     ######## show images ###################################################################
     # print(len(val_loader))
     #
@@ -850,37 +869,37 @@ if __name__ == "__main__":
     ######## show images ###################################################################
 
     ######## show images and audio #################################################################
-    print(len(val_loader))
-    audio_list = []
-    for idx, batch in enumerate(train_inference_loader):
-        # if idx >= 100:
-        #     break
-        print(f"{idx} \n")
-        obs = batch["observation"]
-
-        image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
-        image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
-        audio = obs["a_holebase"][0][-1][-1600:].numpy()
-        audio = normalizer.denormalize_audio(audio=audio)
-        # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
-        #                     output_device_index=0)
-        # for i in range(len(frames)):
-        #     stream.write(frames[i])
-        #
-        # stream.stop_stream()
-        # stream.close()
-
-        audio_list.append(audio)
-
-        image = np.concatenate([image_f, image_g], axis=0)
-        cv2.imshow("asdf", image)
-        time.sleep(0.1)
-        key = cv2.waitKey(1)
-        if key == ord("q"):
-            break
-    audio_list = np.concatenate(audio_list, axis=0)
-    plt.plot(np.arange(audio_list.shape[0]), audio_list)
-    plt.show()
+    # print(len(val_loader))
+    # audio_list = []
+    # for idx, batch in enumerate(train_inference_loader):
+    #     # if idx >= 100:
+    #     #     break
+    #     print(f"{idx} \n")
+    #     obs = batch["observation"]
+    #
+    #     image_f = obs["v_fix"][0][-1].permute(1, 2, 0).numpy()
+    #     image_g = obs["v_gripper"][0][-1].permute(1, 2, 0).numpy()
+    #     audio = obs["a_holebase"][0][-1][-1600:].numpy()
+    #     audio = normalizer.denormalize_audio(audio=audio)
+    #     # stream = audio.open(format=FORMAT, channels=1, rate=16000, output=True, frames_per_buffer=1600,
+    #     #                     output_device_index=0)
+    #     # for i in range(len(frames)):
+    #     #     stream.write(frames[i])
+    #     #
+    #     # stream.stop_stream()
+    #     # stream.close()
+    #
+    #     audio_list.append(audio)
+    #
+    #     image = np.concatenate([image_f, image_g], axis=0)
+    #     cv2.imshow("asdf", image)
+    #     time.sleep(0.1)
+    #     key = cv2.waitKey(1)
+    #     if key == ord("q"):
+    #         break
+    # audio_list = np.concatenate(audio_list, axis=0)
+    # plt.plot(np.arange(audio_list.shape[0]), audio_list)
+    # plt.show()
     ####### show image and audio ########################################################################
 
     #######check pose and vel######################################################################3
@@ -927,12 +946,14 @@ if __name__ == "__main__":
               ["target", "source"])
 
     all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
-    # all_step_target_pos_ori = normalizer.denormalize(all_step_target_pos_ori, "target_glb_pos_ori")
+    all_step_target_pos_ori = normalizer.denormalize(all_step_target_pos_ori, "target_glb_pos_ori")
     all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
-    # all_step_source_pos_ori = normalizer.denormalize(all_step_source_pos_ori, "source_glb_pos_ori")
-    plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1)[:,0:-1:2], torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)[:,0:-1:2]],
+    all_step_source_pos_ori = normalizer.denormalize(all_step_source_pos_ori, "source_glb_pos_ori")
+    plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1)[:,:], torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)[:,:]],
               ["source", "target"])
 
+    plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1)[:,:-1:2], torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)[:,:-1:2]],
+              ["source", "target"])
     all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
     all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
     all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)

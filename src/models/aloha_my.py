@@ -477,7 +477,7 @@ class DETRVAE(nn.Module):
         # Image observation features and position embeddings
 
         # proprioception features
-        proprio_input = self.input_proj_robot_state(qpos)
+        # proprio_input = self.input_proj_robot_state(qpos)
         # fold camera dimension into width dimension
         multi_mod_input["vision"] = multi_mod_input["vision"]["v_fix"]
         output = self.transformer(
@@ -486,7 +486,7 @@ class DETRVAE(nn.Module):
 
             query_embed=self.query_embed.weight,
             latent_input=latent_input,
-            proprio_input=proprio_input,
+            proprio_input=None,
             additional_pos_embed=self.additional_pos_embed.weight,
 
             mask_type=mask_type,
@@ -495,7 +495,7 @@ class DETRVAE(nn.Module):
         )
         hs = output["action_decoder_out"]
         a_hat = self.action_head(hs)  # bs, seq_len, action_dim
-        a_hat = F.tanh(a_hat)
+        # a_hat = F.tanh(a_hat)
         is_pad_hat = self.is_pad_head(hs)
         return {"vae_output": [a_hat, is_pad_hat, [mu, logvar]],
                 "obs_encoder_out": output["obs_encoder_out"],

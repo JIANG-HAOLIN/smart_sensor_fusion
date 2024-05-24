@@ -26,6 +26,7 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
+
 def inference(cfg: DictConfig, args: argparse.Namespace):
     # set_random_seed(42)
     torch.set_float32_matmul_precision('medium')
@@ -42,6 +43,13 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         model: torch.nn.Module = hydra.utils.instantiate(cfg.models.model, _recursive_=False).to(args.device)
         checkpoint_state_dict = torch.load(checkpoints_path)['state_dict']
         clone_state_dict = {key[4:]: checkpoint_state_dict[key] for key in checkpoint_state_dict.keys()}
+        # mean_list = []
+        # for k, v in clone_state_dict.items():
+        #     if len(v.shape) < 1:
+        #         continue
+        #     mean_list.append([k, torch.mean(v), torch.std(v)])
+        # mean_list.sort(key=lambda x: x[1])
+        # print(mean_list)
         model.load_state_dict(clone_state_dict)
         model.eval()
         pm = []
@@ -53,10 +61,10 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         og_a_hat_list = []
         real_a_list = []
 
-        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True)
+        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True, load_json=os.path.join(cfg_path, "normalizer_config.json"))
         l = len(train_loaders)
 
-        normalizer = Normalizer.from_json(os.path.join(cfg_path))
+        normalizer = Normalizer.from_json(os.path.join(cfg_path, "normalizer_config.json"))
 
         max_timesteps = 1000
         query_frequency = 10
@@ -81,54 +89,50 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                         for key, value in inp_data.items():
                             inp_data[key] = value.to(args.device)
                         multimod_inputs = {
-                            "vision": batch["observation"],
+                            "vision": inp_data,
                             "qpos": batch["traj"]["target_glb_pos_ori"]["obs"][:, :, ::2].float().to(args.device),
                             "audio": batch["observation"]["a_holebase"].to(args.device),
                         }
 
-                        qpos = multimod_inputs["qpos"][:, -1, :]
+                        qpos = multimod_inputs["qpos"][:, -1, :].to(args.device)
 
                         inference_type = cfg.pl_modules.pl_module.action
+
                         if inference_type == "real_delta_target":
                             action = batch["traj"]["target_real_delta"]["action"][:, :, ::2].float()
-                            action_type = "target_real_delta"
                         elif inference_type == "position":
                             action = batch["traj"]["source_glb_pos_ori"]["action"][:, :, ::2].float()
-                            action_type = "target_glb_pos_ori"
                         elif inference_type == "real_delta_source":
                             action = batch["traj"]["source_real_delta"]["action"][:, :, ::2].float()
-                            action_type = "source_real_delta"
                         elif inference_type == "direct_vel":
                             action = batch["traj"]["direct_vel"]["action"][:, :, ::2].float()
-                            action_type = "direct_vel"
+                        action = action.to(args.device)
+                        # print(qpos.shape)
+                        # Perform prediction and calculate loss and accuracy
+                        if action is not None:  # training time
+                            is_pad = torch.zeros([action.shape[0], action.shape[1]], device=action.device).bool()
+                            out = model(qpos,
+                                        multimod_inputs,
+                                        actions=None,
 
-                        actions = action.to(args.device)
+                                        is_pad=is_pad,
+                                        mask=None,
+                                        mask_type="None",
+                                        task="repr",
+                                        mode="val",
+                                        env_state=None)
+                            metrics.update(out["obs_encoder_out"]["ssl_losses"])
+                            a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
 
-                        is_pad = torch.zeros([actions.shape[0], actions.shape[1]], device=qpos.device).bool()
+                            action = action[:, :, :]
+                            a_hat = a_hat[:, :, :]
+                            all_l1 = F.l1_loss(action, a_hat, reduction='none')
+                            l1 = (all_l1 * ~is_pad.unsqueeze(-1)).mean()
+                            loss_list.append(l1)
+                            print(l1)
 
-                        all_action, raw_action, all_time_position, all_time_orientation, og_a_hat = model.rollout(
-                            qpos,
-                            multimod_inputs,
-                            env_state=None,
-                            actions=None,
-                            is_pad=None,
-                            all_time_position=all_time_position,
-                            all_time_orientation=all_time_orientation,
-                            t=t,
-                            args=args,
-                            v_scale=1,
-                            inference_type=inference_type,
-                            num_queries=query_frequency,
-                            normalizer=normalizer,
-                            action_type=action_type,
-                            )
-                        all_l1 = F.l1_loss(actions, og_a_hat.to(actions.device), reduction='none')
-                        l1 = (all_l1 * ~is_pad.unsqueeze(-1).to(all_l1.device)).mean()
-                        print(l1)
-
-
-                        og_a_hat_list.append(og_a_hat[0, :query_frequency, :])
-                        real_a_list.append(actions[0, :query_frequency, :])
+                        og_a_hat_list.append(a_hat[0, :query_frequency, :])
+                        real_a_list.append(action[0, :query_frequency, :])
 
                         inference_time.append(time.time() - start_time)
                 print(
@@ -153,9 +157,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         og_a_hat = torch.cat(og_a_hat_list, dim=0)
         real_a = torch.cat(real_a_list, dim=0)
         plot_tensors([og_a_hat, real_a], ["pred", "real"])
-
-
-
+        print(torch.asarray(loss_list).mean())
         np.save("example_traj.npy", pm)
 
         x = pm[:, 0]
@@ -181,7 +183,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../checkpoints/pouring/name=aloha_pouringname=vae_resnet_qposaction=direct_velname=coswarmuplr=4e-05source=Trueresized_height_v=240resized_width_v=320batch_size=64_05-06-10:33:15")
+                        default="../checkpoints/pouring/name=aloha_pouringname=vae_resnet_qposaction=positionname=coswarmuplr=4e-05source=Trueresized_height_v=240resized_width_v=320batch_size=64_05-01-19:18:15")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

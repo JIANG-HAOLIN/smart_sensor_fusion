@@ -649,7 +649,8 @@ class Normalizer(Dataset):
                 return non_json.__dict__
             elif isinstance(non_json, ListConfig):
                 return list(non_json)
-
+            elif isinstance(non_json, np.int16):
+                return non_json.item()
             else:
                 return non_json
 
@@ -860,7 +861,7 @@ class Normalizer(Dataset):
             raise TypeError("norm type unrecognized")
 
 
-def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, **kwargs):
+def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_json=None, debug=False, load_json=None, **kwargs):
     """
 
     Args:
@@ -885,9 +886,12 @@ def get_loaders(batch_size: int, args, data_folder: str, drop_last: bool, save_j
         train_trajs_paths = train_trajs_paths[1:2]
         val_trajs_paths = train_trajs_paths
 
-    normalizer = Normalizer(train_trajs_paths, args)
-    if save_json is not None:
-        normalizer.save_json(save_json)
+    if load_json is not None:
+        normalizer = Normalizer.from_json(load_json)
+    else:
+        normalizer = Normalizer(train_trajs_paths, args)
+        if save_json is not None:
+            normalizer.save_json(save_json)
     args.norm_state = normalizer.norm_state
     print("normalization state:", args.norm_state)
 

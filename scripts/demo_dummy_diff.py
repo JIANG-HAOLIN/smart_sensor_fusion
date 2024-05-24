@@ -47,7 +47,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         og_a_hat_list = []
         real_a_list = []
 
-        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True)
+        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True, load_json=os.path.join(cfg_path, "normalizer_config.json"))
         l = len(train_loaders)
 
         normalizer = Normalizer.from_json(os.path.join(cfg_path, "normalizer_config.json"))

@@ -26,7 +26,6 @@ def set_random_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-
 def inference(cfg: DictConfig, args: argparse.Namespace):
     # set_random_seed(42)
     torch.set_float32_matmul_precision('medium')
@@ -54,7 +53,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
         og_a_hat_list = []
         real_a_list = []
 
-        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True)
+        train_loaders, val_loaders, train_inference_loaders = get_loaders(**cfg.datasets.dataloader, debug=True, load_json=os.path.join(cfg_path, "normalizer_config.json"))
         l = len(train_loaders)
 
         normalizer = Normalizer.from_json(os.path.join(cfg_path, "normalizer_config.json"))
@@ -71,7 +70,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                 trial_outs = []
                 inference_time = []
                 for t, batch in enumerate(loader):
-                    # if t % 1 == 0:
+                    if t % query_frequency == 0:
                         print(t)
 
                         start_time = time.time()
@@ -123,7 +122,7 @@ def inference(cfg: DictConfig, args: argparse.Namespace):
                             qpos,
                             multimod_inputs,
                             env_state=None,
-                            actions=actions,
+                            actions=None,
                             is_pad=is_pad,
                             all_time_position=all_time_position,
                             all_time_orientation=all_time_orientation,
@@ -203,7 +202,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default="../multirun/2024-05-07/15-36-38/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=480resized_width_v=640_05-07-15:36:39")
+                        default="../checkpoints/cupboard/name=alohaname=vae_vanillaaction=positionname=coswarmuplr=4e-05weight_decay=0.0001kl_divergence=10source=Trueresized_height_v=480resized_width_v=640_04-26-17:04:33")
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,
