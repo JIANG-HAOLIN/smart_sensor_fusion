@@ -3,7 +3,7 @@ name: "aloha"
 pl_module:
   _target_: src.pl_modules.aloha.AlohaPolicy
   action: "real_delta_target"
-  train_tasks: bind+order+recover+imitation
+  train_tasks: bind+order+recover
   mask_type: latent_mask
   weight:
     cr_m_nce_loss: 1.0

@@ -296,7 +296,7 @@ class Inference:
                 all_action = self.normalizer.denormalize(all_action, "source_glb_pos_ori")
                 delta = all_action[:, :, ::2] - real_qpos_3
                 print("delta:",delta)
-                rotate = delta[:, :, 2] * 3
+                rotate = delta[:, :, 2]
                 new_euler = rotate + real_qpos_3[:, :, 2]
                 all_action = torch.stack([all_action[..., 0], dim_pad1 * 0.00742, all_action[..., 2], dim_pad1 * 0.0051700705953731585, new_euler, dim_pad1 * -0.0031471225012891704], dim=-1)
                 v = all_action.squeeze(0).cpu().numpy()

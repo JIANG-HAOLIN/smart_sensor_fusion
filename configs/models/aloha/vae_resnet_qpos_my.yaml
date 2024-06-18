@@ -94,7 +94,7 @@ model:
       preprocess_vision_args:
         _target_: src.models.encoders.identity.get_identity_encoder
       tokenization_vision:
-        _target_: src.models.encoders.res_net_18.make_vision_encoder
+        _target_: src.models.encoders.res_net_18.make_resnet18_randomcrop_coordconv_groupnorm_maxpool
         out_dim: 512
         out_layer: "layer4.1.relu_1"
       pe_vision:

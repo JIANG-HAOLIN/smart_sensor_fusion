@@ -77,32 +77,23 @@ class AlohaPolicy(pl.LightningModule):
         metrics = {}
 
         # Fetch data and transform categories to one-hot vectors
-        real_delta = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
-        real_delta_source = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
-        direct_vel = batch["traj"]["direct_vel"]["action"][:, :, :].float()
-        pose = batch["traj"]["target_glb_pos_ori"]["action"][:, :, :].float()
-
-        pose_gripper = batch["traj"]["gripper"]["action"][:, :, :1].float()
-
-        qpos = batch["traj"]["target_glb_pos_ori"]["obs"][:, -1, :].float()
-        qpos_gripper = batch["traj"]["gripper"]["obs"][:, -1, :1].float()
-        qpos = torch.cat([qpos, qpos_gripper], dim=-1)
-
-
         multimod_inputs = {
             "vision": batch["observation"],
-            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(), batch["traj"]["gripper"]["obs"][..., :1].float()], dim= -1)
+            "qpos": torch.cat([batch["traj"]["target_glb_pos_ori"]["obs"].float(), batch["traj"]["gripper"]["obs"].unsqueeze(-1).float()], dim= -1),
+            "audio": batch["observation"]["a_holebase"],
         }
 
+        qpos = multimod_inputs["qpos"][:, -1, :]
+
         if self.action == "real_delta_target":
-            action = real_delta
+            action = batch["traj"]["target_real_delta"]["action"][:, :, :].float()
         elif self.action == "position":
-            action = pose[:, :, :]
+            action = batch["traj"]["source_glb_pos_ori"]["action"][:, :, :].float()
         elif self.action == "real_delta_source":
-            action = real_delta_source[:, :, :]
+            action = batch["traj"]["source_real_delta"]["action"][:, :, :].float()
         elif self.action == "direct_vel":
-            action = direct_vel
-        action = torch.cat([action, pose_gripper[:, :, :1]], dim=-1)
+            action = batch["traj"]["direct_vel"]["action"][:, :, :].float()
+        action = torch.cat([action, batch["traj"]["gripper"]["action"].unsqueeze(-1).float()], dim=-1)
         task = self.train_tasks.split("+")
         # print(qpos.shape)
         # Perform prediction and calculate loss and accuracy
@@ -119,7 +110,6 @@ class AlohaPolicy(pl.LightningModule):
                            env_state=None)
             metrics.update(out["obs_encoder_out"]["ssl_losses"])
             a_hat, is_pad_hat, (mu, logvar) = out["vae_output"]
-
             self.log("logvar", logvar.mean(), on_step=True, prog_bar=True)
             total_kld, dim_wise_kld, mean_kld = kl_divergence(mu, logvar)
             action = action[:, :, :]
@@ -133,7 +123,7 @@ class AlohaPolicy(pl.LightningModule):
             for key, value in out["obs_encoder_out"]["ssl_losses"].items():
                 total_loss += value * self.weight[key]
 
-        if mode== "train":
+        if mode == "train":
             self.log("train_learning_rate", self.scheduler.get_last_lr()[0], on_step=True, prog_bar=True)
             # print(self.scheduler.get_last_lr()[0])
 
@@ -142,7 +132,7 @@ class AlohaPolicy(pl.LightningModule):
         for key, value in metrics.items():
             mod_metric[f"{mode}_{key}"] = value
         self.log_dict(mod_metric)
-
+        print(metrics)
         return metrics
 
     def train_dataloader(self):
@@ -184,7 +174,6 @@ class AlohaPolicy(pl.LightningModule):
 
         for name, value in self.trainer.callback_metrics.items():
             logger.info(f'{name} at epoch {self.current_epoch}:, {float(value.item())}')
-
 
 # def rollout(max_timesteps: int, policy: nn.Module, ):
 #     all_time_actions = torch.zeros([max_timesteps, max_timesteps + num_queries, dim]).cuda()

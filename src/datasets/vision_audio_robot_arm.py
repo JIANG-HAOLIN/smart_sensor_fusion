@@ -822,7 +822,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/4_29_pouring/4_29_pouring'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/6_6_rotate_cup'
     args = SimpleNamespace()
 
     args.ablation = 'vg_vf_ah'
