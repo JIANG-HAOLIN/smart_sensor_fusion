@@ -1,0 +1,52 @@
+# config_dummy_aloha.yaml
+
+
+defaults:
+- datasets: vision_audio_robot_arm
+- models: aloha/vae_resnet_qpos_my
+- optimizers: adam_cosine
+- pl_modules: aloha/aloha
+- trainers: dummy
+- _self_
+
+
+# General settings
+task_name: "dummy_aloha"
+variable_name: pl_modules.name___models.name___pl_modules.pl_module.action___optimizers.name___optimizers.optimizer.lr___datasets.dataloader.args.source___datasets.dataloader.args.resized_height_v___datasets.dataloader.args.resized_width_v___datasets.dataloader.batch_size
+output_name: debug
+seed: 42
+results_dir: '/home/jin4rng/Documents/code/smart_sensor_fusion/results'
+data_folder_path: '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/easy_rotation_6_20'
+
+hydra:
+  sweeper:
+    params:
+      models.model.action_dim: 7
+      models.model.pose_dim: 7
+      trainers.launch_trainer.repeat_trial: 1
+      trainers.launch_trainer.max_epochs: 200
+      trainers.launch_trainer.monitor:  "val_vae_loss"
+      datasets.dataloader.data_folder: ${data_folder_path}
+      datasets.dataloader.args.num_stack: 5
+      datasets.dataloader.args.frameskip: 5
+      datasets.dataloader.args.len_lb: 10
+      datasets.dataloader.batch_size: 4
+      pl_modules.pl_module.action: "position"
+      optimizers.optimizer.lr: 4.0e-5
+      optimizers.optimizer.weight_decay: 0.0001
+      datasets.dataloader.args.resized_height_v: 240
+      datasets.dataloader.args.resized_width_v: 320
+
+  sweep:  # didn't use ${hydra.runtime.choices.pl_modules} because "/" \\ if add timestamp: _${now:%m-%d-%H:%M:%S}
+    dir: ${results_dir}/${task_name}/${datasets.name}/${output_name}/${pl_modules.name}_${models.name}_${optimizers.name}/
+    # only controls where config.yaml is saved
+    subdir: ./
+  run: # control where multirun.yaml is saved
+    dir: ${hydra.sweep.sub}/.hydra
+
+
+
+
+
+
+
