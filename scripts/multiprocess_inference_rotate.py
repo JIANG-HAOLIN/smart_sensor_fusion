@@ -112,13 +112,15 @@ class Inference:
 
         rpc = RPCInterface("10.87.170.254")
         rpc.activate_cartesian_nonblocking_controller()
-        init_target_pose = np.array([0.36888516710211556,
-                                     0.10292887852903276,
-                                     0.36864418892044,
-                                     0.0030079931156787435,
-                                     -0.9972750881656733,
-                                     0.053389844167177965,
-                                     0.05082199367762835])
+        init_target_pose = np.array([
+            0.3471230575271212,
+            0.012611444457303795,
+            0.36801961196359206,
+            0.006519283772181682,
+            0.9999515764795441,
+            0.0037735573290936745,
+            0.006332764029749465
+        ])
         success = rpc.open_gripper()
         success = rpc.goto_cartesian_pose_blocking(init_target_pose[:3], init_target_pose[3:], True)
 
@@ -554,7 +556,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_path', type=str,
-                        default='../checkpoints/voice_control/name=alohaname=vae_resnet_qposaction=positionname=coswarmuplr=4e-05source=Trueresized_height_v=240resized_width_v=320batch_size=8_06-20-16:43:27')
+                        default='../checkpoints/easy_rotation/name=alohaname=vae_resnet_qposaction=positionname=coswarmuplr=4e-05source=Trueresized_height_v=240resized_width_v=320batch_size=64_06-21-11:37:45')
     parser.add_argument('--ckpt_path', type=str,
                         default='not needed anymore')
     parser.add_argument('--device', type=str,

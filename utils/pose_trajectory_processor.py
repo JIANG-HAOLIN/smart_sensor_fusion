@@ -506,10 +506,9 @@ class PoseTrajectoryProcessor:
 
 
 if __name__ == "__main__":
-    file_names = ["C:/Users/kup2rng/Downloads/traj_recordings/demo_02_13_2024_14_05_50.json",
-                  "C:/Users/kup2rng/Downloads/traj_recordings/demo_02_13_2024_14_07_15.json"]
-    file_name_orig = file_names[0]
-    file_name_orig = "/tmp/demo_02_20_2024_14_11_09.json"
+    from matplotlib.collections import LineCollection
+    file_name_orig = "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/6_6_rotate_cup/demo_2024-06-06T15-51-19-077878/target_robot_trajectory.json"
+    file_name_orig1 = "/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/6_6_rotate_cup/demo_2024-06-06T15-51-19-077878/source_robot_trajectory.json"
     with open(file_name_orig) as f:
         pose_trajectory = json.load(f)
         print("Trajectory loaded ...")
@@ -518,18 +517,51 @@ if __name__ == "__main__":
     pose_trajectory = processor.preprocess_trajectory(pose_trajectory)
     resampled_trajectory = processor.process_pose_trajectory(pose_trajectory, sampling_time=0.1)
     resampled_trajectory.save_to_file(file_name_orig)
-    fwd_int_traj = resampled_trajectory.forward_integrate()
 
-    pm, t = pose_trajectory.pose_matrix()
-    pmr, tr = resampled_trajectory.pose_trajectory.pose_matrix()
-    pmfwd, tfwd = fwd_int_traj.pose_matrix()
+    with open(file_name_orig1) as f:
+        pose_trajectory1 = json.load(f)
+        print("Trajectory loaded ...")
+
+    processor1 = PoseTrajectoryProcessor()
+    pose_trajectory1 = processor1.preprocess_trajectory(pose_trajectory1)
+    resampled_trajectory1 = processor1.process_pose_trajectory(pose_trajectory1, sampling_time=0.1)
+    resampled_trajectory1.save_to_file(file_name_orig1)
+
+    # pm, t = pose_trajectory.pose_matrix()
+    # pmr, tr = pose_trajectory1.pose_matrix()
+
+    pm, t = resampled_trajectory.pose_trajectory.pose_matrix()
+    pmr, tr = resampled_trajectory1.pose_trajectory.pose_matrix()
+
+
+    # pmr, tr = resampled_trajectory.pose_trajectory.pose_matrix()
+    # lines1 = LineCollection([list(zip(x, y)) for x, y in zip(t, pm[:, :3])], label='Target Robot')
+    # lines11 = LineCollection([list(zip(x, y)) for x, y in zip(t, pmr[:, :3])], label='Source Robot')
+
     plt.figure()
-    plt.subplot(211)
-    plt.plot(t, pm[:, :3], 'o-')
-    plt.plot(tr, pmr[:, :3], 'x--')
-    plt.plot(tfwd, pmfwd[:, :3], 'd-')
-    plt.subplot(212)
-    plt.plot(t, pm[:, 3:], 'o-')
-    plt.plot(tr, pmr[:, 3:], 'x--')
-    plt.plot(tfwd, pmfwd[:, 3:], 'd-')
+    # plt.subplot(311)
+    plt.title("End Effector Pose Translation Resampled Value")
+    plt.plot(t, pm[:, :1], '-', label="Target translation")
+    plt.plot(tr, pmr[:, :1], '--', label="Source translation")
+    plt.plot(t, pm[:, 1:3], '-')
+    plt.plot(tr, pmr[:, 1:3], '--')
+    plt.legend()
+    plt.ylabel("Translation/mm")
+
+    # plt.subplot(312)
+    # plt.title("End Effector Pose Rotation Quaternion Resampled Value")
+    # plt.plot(t, pm[:, 3:4], '-', label="Target quaternion")
+    # plt.plot(tr, pmr[:, 3:4], '--', label="Source quaternion")
+    #
+    # plt.plot(t, pm[:, 4:7], '-')
+    # plt.plot(tr, pmr[:, 4:7], '--')
+    # plt.legend()
+    # plt.subplot(313, )
+    # plt.title("End Effector Gripper State Resampled Vaule")
+    #
+    # plt.plot(t, pm[:, 7:8], '-', label="Target gripper state")
+    # plt.plot(tr, pmr[:, 7:8], '--',label="Source gripper state")
+    plt.xlabel("Time/s")
+
+    plt.legend()
     plt.show()

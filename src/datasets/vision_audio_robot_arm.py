@@ -822,7 +822,7 @@ if __name__ == "__main__":
         plt.show()
 
 
-    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/6_6_rotate_cup'
+    data_folder_path = '/fs/scratch/rb_bd_dlp_rng-dl01_cr_ROB_employees/students/jin4rng/data/4_29_pouring/4_29_pouring'
     args = SimpleNamespace()
 
     args.ablation = 'vg_vf_ah'
@@ -912,7 +912,7 @@ if __name__ == "__main__":
     all_step_source_real_delta = []
     all_step_target_real_delta = []
     all_step_direct_vel = []
-
+    all_audio = []
 
     for idx, batch in enumerate(val_loader):
         # if idx >= 100:
@@ -925,20 +925,40 @@ if __name__ == "__main__":
         # key = cv2.waitKey(1)
         # if key == ord("q"):
         #     break
-        all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:].unsqueeze(-1))
+        if idx==0:
+            all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, :].unsqueeze(-1))
 
-        all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
-        all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
+            all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, :, :])
+            all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, :, :])
 
-        all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
-        all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
-        all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
+            all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, :, :])
+            all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, :, :])
+            all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, :, :])
 
-        all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
-        all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
+            all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, :, :])
+            all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, :, :])
+
+            audio = obs["a_holebase"][0][-1][-1600:].numpy()
+            all_audio.append(audio)
+        else:
+            all_step_gripper.append(batch["traj"]["gripper"]["obs"][0, -1:].unsqueeze(-1))
+
+            all_step_source_pose.append(batch["traj"]["source_pos_quat"]["obs"][0, -1:, :])
+            all_step_target_pose.append(batch["traj"]["target_pos_quat"]["obs"][0, -1:, :])
+
+            all_step_source_real_delta.append(batch["traj"]["source_real_delta"]["obs"][0, -1:, :])
+            all_step_target_real_delta.append(batch["traj"]["target_real_delta"]["obs"][0, -1:, :])
+            all_step_direct_vel.append(batch["traj"]["direct_vel"]["obs"][0, -1:, :])
+
+            all_step_source_pos_ori.append(batch["traj"]["source_glb_pos_ori"]["obs"][0, -1:, :])
+            all_step_target_pos_ori.append(batch["traj"]["target_glb_pos_ori"]["obs"][0, -1:, :])
+
+            audio = obs["a_holebase"][0][-1][-1600:].numpy()
+            all_audio.append(audio)
 
 
     all_step_gripper = torch.cat(all_step_gripper, dim=0)
+    all_step_gripper_1311 = all_step_gripper.cpu().detach().numpy()
 
     all_step_source_pose = torch.concatenate(all_step_source_pose, dim=0)
     all_step_target_pose = torch.concatenate(all_step_target_pose, dim=0)
@@ -946,6 +966,7 @@ if __name__ == "__main__":
               ["target", "source"])
 
     all_step_target_pos_ori = torch.cat(all_step_target_pos_ori, dim=0)
+    all_step_target_pos_ori_1311 = np.concatenate([all_step_target_pos_ori.cpu().detach().numpy(), all_step_gripper_1311], axis=-1)
     all_step_target_pos_ori = normalizer.denormalize(all_step_target_pos_ori, "target_glb_pos_ori")
     all_step_source_pos_ori = torch.cat(all_step_source_pos_ori, dim=0)
     all_step_source_pos_ori = normalizer.denormalize(all_step_source_pos_ori, "source_glb_pos_ori")
@@ -955,9 +976,47 @@ if __name__ == "__main__":
     plot_2arr([torch.cat([all_step_source_pos_ori, all_step_gripper], dim=-1)[:,:-1:2], torch.cat([all_step_target_pos_ori, all_step_gripper], dim=-1)[:,:-1:2]],
               ["source", "target"])
     all_step_source_real_delta = torch.cat(all_step_source_real_delta, dim=0)
+    all_step_source_real_delta = normalizer.denormalize(all_step_source_real_delta, "source_real_delta")[..., :2]
     all_step_target_real_delta = torch.cat(all_step_target_real_delta, dim=0)
+    all_step_target_real_delta = normalizer.denormalize(all_step_target_real_delta, "target_real_delta")[..., :2]
     all_step_direct_vel = torch.cat(all_step_direct_vel, dim=0)
-    plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["direct", "target", "source"])
+    all_step_direct_vel = normalizer.denormalize(all_step_direct_vel, "direct_vel")[..., :2]
+
+
+
+    # plot_2arr([all_step_direct_vel, all_step_target_real_delta, all_step_source_real_delta], ["spatial delta", "temporal delta", "spatial and temporal delta"])
+
+    all_audio = np.concatenate(all_audio)
+    t = np.arange(all_step_target_pos_ori_1311.shape[0])
+    pm = all_step_target_pos_ori_1311
+
+    plt.figure()
+    plt.subplot(411)
+    plt.plot(np.arange(all_audio.shape[0])/16000, all_audio, '-')
+    plt.xticks([], [])
+    plt.title("Normalized Audio Input")
+    plt.subplot(412)
+    plt.title("Normalized End Effector Pose Translation x")
+    plt.plot(t/10, pm[:, 0:1], '.')
+    plt.xticks([], [])
+    plt.legend()
+    # plt.ylabel("Translation/mm")
+
+    plt.subplot(413)
+    plt.title("Normalized End Effector Pose Translation z")
+
+    plt.plot(t/10, pm[:, 2:3], '.')
+    plt.xticks([], [])
+    plt.legend()
+    plt.subplot(414, )
+    plt.title("Normalized End Effector Pose Euler Angle")
+
+    plt.plot(t/10, pm[:, 4:5], '.' )
+    plt.xlabel("Time/s")
+
+    plt.legend()
+    plt.show()
+
     #######check pos and vel######################################################################3
 
     #######check pose recover######################################################################3
