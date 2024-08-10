@@ -4,7 +4,11 @@
 *.avi
 *.mp4
 *.mkv
-
+onboarding_list.md
+setup.py
+train_argpr.py
+train_parallel.py
+requirements.txt
 
 **/test_cam_save/
 *test_cam_save/
