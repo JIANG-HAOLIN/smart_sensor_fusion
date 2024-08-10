@@ -235,3 +235,21 @@ This master thesis presents an innovative approach to robotic manipulation throu
  manipulation, showcasing the model’s capability to perform precise and complex
  tasks with smooth and accurate actions.
 ![](media/cvae.png)
+![](media/environment_setup.png)
+Human demonstration is recorded through teleoperation:
+![](media/teleoperation.png)
+Visualization of recorded demonstration:
+![](media/recorded_raw_data.png)
+Structure of observation encoder and corresponding multi-modality regularization:
+![](media/observation_encoder1.png)
+![](media/observation_encoder2.png)
+Visualization of inference process:
+![](media/inference_process.png)
+We designed 2 different tasks: pouring task & cup rotation task
+![](media/pouring_task.png)
+![](media/cup_rotation_task.png)
+The results and ablation study:
+![](media/result.png)
+Visualization of latent space and the effect of self-supervised multimodal representation learning:
+![](media/visualization1.png)
+![](media/visualization2.png)
