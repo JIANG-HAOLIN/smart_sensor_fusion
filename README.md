@@ -208,7 +208,7 @@
 
 # Master's thesis D1497
 
-# Title of the thesis
+# Smart Sensor Fusion for Robotic Manipulation
 ## Student
 | Name       | Haolin Jiang                     |
 |------------|----------------------------------|
