@@ -1,5 +1,6 @@
-# smart_sensor_fusion
-Repository for Smart Sensor Fusion project
+[//]: # (# smart_sensor_fusion)
+
+[//]: # (Repository for Smart Sensor Fusion project)
 
 [//]: # (## To install:)
 
@@ -68,7 +69,7 @@ Repository for Smart Sensor Fusion project
 [//]: # (* Test the model for short term drilling movement prediction task by running in both terminal and IDE &#40;here I switch to argparser for arguments input as the vanilla hydra initialization won't work in IDE&#41;:)
 
 [//]: # (  * `python scripts/demo_short_drilling_progress_prediction.py --config_path '../results/short_term_drilling_progress_prediction/bautiro_drilling/earlycat_short_drilling_progress_prediction_vanilla/exp_vanilla_model/11-29-14:08:04/.hydra' --ckpt_path '11-29-14:08:05-jobid=0-epoch=9-step=240.ckpt')
-`
+
 
 [//]: # (## Help)
 
@@ -96,54 +97,141 @@ Repository for Smart Sensor Fusion project
 
 [//]: # (    * data_folder_path='...' if using IDEs like pycharm or 'data_folder_path="..."' if running in terminal)
 
-## update 4/9/2024
-* install miniforge3(highly recommended, or it takes forever to solve environment)
-* `conda env create -f conda_environment.yaml`
-* if using input pipeline only:
-  * everything about datasets, dataloader locate in src/datasets/dummy_robot_arm.py
-  * record dataset with tami_clap_candidata/tami_clap_candidate/record_demonstration_teleoperation.py
-  * important arguments:
-    * data_folder_path = '/home/jin4rng/Documents/cuponplate_robot_demos' (folder path for recorded demos)
-    * args.sampling_time = 100 (which set resampling time interval to 100ms, namly resample frequency to 10Hz) 
-    * args.ablation = 'vf_vg' (vf-fix cam, vg-gripper cam, ag/ah-audio, you may need to change camera serial number)
-    * args.num_stack (number of observation frames) and args.frameskip (interval between each observation) e.g. after resampling with 10Hz, we have a sequence of observation/pose frames, e.g. 0.0s|0.1s|0.2s|0.3s|0.4s|0.5s|....|4.9s|5.0s|5.1s|...|6.0s|
-then at certain time step(e.g. at 5.0s), we want to get 5 evenly distributed observations from the past 2.5s, then we should set args.num_stack=5(we need 5 frames) and args.frameskip=5(5 frame interval between 2 observation) so we get observations at |3.0s|3.5s|4.0s|4.5s|5.0s|
-    * args.len_lb: number of future action step used as label for prediction. e.g. after resampling with 10Hz, we have a sequence of observation/pose frames, e.g. 0.0s|0.1s|0.2s|0.3s|0.4s|0.5s|....|4.9s|5.0s|5.1s|...|6.0s|
-then at certain time step(e.g. at 5.0s), we want to get 1s of future actions for ACT to predict, then we should set args.len_lb=10, then we output the pose of source robot at time step |5.0s|5.1s|5.2s|5.3s|5.4s|5.5s|5.6s|5.7s|5.8s|5.9s|6.0s| as action. The output will also include 
-sample at 5.0s, please discard it during training.
-    * args.resized_height_v and args.resized_width_v: image interpolation, default 480x640
-  * explanation for output of dataloader, b=batch_size:
-    * 'previous_pos_quat': global pose of target robot at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 7], orientation in quat form in w, x, y, z order 
-    * 'previous_glb_pos_ori': global pose of target robot at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 6], orientation in angle-axis form, computed using log_map with base [0, 1, 0, 0]
-    * 'previous_gripper': gripper value at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 1], 
-    * 'future_pos_quat': global pose of source robot at future args.len_lb+1(including current one) time steps with shape [b, args.len_lb+1, 7], orientation in quat form in w, x, y, z order , 
-    * 'future_glb_pos_ori': global pose of source robot at future args.len_lb+1(including current one) time steps with shape [b, args.len_lb+1, 6], orientation in angle-axis form, computed using log_map with base [0, 1, 0, 0], 
-    * 'future_real_delta_direct': , 
-    * 'future_real_delta': velocity of future args.len_lb+1(including current one) time steps with shape [b, args.len_lb+1, 6], 
-    * 'future_relative_delta': , 
-    * 'future_gripper': gripper value at future args.len_lb+1 time steps with shape [b, args.len_lb+1, 1], 
-    * 'smooth_previous_pos_quat': smoothed version,
-    * 'smooth_previous_glb_pos_ori': smoothed version, 
-    * 'smooth_previous_gripper': smoother version, 
-    * 'smooth_future_pos_quat': smoother version, 
-    * 'smooth_future_glb_pos_ori': smoother version, 
-    * 'smooth_future_real_delta_direct': smoother version, 
-    * 'smooth_future_real_delta': smoother version, 
-    * 'smooth_future_relative_delta': smoother version, 
-    * 'smooth_future_gripper': smoother version, 
-    * 'observation':
-      * 'v_fix': fix cam images [b, args.num_stack, 3, args.resized_height_v, args.resized_width_v]
-      * 'v_gripper': gripper cam images [b, args.num_stack, 3, args.resized_height_v, args.resized_width_v], 
-      * 'a_holebase': holebase mic [b, self.num_stack x self.frameskip x 44100 x args.sampling_time / 1000, 1] 
-      * 'a_gripper': holebase mic [b, self.num_stack x self.frameskip x 44100 x args.sampling_time / 1000, 1], 
-    * 'start': time step of first observation, 
-    * 'current': current time step(end of observation, start of action), 
-    * 'end': time step of last action, 
-    * 'traj_idx': list contains the trajectory path e.g.'/home/jin4rng/Documents/cuponplate_robot_demos/demo_2024-04-09T10-59-45-858060'
-* set params: resampline time in ms (0.1hz => sampling_time=100)
-* run vanilla ACT(but changed decoder output layer to last layer)`python train.py -cn
-config_dummy_aloha_vanilla
--m
-models.model.replace_args.hidden_dim=512 models.model.replace_args.output_layer_index=-1 trainers.launch_trainer.repeat_trial=1       datasets.dataloader.args.resized_height_v=480
-      datasets.dataloader.args.resized_width_v=640
-output_name=aloha_baseline data_folder_path='/home/jin4rng/Documents/cuponplate_robot_demos' datasets.dataloader.args.sampling_time=100`
+[//]: # (## update 4/9/2024)
+
+[//]: # (* install miniforge3&#40;highly recommended, or it takes forever to solve environment&#41;)
+
+[//]: # (* `conda env create -f conda_environment.yaml`)
+
+[//]: # (* if using input pipeline only:)
+
+[//]: # (  * everything about datasets, dataloader locate in src/datasets/dummy_robot_arm.py)
+
+[//]: # (  * record dataset with tami_clap_candidata/tami_clap_candidate/record_demonstration_teleoperation.py)
+
+[//]: # (  * important arguments:)
+
+[//]: # (    * data_folder_path = '/home/jin4rng/Documents/cuponplate_robot_demos' &#40;folder path for recorded demos&#41;)
+
+[//]: # (    * args.sampling_time = 100 &#40;which set resampling time interval to 100ms, namly resample frequency to 10Hz&#41; )
+
+[//]: # (    * args.ablation = 'vf_vg' &#40;vf-fix cam, vg-gripper cam, ag/ah-audio, you may need to change camera serial number&#41;)
+
+[//]: # (    * args.num_stack &#40;number of observation frames&#41; and args.frameskip &#40;interval between each observation&#41; e.g. after resampling with 10Hz, we have a sequence of observation/pose frames, e.g. 0.0s|0.1s|0.2s|0.3s|0.4s|0.5s|....|4.9s|5.0s|5.1s|...|6.0s|)
+
+[//]: # (then at certain time step&#40;e.g. at 5.0s&#41;, we want to get 5 evenly distributed observations from the past 2.5s, then we should set args.num_stack=5&#40;we need 5 frames&#41; and args.frameskip=5&#40;5 frame interval between 2 observation&#41; so we get observations at |3.0s|3.5s|4.0s|4.5s|5.0s|)
+
+[//]: # (    * args.len_lb: number of future action step used as label for prediction. e.g. after resampling with 10Hz, we have a sequence of observation/pose frames, e.g. 0.0s|0.1s|0.2s|0.3s|0.4s|0.5s|....|4.9s|5.0s|5.1s|...|6.0s|)
+
+[//]: # (then at certain time step&#40;e.g. at 5.0s&#41;, we want to get 1s of future actions for ACT to predict, then we should set args.len_lb=10, then we output the pose of source robot at time step |5.0s|5.1s|5.2s|5.3s|5.4s|5.5s|5.6s|5.7s|5.8s|5.9s|6.0s| as action. The output will also include )
+
+[//]: # (sample at 5.0s, please discard it during training.)
+
+[//]: # (    * args.resized_height_v and args.resized_width_v: image interpolation, default 480x640)
+
+[//]: # (  * explanation for output of dataloader, b=batch_size:)
+
+[//]: # (    * 'previous_pos_quat': global pose of target robot at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 7], orientation in quat form in w, x, y, z order )
+
+[//]: # (    * 'previous_glb_pos_ori': global pose of target robot at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 6], orientation in angle-axis form, computed using log_map with base [0, 1, 0, 0])
+
+[//]: # (    * 'previous_gripper': gripper value at previous args.num_stack x args.frameskip time steps with shape [b, args.num_stack x args.frameskip, 1], )
+
+[//]: # (    * 'future_pos_quat': global pose of source robot at future args.len_lb+1&#40;including current one&#41; time steps with shape [b, args.len_lb+1, 7], orientation in quat form in w, x, y, z order , )
+
+[//]: # (    * 'future_glb_pos_ori': global pose of source robot at future args.len_lb+1&#40;including current one&#41; time steps with shape [b, args.len_lb+1, 6], orientation in angle-axis form, computed using log_map with base [0, 1, 0, 0], )
+
+[//]: # (    * 'future_real_delta_direct': , )
+
+[//]: # (    * 'future_real_delta': velocity of future args.len_lb+1&#40;including current one&#41; time steps with shape [b, args.len_lb+1, 6], )
+
+[//]: # (    * 'future_relative_delta': , )
+
+[//]: # (    * 'future_gripper': gripper value at future args.len_lb+1 time steps with shape [b, args.len_lb+1, 1], )
+
+[//]: # (    * 'smooth_previous_pos_quat': smoothed version,)
+
+[//]: # (    * 'smooth_previous_glb_pos_ori': smoothed version, )
+
+[//]: # (    * 'smooth_previous_gripper': smoother version, )
+
+[//]: # (    * 'smooth_future_pos_quat': smoother version, )
+
+[//]: # (    * 'smooth_future_glb_pos_ori': smoother version, )
+
+[//]: # (    * 'smooth_future_real_delta_direct': smoother version, )
+
+[//]: # (    * 'smooth_future_real_delta': smoother version, )
+
+[//]: # (    * 'smooth_future_relative_delta': smoother version, )
+
+[//]: # (    * 'smooth_future_gripper': smoother version, )
+
+[//]: # (    * 'observation':)
+
+[//]: # (      * 'v_fix': fix cam images [b, args.num_stack, 3, args.resized_height_v, args.resized_width_v])
+
+[//]: # (      * 'v_gripper': gripper cam images [b, args.num_stack, 3, args.resized_height_v, args.resized_width_v], )
+
+[//]: # (      * 'a_holebase': holebase mic [b, self.num_stack x self.frameskip x 44100 x args.sampling_time / 1000, 1] )
+
+[//]: # (      * 'a_gripper': holebase mic [b, self.num_stack x self.frameskip x 44100 x args.sampling_time / 1000, 1], )
+
+[//]: # (    * 'start': time step of first observation, )
+
+[//]: # (    * 'current': current time step&#40;end of observation, start of action&#41;, )
+
+[//]: # (    * 'end': time step of last action, )
+
+[//]: # (    * 'traj_idx': list contains the trajectory path e.g.'/home/jin4rng/Documents/cuponplate_robot_demos/demo_2024-04-09T10-59-45-858060')
+
+[//]: # (* set params: resampline time in ms &#40;0.1hz => sampling_time=100&#41;)
+
+[//]: # (* run vanilla ACT&#40;but changed decoder output layer to last layer&#41;`python train.py -cn)
+
+[//]: # (config_dummy_aloha_vanilla)
+
+[//]: # (-m)
+
+[//]: # (models.model.replace_args.hidden_dim=512 models.model.replace_args.output_layer_index=-1 trainers.launch_trainer.repeat_trial=1       datasets.dataloader.args.resized_height_v=480)
+
+[//]: # (      datasets.dataloader.args.resized_width_v=640)
+
+[//]: # (output_name=aloha_baseline data_folder_path='/home/jin4rng/Documents/cuponplate_robot_demos' datasets.dataloader.args.sampling_time=100`)
+
+|![](media/unilogo.gif)                             |
+|:-------------------------------------------------:|
+|             **Universität Stuttgart**             |
+| Institut für Signalverarbeitung und Systemtheorie |
+|               Prof. Dr.-Ing. B. Yang              |
+|![](media/isslogocolor.gif)                        |
+
+# Master's thesis D1497
+
+# Title of the thesis
+## Student
+| Name       | Haolin Jiang                     |
+|------------|----------------------------------|
+| Major      | Elektro- und Informationstechnik |
+| Begin      | 15.01.2024                       |
+| End        | 15.07.2024                       |
+| Supervisor | Andras Gabor Kupcsik             |
+
+## Abstract
+This master thesis presents an innovative approach to robotic manipulation through
+ smart sensor fusion, with the goal of enhancing the capabilities of robots to perform
+ complex tasks with greater accuracy through the usage of State-of-the-Art imitation
+ learning policies and multimodal sensor integration. An end-to-end robot manipulation pipeline was developed using the Franka Panda robot arm equipped with
+ camera and contact microphone, encompassing multisensory human demonstration
+ collection via teleoperation, PyTorch-based training pipelines, and multi-processing
+ closed-loop inference mechanism. Central to this system is the design and implementation of a sophisticated multimodal encoder capable of processing and integrating
+ diverse sensory inputs to extract rich multimodal joint space representations. These
+ representations are then utilized by a transformer-based downstream action decoder
+ to predict sequences of future actions, thereby enabling smooth and rapid action
+ execution. A conditional variational autoencoder framework is employed to address
+ the challenges posed by noisy human demonstrations. The effectiveness of the model
+ was validated through multiple real world experiments involving vision, audio, and
+ proprioception inputs, demonstrating the potential of smart sensor fusion in robotic
+ manipulation, showcasing the model’s capability to perform precise and complex
+ tasks with smooth and accurate actions.
+![](media/cvae.png)
