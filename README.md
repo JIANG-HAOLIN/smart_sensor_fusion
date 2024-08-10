@@ -215,7 +215,7 @@
 | Major      | Elektro- und Informationstechnik |
 | Begin      | 15.01.2024                       |
 | End        | 15.07.2024                       |
-| Supervisor | Andras Gabor Kupcsik             |
+| Supervisor | Andras Gabor Kupcsik (BCAI)      |
 
 ## Abstract
 This master thesis presents an innovative approach to robotic manipulation through
