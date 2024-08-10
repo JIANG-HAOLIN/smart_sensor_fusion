@@ -77,7 +77,7 @@ pretrained_models/
 
 **/*.jpeg
 **/*.png
-!media/cvae.png
+!media/**
 __MACOSX/
 *.npy
 test.py
